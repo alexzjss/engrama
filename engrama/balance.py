@@ -60,3 +60,12 @@ SNN_STDP_AMINUS = 0.005
 SNN_READOUT_DECAY = 0.5          # per-bin carry of the hidden rate vector (short memory)
 SNN_SURPRISE_EMA = 0.3            # weight kept from the previous smoothed value
 SNN_FAMILIARITY_BINS = 200
+
+# --- Task 10 ---
+QL_ALPHA = 0.1
+QL_GAMMA = 0.5
+FOOD_LIKING_INIT_SD = 0.3
+FOOD_NOVELTY_COUNT = 3
+FOOD_NOVELTY_GAIN = 0.05
+FOOD_COMFORT_GAIN = 0.03
+FOOD_NOISE_SD = 0.02
