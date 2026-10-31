@@ -1,4 +1,5 @@
 import time
+import pytest
 import numpy as np
 from engrama.mind.contracts import Blackboard, Module, Proposal
 from engrama.mind.recipe import ModuleSpec
@@ -73,3 +74,48 @@ def test_shadow_writes_namespaced():
     assert np.allclose(bb.read("shadow/sh/affect.pad"), 0.5)
     _, shadow_props = s.proposals(bb)
     assert [p.source for p in shadow_props] == ["sh"]
+
+
+class NoneProposer(Counter):
+    def propose(self, bb): return None
+
+
+class BadItem(Counter):
+    def propose(self, bb): return ["garbage"]
+
+
+class BadAction(Counter):
+    def propose(self, bb): return [Proposal("fly", 1.0, "x")]
+
+
+class NoReason(Counter):
+    def propose(self, bb): return [Proposal("idle", 1.0, " ")]
+
+
+@pytest.mark.parametrize("cls", [NoneProposer, BadItem, BadAction, NoReason])
+def test_bad_proposals_disable_module_only(cls):
+    bad = cls(name="bad"); good = Counter(name="good"); s = sched(bad, good); bb = Blackboard()
+    live, _ = s.proposals(bb)
+    assert [p.source for p in live] == ["good"]
+    st = {x.name: x for x in s.status()}
+    assert not st["bad"].enabled and st["bad"].error
+
+
+@pytest.mark.parametrize("rate", [0, -1.0])
+def test_bad_rate_rejected_at_construction(rate):
+    with pytest.raises(ValueError, match="rate_hz"):
+        sched(Counter(rate=rate))
+
+
+def test_duplicate_and_mismatched_names_rejected():
+    with pytest.raises(ValueError, match="duplicate"):
+        Scheduler([Counter(name="a"), Counter(name="a")], [ModuleSpec("t", "a", {}), ModuleSpec("t", "a", {})])
+    with pytest.raises(ValueError, match="match"):
+        Scheduler([Counter(name="a")], [ModuleSpec("t", "b", {})])
+
+
+def test_rate_mutated_to_zero_after_construction_isolated():
+    bad = Counter(name="bad"); good = Counter(name="good"); s = sched(bad, good); bb = Blackboard()
+    bad.rate_hz = 0
+    s.step(bb, 1.0)
+    assert len(good.dts) == 1 and not s.status()[0].enabled

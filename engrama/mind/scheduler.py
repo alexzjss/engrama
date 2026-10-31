@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from engrama import balance as B
 from engrama.mind.contracts import Blackboard, Experience, Module, Proposal
 from engrama.mind.recipe import ModuleSpec
+from engrama.vocab import ACTIONS
 
 @dataclass
 class ModuleStatus:
@@ -47,8 +48,16 @@ class ShadowBlackboard:
 
 class Scheduler:
     def __init__(self, modules: list[Module], specs: list[ModuleSpec]) -> None:
+        names = [m.name for m in modules]
+        if len(set(names)) != len(names):
+            raise ValueError(f"duplicate module names: {sorted(n for n in set(names) if names.count(n) > 1)}")
+        if names != [s.name for s in specs]:
+            raise ValueError(f"module names {names} do not match spec names {[s.name for s in specs]}")
+        for m in modules:
+            if not isinstance(m.rate_hz, (int, float)) or not m.rate_hz > 0:
+                raise ValueError(f"module {m.name!r}: rate_hz must be > 0, got {m.rate_hz!r}")
         self._mods = {m.name: m for m in modules}
-        self._order = [m.name for m in modules]
+        self._order = names
         self._st = {s.name: ModuleStatus(s.name, shadow=s.shadow) for s in specs}
         self._acc = {n: 0.0 for n in self._order}
         self._runs = {n: 0 for n in self._order}
@@ -65,8 +74,13 @@ class Scheduler:
             if not st.enabled:
                 continue
             m = self._mods[n]
-            self._acc[n] += dt
-            if self._acc[n] < 1.0 / (m.rate_hz * st.rate_factor) - 1e-9:
+            try:
+                self._acc[n] += dt
+                due = self._acc[n] >= 1.0 / (m.rate_hz * st.rate_factor) - 1e-9
+            except Exception as e:
+                self._fail(n, e)
+                continue
+            if not due:
                 continue
             adt, self._acc[n] = self._acc[n], 0.0
             t0 = time.perf_counter()
@@ -93,12 +107,19 @@ class Scheduler:
             if not st.enabled:
                 continue
             try:
-                props = self._mods[n].propose(self._view(n, bb))
+                props = []
+                for p in self._mods[n].propose(self._view(n, bb)):
+                    if not isinstance(p, Proposal):
+                        raise TypeError(f"propose() returned non-Proposal {p!r}")
+                    if p.action not in ACTIONS:
+                        raise ValueError(f"unknown action {p.action!r}")
+                    if not isinstance(p.reason, str) or not p.reason.strip():
+                        raise ValueError("proposal reason must be non-empty")
+                    props.append(Proposal(p.action, float(p.score), p.reason, n))
             except Exception as e:
                 self._fail(n, e)
                 continue
-            out = shadow if st.shadow else live
-            out.extend(Proposal(p.action, p.score, p.reason, n) for p in props)
+            (shadow if st.shadow else live).extend(props)
         return live, shadow
 
     def learn(self, exp: Experience) -> None:
