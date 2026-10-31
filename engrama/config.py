@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def default_data_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "data"
+    return Path(__file__).resolve().parents[1] / "data"
 
 
 def _default_permissions() -> dict[str, bool]:
@@ -18,8 +18,7 @@ class Config:
     ollama_home: Path = Path(r"E:\Ollama\home")
     ollama_models: Path = Path(r"E:\Ollama\models")
     ollama_url: str = "http://localhost:11434"
-    model: str = "qwen3:1.7b"
-    keep_alive: str = "10m"
+    recipe: str = "default-v1"
     ui_lang: str | None = None
     time_scale: float = 1.0
     dev_mode: bool = False
