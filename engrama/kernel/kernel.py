@@ -33,6 +33,7 @@ class Kernel:
         self._action: str | None = None
         self._action_start = 0.0
         self._egg_clicks = 0
+        self._interact_from = math.inf
         self._interact_until = -math.inf
 
     @property
@@ -63,12 +64,12 @@ class Kernel:
             if self.world.apply(e):
                 self.tracker.on_novel()
             if e.kind in _WAKERS:
-                self._interact_until = max(self._interact_until, e.t + B.INTERACT_WINDOW_S)
+                self._mark_interaction(e.t)
                 if self.asleep:
                     self._action = None
             self._apply_event(e)
         awake = not self.asleep
-        hot = min(dt, max(0.0, self._interact_until - t0))
+        hot = max(0.0, min(t0 + dt, self._interact_until) - max(t0, self._interact_from))
         if hot:
             self.needs.decay(hot, awake, True)
         if dt - hot > 0:
@@ -91,6 +92,14 @@ class Kernel:
         self.tracker.on_events(events, self._t)
         self.tracker.on_needs(before, after, dt)
         return events, self.tracker.collect(self._t)
+
+    def _mark_interaction(self, t: float) -> None:
+        end = t + B.INTERACT_WINDOW_S
+        if t <= self._interact_until:
+            self._interact_from = min(self._interact_from, t)
+            self._interact_until = max(self._interact_until, end)
+        else:
+            self._interact_from, self._interact_until = t, end
 
     def _apply_event(self, e: Obs) -> None:
         if e.kind in ("click", "pet"):
@@ -151,7 +160,8 @@ class Kernel:
             "queue": [{"t": e.t, "kind": e.kind, "data": dict(e.data)} for e in self._queue],
             "action": self._action, "action_start": self._action_start,
             "egg_clicks": self._egg_clicks,
-            "interact_until": None if self._interact_until == -math.inf else self._interact_until,
+            "interact": None if self._interact_until == -math.inf
+            else [self._interact_from, self._interact_until],
         }
 
     @classmethod
@@ -168,6 +178,6 @@ class Kernel:
         k._action = d["action"]
         k._action_start = float(d["action_start"])
         k._egg_clicks = int(d["egg_clicks"])
-        iu = d.get("interact_until")
-        k._interact_until = -math.inf if iu is None else float(iu)
+        if d.get("interact") is not None:
+            k._interact_from, k._interact_until = (float(x) for x in d["interact"])
         return k

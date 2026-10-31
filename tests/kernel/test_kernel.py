@@ -247,4 +247,18 @@ def test_interact_until_roundtrips():
     k.ingest([Obs(k.t, "click")])
     k.step(1.0)
     k2 = Kernel.from_state_dict(json.loads(json.dumps(k.state_dict())))
-    assert k2._interact_until == k._interact_until
+    assert (k2._interact_from, k2._interact_until) == (k._interact_from, k._interact_until)
+
+
+def test_interaction_window_anchored_to_event_time():
+    res = []
+    for dt in (1.0, 10.0, 60.0, 180.0):
+        k = Kernel(5)
+        base = k.needs.values["tedio"]
+        k.ingest([Obs(31.0, "click")])
+        for _ in range(int(180 / dt)):
+            k.step(dt)
+        res.append(k.needs.values["tedio"] - base)
+    expected = 66.7 * (180 - 60) / 3600
+    for r in res:
+        assert abs(r - expected) < 0.01 * expected + 0.005
