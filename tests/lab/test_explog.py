@@ -78,3 +78,32 @@ def test_multiple_runs_latest_default(tmp_path):
     assert [r["run_id"] for r in list_runs(p)] == ["a", "b"]
     assert len(list(read_log(p))) == 2
     assert len(list(read_log(p, "a"))) == 2
+
+
+def test_numpy_values_roundtrip(tmp_path):
+    p = tmp_path / "log.db"
+    log = ExperienceLog(p, "r1", "rec", 1)
+    data = {"a": np.float64(1.5), "b": np.int64(3), "c": np.array([1, 2]), "d": np.bool_(True)}
+    base = mk(60.0, [Observation(60.0, "fed", data)])
+    exp = Experience(base.t, base.dt, base.events, base.channels, "idle", 0.5,
+                     {"r": np.float32(0.25)}, base.next_channels)
+    log.write(exp, [Proposal("eat", np.float64(0.9), "r", "s")], [])
+    log.close()
+    r = list(read_log(p))[0]
+    assert r.events[0]["data"] == {"a": 1.5, "b": 3, "c": [1, 2], "d": True}
+    assert r.rewards == {"r": 0.25}
+    assert r.proposals[0]["score"] == 0.9
+
+
+def test_read_log_streams_without_prefetch(tmp_path):
+    p = tmp_path / "log.db"
+    log = ExperienceLog(p, "r1", "rec", 1, sample_s=0.0)
+    for i in range(3000):
+        log.write(mk(float(i)), [], [])
+    log.close()
+    it = read_log(p)
+    assert iter(it) is it
+    first = next(it)
+    assert first.t == 0.0 and first.channels
+    rest = list(it)
+    assert len(rest) == 2999 and all(r.channels for r in rest)

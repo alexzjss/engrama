@@ -21,6 +21,18 @@ CREATE INDEX IF NOT EXISTS ix_channels_run_t ON channels(run_id, t);
 """
 
 
+def _enc(o):
+    if isinstance(o, np.generic):
+        return o.item()
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    raise TypeError(f"not JSON serializable: {type(o).__name__}")
+
+
+def _dumps(o) -> str:
+    return json.dumps(o, default=_enc)
+
+
 def _prop(p: Proposal) -> dict:
     return {"action": p.action, "score": p.score, "reason": p.reason, "source": p.source}
 
@@ -44,9 +56,9 @@ class ExperienceLog:
         self._db.execute(
             "INSERT INTO ticks(run_id,t,dt,action,prob,rewards_json,events_json,proposals_json,shadow_json)"
             " VALUES(?,?,?,?,?,?,?,?,?)",
-            (self.run_id, exp.t, exp.dt, exp.action, exp.action_prob, json.dumps(exp.rewards),
-             json.dumps(events), json.dumps([_prop(p) for p in proposals]),
-             json.dumps([_prop(p) for p in shadow])))
+            (self.run_id, exp.t, exp.dt, exp.action, exp.action_prob, _dumps(exp.rewards),
+             _dumps(events), _dumps([_prop(p) for p in proposals]),
+             _dumps([_prop(p) for p in shadow])))
         self._rows += 1
         if exp.events or exp.t - self._last_sample >= self.sample_s:
             self._last_sample = exp.t
@@ -104,13 +116,21 @@ def read_log(path: Path, run_id: str | None = None) -> Iterator[TickRow]:
         run_id = runs[-1]["run_id"]
     db = sqlite3.connect(str(path))
     try:
-        chans: dict[float, dict[str, np.ndarray]] = {}
-        for t, name, blob in db.execute("SELECT t, name, blob FROM channels WHERE run_id=?", (run_id,)):
-            chans.setdefault(t, {})[name] = np.frombuffer(blob, dtype=np.float32).copy()
+        chan_cur = db.execute("SELECT t, name, blob FROM channels WHERE run_id=? ORDER BY t, rowid", (run_id,))
+        ahead = chan_cur.fetchone()
+        group_t: float | None = None
+        group: dict[str, np.ndarray] = {}
         cur = db.execute("SELECT t,dt,action,prob,rewards_json,events_json,proposals_json,shadow_json"
                          " FROM ticks WHERE run_id=? ORDER BY t, id", (run_id,))
         for t, dt, action, prob, rw, ev, pr, sh in cur:
+            if group_t != t:
+                group_t, group = t, {}
+                while ahead is not None and ahead[0] < t:
+                    ahead = chan_cur.fetchone()
+                while ahead is not None and ahead[0] == t:
+                    group[ahead[1]] = np.frombuffer(ahead[2], dtype=np.float32).copy()
+                    ahead = chan_cur.fetchone()
             yield TickRow(t, dt, action, prob, json.loads(rw), json.loads(ev), json.loads(pr),
-                          json.loads(sh), chans.get(t, {}))
+                          json.loads(sh), dict(group))
     finally:
         db.close()
