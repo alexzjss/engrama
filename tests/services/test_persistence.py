@@ -109,6 +109,33 @@ def test_array_keys_do_not_collide_or_clash(tmp_path):
     assert np.array_equal(out["file"], np.arange(3)) and np.array_equal(out[""], np.full(1, 5))
 
 
+def test_any_byte_flip_in_npz_is_correct_or_savecorrupted(tmp_path):
+    d = {"w": np.arange(4.0), "n": 1}
+    p.save_state_dict(tmp_path / "st", d)
+    f = tmp_path / "st.npz"
+    orig = f.read_bytes()
+    for i in range(len(orig)):
+        b = bytearray(orig)
+        b[i] ^= 0xFF
+        f.write_bytes(bytes(b))
+        try:
+            out = p.load_state_dict(tmp_path / "st")
+        except p.SaveCorrupted:
+            continue
+        assert out["n"] == 1 and np.array_equal(out["w"], d["w"])
+
+
+def test_byte_flipped_live_npz_loads_backup(tmp_path):
+    _save(tmp_path)
+    f = tmp_path / "modules" / "a.npz"
+    b = bytearray(f.read_bytes())
+    for i in range(len(b) - 70, len(b) - 20):
+        b[i] ^= 0xFF
+    f.write_bytes(bytes(b))
+    k, m, _ = p.load_run(tmp_path)
+    assert np.array_equal(m["a"]["w"], _modules()["a"]["w"])
+
+
 def test_incomplete_backups_ignored(tmp_path):
     _save(tmp_path, date(2026, 1, 1))
     (tmp_path / "backups" / "2026-01-05.tmp").mkdir()

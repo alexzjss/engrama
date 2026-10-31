@@ -5,7 +5,6 @@ import json
 import os
 import re
 import shutil
-import zipfile
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -97,8 +96,7 @@ def load_state_dict(path_base: Path) -> dict:
         with np.load(npz, allow_pickle=False) as z:
             arrays = {k: z[k] for k in z.files}
         return _join(skeleton, arrays)
-    except (OSError, ValueError, KeyError, EOFError, TypeError, AttributeError,
-            zipfile.BadZipFile) as e:
+    except Exception as e:
         raise SaveCorrupted(f"{path_base}: {e}") from e
 
 
