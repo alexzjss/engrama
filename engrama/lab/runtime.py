@@ -80,8 +80,11 @@ class Runtime:
             self._pending = {"channels": channels, "action": running, "prob": 1.0 if forced else prob,
                              "live": live, "shadow": shadow}
         else:
-            running, _ = k.execute(pend["action"])
-            self._pending = {**pend, "channels": channels, "action": running}
+            running, forced = k.execute(pend["action"])
+            if forced or running != pend["action"]:
+                self._pending = {**pend, "channels": channels, "action": running, "prob": 1.0}
+            else:
+                self._pending = {**pend, "channels": channels}
         self._last_action = running
         return running
 

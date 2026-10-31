@@ -262,3 +262,36 @@ def test_interaction_window_anchored_to_event_time():
     expected = 66.7 * (180 - 60) / 3600
     for r in res:
         assert abs(r - expected) < 0.01 * expected + 0.005
+
+
+def test_rechosen_asks_do_not_rearm_window_one_ignored():
+    k = hatched()
+    k.execute("ask_attention")
+    ign = []
+    for _ in range(6):
+        ign.append(k.step(60.0)[1]["ignored"])
+        k.execute("ask_attention") if "ask_attention" in k.available_actions() else k.execute("idle")
+    assert sum(ign) == 1.0 and ign[2] == 1.0   # t0+180 > 120 s after the first ask only
+
+
+def test_ask_unavailable_during_min_interval_after_close():
+    from engrama import balance as B
+    k = hatched()
+    k.execute("ask_attention")
+    while "ask_attention" in k.available_actions():
+        k.step(30.0)
+    assert k.tracker.last_close is not None
+    k.step(30.0)
+    assert "ask_attention" not in k.available_actions()
+    k.step(B.ASK_MIN_INTERVAL)
+    assert "ask_attention" in k.available_actions()
+
+
+def test_ask_interval_roundtrip():
+    k = hatched()
+    k.execute("ask_attention")
+    for _ in range(6):
+        k.step(30.0)
+    k2 = Kernel.from_state_dict(json.loads(json.dumps(k.state_dict())))
+    assert k2.tracker.last_close == k.tracker.last_close
+    assert k2.available_actions() == k.available_actions()

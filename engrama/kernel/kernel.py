@@ -57,7 +57,11 @@ class Kernel:
 
     def available_actions(self) -> tuple[str, ...]:
         rested = self.needs.values["sono"] < WAKE_SONO
-        return available(self.stage, self.asleep and not rested, self.world.fullscreen)
+        acts = available(self.stage, self.asleep and not rested, self.world.fullscreen)
+        lc = self.tracker.last_close
+        if lc is not None and self._t - lc < B.ASK_MIN_INTERVAL:
+            acts = tuple(a for a in acts if a != "ask_attention")
+        return acts
 
     def step(self, dt: float) -> tuple[list[Obs], dict[str, float]]:
         events, self._queue = self._queue, []

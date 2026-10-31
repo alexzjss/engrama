@@ -1,5 +1,6 @@
 """Runs modules at their own rates with fault isolation and time budgets."""
 from __future__ import annotations
+import math
 import time
 from dataclasses import dataclass
 from engrama import balance as B
@@ -111,6 +112,8 @@ class Scheduler:
                 for p in self._mods[n].propose(self._view(n, bb)):
                     if not isinstance(p, Proposal):
                         raise TypeError(f"propose() returned non-Proposal {p!r}")
+                    if not math.isfinite(p.score):
+                        raise ValueError(f"non-finite score {p.score!r}")
                     if p.action not in ACTIONS:
                         raise ValueError(f"unknown action {p.action!r}")
                     if not isinstance(p.reason, str) or not p.reason.strip():

@@ -13,10 +13,11 @@ RELIEF_FLOOR = 0.5
 class RewardTracker:
     def __init__(self) -> None:
         self._ask_t: float | None = None
+        self.last_close: float | None = None   # when the last ask window closed (answered or expired)
         self._acc = {k: 0.0 for k in REWARD_KEYS}
 
     def on_action_started(self, action: str, t: float) -> None:
-        if action == "ask_attention":
+        if action == "ask_attention" and self._ask_t is None:
             self._ask_t = t
 
     def on_events(self, events: list[Obs], t: float) -> None:
@@ -29,6 +30,7 @@ class RewardTracker:
                     and 0.0 <= e.t - self._ask_t <= ASK_ANSWER_WINDOW):
                 self._acc["user_response"] = 1.0
                 self._ask_t = None
+                self.last_close = e.t
 
     def on_needs(self, before: np.ndarray, after: np.ndarray, dt: float) -> None:
         drop = before - after
@@ -43,16 +45,18 @@ class RewardTracker:
         out = dict(self._acc)
         if self._ask_t is not None and t - self._ask_t > ASK_ANSWER_WINDOW:
             out["ignored"] = 1.0
+            self.last_close = self._ask_t + ASK_ANSWER_WINDOW
             self._ask_t = None
         self._acc = {k: 0.0 for k in REWARD_KEYS}
         return out
 
     def to_dict(self) -> dict:
-        return {"ask_t": self._ask_t, "acc": dict(self._acc)}
+        return {"ask_t": self._ask_t, "last_close": self.last_close, "acc": dict(self._acc)}
 
     @classmethod
     def from_dict(cls, d: dict) -> "RewardTracker":
         r = cls()
         r._ask_t = d["ask_t"]
+        r.last_close = d.get("last_close")
         r._acc = {k: float(d["acc"][k]) for k in REWARD_KEYS}
         return r

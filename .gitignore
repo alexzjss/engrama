@@ -8,3 +8,4 @@ spike/save_smoke.json
 .superpowers/
 data/
 .claude/worktrees/
+.pytest_tmp/

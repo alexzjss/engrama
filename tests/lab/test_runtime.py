@@ -102,3 +102,34 @@ def test_30_days_under_2_minutes(tmp_path):
     assert all(np.isfinite(m["pad_mean"])) and all(np.isfinite(m["pad_std"]))
     assert not any(np.isnan(r.channels["affect.pad"]).any()
                    for r in read_log(tmp_path / "m1.db") if "affect.pad" in r.channels)
+
+
+class NanModule(Module):
+    reads = (); writes = ()
+    def propose(self, bb):
+        from engrama.mind.contracts import Proposal
+        return [Proposal("idle", float("nan"), "nan")]
+
+
+def test_nan_proposal_never_crashes_tick():
+    registry.register("test.nan", f"{__name__}:NanModule")
+    try:
+        base = load_recipe(RECIPE)
+        recipe = Recipe("nan", 1, (ModuleSpec("test.nan", "nan", {}),) + base.modules, base.arbiter)
+        rt = Runtime(recipe, 1); rt.user = _user()
+        assert all(_actions(rt, 3600.0))
+        assert not [s for s in rt.scheduler.status() if s.name == "nan"][0].enabled
+    finally:
+        registry.REGISTRY.pop("test.nan", None)
+
+
+def test_forced_continuation_logs_prob_one_at_dt1():
+    from engrama.kernel.sensors import Obs
+    rt = Runtime(load_recipe(RECIPE), 1)
+    rt.tick(1.0, [Obs(rt.kernel.t, "click") for _ in range(5)])
+    for _ in range(30):
+        rt.tick(1.0, [])
+    assert rt.kernel.action not in (None, "hide") and rt._since_decision < 5.0   # continuation branch
+    rt.tick(1.0, [Obs(rt.kernel.t, "fullscreen_on")])
+    assert rt.kernel.world.fullscreen
+    assert rt._last_action == "hide" and rt._pending["action"] == "hide" and rt._pending["prob"] == 1.0
