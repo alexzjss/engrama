@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+spike/save.json
+spike/config.json
+spike/config_smoke.json
+spike/save_smoke.json
