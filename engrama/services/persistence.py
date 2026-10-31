@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
+import zipfile
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -13,20 +15,22 @@ import numpy as np
 BACKUPS = "backups"
 KEEP_BACKUPS = 7
 _ARRAY_KEY = "__array__"
+_DATE_DIR = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 class SaveCorrupted(Exception):
     pass
 
 
-def _split(obj: Any, path: str, arrays: dict[str, np.ndarray]) -> Any:
+def _split(obj: Any, path: list, arrays: list[np.ndarray]) -> Any:
+    """Arrays go to `arrays`; the JSON marker keeps the npz name and the key path."""
     if isinstance(obj, np.ndarray):
-        arrays[path] = obj
-        return {_ARRAY_KEY: path}
+        arrays.append(obj)
+        return {_ARRAY_KEY: f"a{len(arrays) - 1}", "path": path}
     if isinstance(obj, dict):
-        return {str(k): _split(v, f"{path}.{k}" if path else str(k), arrays) for k, v in obj.items()}
+        return {str(k): _split(v, path + [str(k)], arrays) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
-        return [_split(v, f"{path}.{i}" if path else str(i), arrays) for i, v in enumerate(obj)]
+        return [_split(v, path + [i], arrays) for i, v in enumerate(obj)]
     if isinstance(obj, np.generic):
         return obj.item()
     return obj
@@ -34,7 +38,7 @@ def _split(obj: Any, path: str, arrays: dict[str, np.ndarray]) -> Any:
 
 def _join(obj: Any, arrays: dict[str, np.ndarray]) -> Any:
     if isinstance(obj, dict):
-        if set(obj) == {_ARRAY_KEY}:
+        if set(obj) == {_ARRAY_KEY, "path"}:
             return arrays[obj[_ARRAY_KEY]]
         return {k: _join(v, arrays) for k, v in obj.items()}
     if isinstance(obj, list):
@@ -71,12 +75,12 @@ def save_state_dict(path_base: Path, d: dict) -> None:
     path_base = Path(path_base)
     path_base.parent.mkdir(parents=True, exist_ok=True)
     npz, js = path_base.with_name(path_base.name + ".npz"), path_base.with_name(path_base.name + ".json")
-    arrays: dict[str, np.ndarray] = {}
-    skeleton = _split(d, "", arrays)
+    arrays: list[np.ndarray] = []
+    skeleton = _split(d, [], arrays)
     tmp_npz, tmp_js = _tmp(npz), _tmp(js)
     try:
         with open(tmp_npz, "wb") as f:
-            np.savez(f, **arrays)
+            np.savez(f, **{f"a{i}": a for i, a in enumerate(arrays)})
         _write_json_tmp(js, skeleton)
         os.replace(tmp_npz, npz)
         os.replace(tmp_js, js)
@@ -93,7 +97,8 @@ def load_state_dict(path_base: Path) -> dict:
         with np.load(npz, allow_pickle=False) as z:
             arrays = {k: z[k] for k in z.files}
         return _join(skeleton, arrays)
-    except (OSError, ValueError, KeyError) as e:
+    except (OSError, ValueError, KeyError, EOFError, TypeError, AttributeError,
+            zipfile.BadZipFile) as e:
         raise SaveCorrupted(f"{path_base}: {e}") from e
 
 
@@ -113,7 +118,7 @@ def _backup(save_dir: Path, today: date) -> None:
     shutil.rmtree(tmp, ignore_errors=True)
     shutil.copytree(save_dir, tmp, ignore=shutil.ignore_patterns(BACKUPS, "*.tmp"))
     os.replace(tmp, dest)
-    for old in sorted(p for p in root.iterdir() if p.is_dir() and not p.name.endswith(".tmp"))[:-KEEP_BACKUPS]:
+    for old in sorted(p for p in root.iterdir() if p.is_dir() and _DATE_DIR.fullmatch(p.name))[:-KEEP_BACKUPS]:
         shutil.rmtree(old, ignore_errors=True)
 
 
@@ -141,7 +146,8 @@ def load_run(save_dir: Path) -> tuple[dict, dict[str, dict], dict]:
         return _load_dir(save_dir)
     except SaveCorrupted as first:
         root = save_dir / BACKUPS
-        cands = sorted((p for p in root.iterdir() if p.is_dir()), reverse=True) if root.is_dir() else []
+        cands = sorted((p for p in root.iterdir() if p.is_dir() and _DATE_DIR.fullmatch(p.name)),
+                       reverse=True) if root.is_dir() else []
         for b in cands:
             try:
                 return _load_dir(b)

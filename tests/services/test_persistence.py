@@ -89,3 +89,30 @@ def test_rng_state_roundtrip_same_draws():
     st = json.loads(json.dumps(p.rng_state(rng)))
     r2 = p.rng_from_state(st)
     assert np.array_equal(rng.random(10), r2.random(10))
+
+
+def test_corrupt_module_npz_falls_back_to_backup(tmp_path):
+    _save(tmp_path)
+    (tmp_path / "modules" / "a.npz").write_bytes(b"")
+    k, m, _ = p.load_run(tmp_path)
+    assert np.array_equal(m["a"]["w"], _modules()["a"]["w"])
+    (tmp_path / "modules" / "a.npz").write_bytes(b"PK\x03\x04garbage")
+    with pytest.raises(p.SaveCorrupted):
+        p.load_state_dict(tmp_path / "modules" / "a")
+
+
+def test_array_keys_do_not_collide_or_clash(tmp_path):
+    d = {"a.b": np.ones(2), "a": {"b": np.zeros(2)}, "file": np.arange(3), "": np.full(1, 5)}
+    p.save_state_dict(tmp_path / "st", d)
+    out = p.load_state_dict(tmp_path / "st")
+    assert np.array_equal(out["a.b"], np.ones(2)) and np.array_equal(out["a"]["b"], np.zeros(2))
+    assert np.array_equal(out["file"], np.arange(3)) and np.array_equal(out[""], np.full(1, 5))
+
+
+def test_incomplete_backups_ignored(tmp_path):
+    _save(tmp_path, date(2026, 1, 1))
+    (tmp_path / "backups" / "2026-01-05.tmp").mkdir()
+    (tmp_path / "backups" / "2026-01-05.tmp" / "kernel.json").write_text("{}")
+    (tmp_path / "kernel.json").write_text("{bad")
+    k, m, _ = p.load_run(tmp_path)
+    assert k == {"tick": 1} and "a" in m
