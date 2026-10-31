@@ -49,8 +49,9 @@ def test_babble_keys_localized():
     rng = random.Random(1)
     for lang in ("pt", "en"):
         for k in ("bleh", "missed_you", "brain_loading"):
-            assert babble(k, "baby", lang, rng) == _table(lang)[f"babble.{k}"]
+            assert babble("", "baby", lang, rng, key=k) == _table(lang)[f"babble.{k}"]
     assert babble("oi", "egg", "en", rng).startswith("...")
+    assert babble("bleh", "baby", "pt", rng) != _table("pt")["babble.bleh"]
     assert babble("xyz", "baby", "pt", rng)
 
 
@@ -145,3 +146,25 @@ def test_egg_uses_no_llm():
     w, bus = make(f, "egg")
     w.request("oi")
     assert wait(bus, "chat_out")[0].data["source"] == "babble" and not f.calls
+
+
+def test_unexpected_error_still_answers():
+    def boom():
+        raise RuntimeError("x")
+    bus = EventBus()
+    w = LanguageWorker(Fake(), Config(), bus, boom, lambda: [])
+    w.request("oi")
+    ev = wait(bus, "chat_out")
+    assert ev and ev[0].data["source"] == "babble"
+
+
+def test_egg_does_not_warm_and_prompt_details():
+    f = Fake()
+    bus = EventBus()
+    w = LanguageWorker(f, Config(), bus, lambda: {**STATE, "stage": "egg"}, lambda: [])
+    w.request("oi")
+    wait(bus, "chat_out")
+    assert w.state == "offline"
+    sys = build_messages(STATE, [], "x", "en")[0]["content"]
+    assert "You are hungry and sleepy" in sys or "you are hungry and sleepy" in sys
+    assert "  " not in sys

@@ -3,6 +3,7 @@ import re
 
 from engrama.i18n import _table
 from engrama.language.client import strip_think
+from engrama.life.traits import Traits
 
 # stage -> (max words per reply, style)
 SPEECH = {"egg": (0, "sounds"), "baby": (6, "baby"), "child": (12, "child"),
@@ -12,19 +13,10 @@ NEED_PHRASES = {
     "pt": {"fome": "está com fome", "sono": "está com sono", "tedio": "está entediado e quer brincar",
            "carinho": "quer carinho e atenção", "curiosidade": "está curioso sobre tudo",
            "apoio": "precisa de apoio e incentivo"},
-    "en": {"fome": "are hungry", "sono": "are sleepy", "tedio": "are bored and want to play",
-           "carinho": "want cuddles and attention", "curiosidade": "are curious about everything",
-           "apoio": "need support and encouragement"},
+    "en": {"fome": "hungry", "sono": "sleepy", "tedio": "bored and wanting to play",
+           "carinho": "wanting cuddles and attention", "curiosidade": "curious about everything",
+           "apoio": "in need of support and encouragement"},
 }
-# trait -> {lang: (adjective when high, adjective when low)}
-TRAIT_WORDS = {
-    "curiosidade": {"pt": ("curioso", "calmo"), "en": ("curious", "calm")},
-    "sociabilidade": {"pt": ("sociável", "tímido"), "en": ("friendly", "shy")},
-    "paciencia": {"pt": ("paciente", "impaciente"), "en": ("patient", "impatient")},
-    "independencia": {"pt": ("independente", "grudento"), "en": ("independent", "clingy")},
-    "criatividade": {"pt": ("criativo", "simples"), "en": ("creative", "plain")},
-}
-
 STYLE_TEXT = {
     "pt": {"baby": "Fala de bebê: de uma a seis palavras, misturando palavras simples e sons de bebê como 'gru', 'pii', 'brr'.",
            "child": "Fala de criança: frases curtas e simples, curiosa e brincalhona.",
@@ -59,26 +51,20 @@ def _lt(lang: str, key: str) -> str:
     return _table(lang if lang in ("pt", "en") else "en").get(key, key)
 
 
-def trait_adjectives(traits: dict[str, float], lang: str) -> list[str]:
-    ranked = sorted(((abs(v - 50), k, v) for k, v in traits.items() if k in TRAIT_WORDS and abs(v - 50) >= 15),
-                    reverse=True)[:2]
-    return [TRAIT_WORDS[k][lang][0 if v >= 50 else 1] for _, k, v in ranked]
-
-
 def build_messages(state: dict, history: list[dict], user_text: str, lang: str) -> list[dict]:
     stage = state.get("stage", "baby")
     style = SPEECH.get(stage, SPEECH["baby"])[1]
     style = "baby" if style == "sounds" else style
     en = lang == "en"
     needs = [NEED_PHRASES[lang][n] for n in state.get("needs_top", [])[:2] if n in NEED_PHRASES[lang]]
-    traits = trait_adjectives(state.get("traits", {}), lang)
+    traits = Traits(state.get("traits")).adjectives(lang)
     val = state.get("valence", 0.0)
     mood = ("happy" if en else "feliz") if val > 0.3 else ("sad" if en else "triste") if val < -0.3 else ""
 
     def foods(ids):
         return ", ".join(_lt(lang, f"food.{i}") for i in ids)
 
-    mems = [re.sub(r"\d+", "", m).strip() for m in state.get("memories", [])[:3]]
+    mems = [re.sub(r"\s+", " ", re.sub(r"\d+", "", m)).strip() for m in state.get("memories", [])[:3]]
     mems = [m for m in mems if m]
     if en:
         parts = [
@@ -86,7 +72,7 @@ def build_messages(state: dict, history: list[dict], user_text: str, lang: str) 
             "on your human's PC. Your human is talking to you: ANSWER WHAT THEY SAID, in character. You may disagree. "
             "Never list stats or numbers. Never act like an assistant (no 'how can I help'). No emojis, one short line.",
             STYLE_TEXT["en"][style],
-            f"Right now you {' and '.join(needs)}." if needs else "You feel fine and calm.",
+            f"Right now you are {' and '.join(needs)}." if needs else "You feel fine and calm.",
             f"You feel {mood}." if mood else "",
             f"You are {', '.join(traits)}." if traits else "",
             f"Favorite foods: {foods(state['favorites'])}." if state.get("favorites") else "",
@@ -147,9 +133,9 @@ _REACT = [
 ]
 
 
-def babble(user_text: str, stage: str, lang: str, rng: random.Random) -> str:
-    if user_text in ("bleh", "missed_you", "brain_loading"):
-        return _lt(lang, f"babble.{user_text}")
+def babble(user_text: str, stage: str, lang: str, rng: random.Random, key: str | None = None) -> str:
+    if key in ("bleh", "missed_you", "brain_loading"):
+        return _lt(lang, f"babble.{key}")
     if stage == "egg":
         return "... (o ovo vibra)" if lang == "pt" else "... (the egg trembles)"
     t = user_text.lower()

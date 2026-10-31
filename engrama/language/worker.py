@@ -1,4 +1,5 @@
 import json
+import logging
 import queue
 import random
 import re
@@ -10,8 +11,9 @@ from engrama.core.bus import Event, EventBus
 from engrama.core.config import Config
 from engrama.language.client import LLMOffline, LLMTimeout, OllamaClient
 from engrama.language.lang import detect_lang
-from engrama.language.persona import SPEECH, _lt, babble, build_messages, clean_reply
+from engrama.language.persona import SPEECH, babble, build_messages, clean_reply
 
+log = logging.getLogger(__name__)
 MAX_INPUT = 500
 OFFLINE_COOLDOWN = 30.0
 FACTS_PROMPT = {
@@ -89,7 +91,12 @@ class LanguageWorker:
             try:
                 self._handle(text)
             except Exception:
-                pass  # the worker must never die
+                log.exception("language worker failed on a request")
+                try:
+                    self._post(babble(text, "baby", detect_lang(text, self._last_lang), self._rng),
+                               self._last_lang, "babble")
+                except Exception:
+                    log.exception("babble fallback failed")
 
     def _post(self, text: str, lang: str, source: str) -> None:
         self.bus.post(Event("chat_out", {"text": text, "lang": lang, "source": source}))
@@ -97,7 +104,7 @@ class LanguageWorker:
     def _babble(self, text: str, stage: str, lang: str, hint: bool = False) -> None:
         out = babble(text, stage, lang, self._rng)
         if hint:
-            out += " " + _lt(lang, "babble.brain_loading")
+            out += " " + babble("", stage, lang, self._rng, key="brain_loading")
         self._post(out, lang, "babble")
 
     def _handle(self, text: str) -> None:
@@ -109,7 +116,7 @@ class LanguageWorker:
         state = self.get_state()
         stage = state.get("stage", "baby")
         max_words = SPEECH.get(stage, SPEECH["baby"])[0]
-        if self.state == "offline" and time.time() >= self._down_until:
+        if max_words > 0 and self.state == "offline" and time.time() >= self._down_until:
             self.warm()
         if max_words == 0 or self.state != "ready":
             self._babble(text, stage, lang, hint=max_words > 0 and self.state == "loading")
