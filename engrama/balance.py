@@ -36,6 +36,33 @@ PAD_PRESSURE_A_PER_H = 0.2
 PAD_SURPRISE_GAIN = 0.3
 PAD_NEUTRAL_RADIUS = 0.15
 
+# --- Task 9 ---
+SNN_INPUT_HZ = 80.0
+SNN_SUBSTEPS = 20                # 1 ms substeps per bin
+SNN_POP = 4                      # Poisson neurons per input unit
+SNN_WMAX = 2.0
+SNN_TARGET_HZ = 10.0
+SNN_HOMEO_TAU_BINS = 50
+SNN_HOMEO_GAIN = 0.5
+SNN_PRED_LR = 2.0
+SNN_BIAS_LR = 0.2                # slow: the bias is a base rate, not a short-term memory
+SNN_FMEAN_RATE = 0.02            # running mean used to centre the readout features
+SNN_LIF_DECAY = 0.9              # membrane decay per ms (tau ~ 10 ms)
+SNN_V_THRESH = 1.0
+SNN_REFRAC_MS = 2
+SNN_P_IN = 0.2                   # Input->E density
+SNN_P_EE = 0.1                   # E->E density
+SNN_W_IN = 3.0                   # weight scale, divided by sqrt(fan_in)
+SNN_W_EE = 1.0
+SNN_W_EI = 2.0
+SNN_W_IE = 2.0
+SNN_TRACE_DECAY = 0.95           # STDP trace decay per ms
+SNN_STDP_APLUS = 0.01
+SNN_STDP_AMINUS = 0.0125
+SNN_READOUT_DECAY = 0.5          # per-bin carry of the hidden rate vector (short memory)
+SNN_SURPRISE_EMA = 0.3            # weight kept from the previous smoothed value
+SNN_FAMILIARITY_BINS = 200
+
 # --- Task 10 ---
 QL_ALPHA = 0.1
 QL_GAMMA = 0.5
