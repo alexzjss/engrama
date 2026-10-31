@@ -32,3 +32,13 @@ def test_shadow_does_not_change_actions(tmp_path):
     assert 0.0 <= m["shadow_agreement"]["u2"] <= 1.0
     base = run_days(BASE, 2, "attentive", 1, 60.0, None)
     assert base["action_share"] == m["action_share"] and base["wellbeing"] == m["wellbeing"]
+
+
+def test_differing_shadows_do_not_change_actions(tmp_path):
+    p = tmp_path / "q.toml"
+    extra = ('\n[[shadow]]\ntype = "policy.qlearning"\nname = "q_shadow"\nalpha = 0.9\n'
+             '\n[[shadow]]\ntype = "drives.needs"\nname = "d2"\n')
+    p.write_text(BASE.read_text() + extra)
+    assert _actions(load_recipe(BASE)) == _actions(load_recipe(p))
+    m = run_days(p, 2, "attentive", 1, 60.0, None)
+    assert 0.0 <= m["shadow_agreement"]["q_shadow"] < 1.0

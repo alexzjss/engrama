@@ -22,3 +22,17 @@ def test_ips_clip():
     ref = ips_estimate(rows, lambda r: {r.action: 1.5}, clip=3.0)   # ratio 3.0 exactly
     assert big["value"] == pytest.approx(3.0 * big["logged_value"])
     assert big["value"] == pytest.approx(ref["value"])
+
+
+def test_ips_counts_only_decision_ticks(tmp_path):
+    from pathlib import Path
+    from engrama.lab.explog import read_log
+    from engrama.lab.runtime import run_days
+    recipe = Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml"
+    log = tmp_path / "l.db"
+    run_days(recipe, 0.05, "attentive", 1, 2.0, log)
+    rows = list(read_log(log))
+    decisions = sum(1 for r in rows[:-1] if r.decided)
+    assert 0 < decisions < len(rows) - 1
+    out = ips_estimate(rows, lambda r: {r.action: r.prob})
+    assert out["n"] == decisions

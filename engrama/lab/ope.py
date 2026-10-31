@@ -1,4 +1,8 @@
-"""Off-policy evaluation of an arbiter policy from logged ticks (clipped IPS)."""
+"""Off-policy evaluation of an arbiter policy from logged ticks (clipped IPS).
+
+One-step contextual-bandit estimate: only decision ticks (row.decided) count, and each decision's
+reward is the single-tick reward of the next row (by design, not the return over the held window).
+"""
 from __future__ import annotations
 from typing import Callable, Iterable
 from engrama.lab.explog import TickRow
@@ -11,8 +15,10 @@ def ips_estimate(rows: Iterable[TickRow], target_probs: Callable[[TickRow], dict
     ws: list[float] = []
     rs: list[float] = []
     for r, nxt in zip(rows, rows[1:]):
+        if not r.decided:
+            continue
         pb = max(float(r.prob), 1e-12)
-        ws.append(min(float(target_probs(r).get(r.action, 0.0)) / pb, clip))
+        ws.append(min(max(0.0, float(target_probs(r).get(r.action, 0.0))) / pb, clip))
         rs.append(reward_combine(nxt.rewards))
     n = len(ws)
     if n == 0:

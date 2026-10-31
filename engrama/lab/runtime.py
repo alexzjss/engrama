@@ -77,7 +77,7 @@ class Runtime:
                              bb.snapshot())
             self._scheduler.learn(exp)
             if self.log is not None:
-                self.log.write(exp, pend["live"], pend["shadow"])
+                self.log.write(exp, pend["live"], pend["shadow"], pend.get("decided", True))
         self._scheduler.step(bb, dt)
         self._since_decision += dt
         channels = bb.snapshot()
@@ -87,13 +87,14 @@ class Runtime:
             action, prob, _ = self._arbiter.choose(live, bb.available_actions, bb, self._arbiter_rng)
             running, forced = k.execute(action)
             self._pending = {"channels": channels, "action": running, "prob": 1.0 if forced else prob,
-                             "live": live, "shadow": shadow}
+                             "live": live, "shadow": shadow, "decided": True}
         else:
             running, forced = k.execute(pend["action"])
             if forced or running != pend["action"]:
-                self._pending = {**pend, "channels": channels, "action": running, "prob": 1.0}
+                self._pending = {**pend, "channels": channels, "action": running, "prob": 1.0,
+                                  "decided": False}
             else:
-                self._pending = {**pend, "channels": channels}
+                self._pending = {**pend, "channels": channels, "decided": False}
         self._last_action = running
         return running
 
@@ -123,7 +124,8 @@ class Runtime:
                    "available": list(self._bb.available_actions)},
             "pending": None if pend is None else {
                 "channels": _lst(pend["channels"]), "action": pend["action"], "prob": pend["prob"],
-                "live": _props(pend["live"]), "shadow": _props(pend["shadow"])},
+                "live": _props(pend["live"]), "shadow": _props(pend["shadow"]),
+                "decided": pend.get("decided", True)},
             "user": None if self.user is None else self.user.state_dict(),
         }
         save_run(Path(save_dir), self._kernel.state_dict(), {n: m.state_dict() for n, m in mods.items()}, meta)
@@ -151,7 +153,8 @@ class Runtime:
         if p is not None:
             rt._pending = {"channels": _arr(p["channels"]), "action": p["action"], "prob": float(p["prob"]),
                            "live": [Proposal(**x) for x in p["live"]],
-                           "shadow": [Proposal(**x) for x in p["shadow"]]}
+                           "shadow": [Proposal(**x) for x in p["shadow"]],
+                           "decided": bool(p.get("decided", True))}
         if meta["user"] is not None:
             rt.user = SimUser.from_state_dict(meta["user"])
         return rt
@@ -163,13 +166,14 @@ class _Collector:
         self.rows: list[TickRow] = []
         self._last_sample = float("-inf")
 
-    def write(self, exp: Experience, proposals: list[Proposal], shadow: list[Proposal]) -> None:
+    def write(self, exp: Experience, proposals: list[Proposal], shadow: list[Proposal],
+              decided: bool = True) -> None:
         ch: dict = {}
         if exp.events or exp.t - self._last_sample >= B.EXPLOG_CHANNEL_SAMPLE_S:
             self._last_sample = exp.t
             ch = {n: np.asarray(v, dtype=np.float32) for n, v in exp.channels.items()}
         self.rows.append(TickRow(exp.t, exp.dt, exp.action, exp.action_prob, exp.rewards,
-                                 [{"kind": o.kind} for o in exp.events], _props(proposals), _props(shadow), ch))
+                                 [{"kind": o.kind} for o in exp.events], _props(proposals), _props(shadow), ch, decided))
 
 
 def run_days(recipe_path: Path, days: float, profile: str, seed: int, dt: float,

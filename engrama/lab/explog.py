@@ -14,7 +14,8 @@ _COMMIT_EVERY = 500
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs(run_id TEXT PRIMARY KEY, recipe TEXT, seed INTEGER, started REAL);
 CREATE TABLE IF NOT EXISTS ticks(id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, t REAL, dt REAL,
-  action TEXT, prob REAL, rewards_json TEXT, events_json TEXT, proposals_json TEXT, shadow_json TEXT);
+  action TEXT, prob REAL, rewards_json TEXT, events_json TEXT, proposals_json TEXT, shadow_json TEXT,
+  decided INTEGER NOT NULL DEFAULT 1);
 CREATE INDEX IF NOT EXISTS ix_ticks_run_t ON ticks(run_id, t);
 CREATE TABLE IF NOT EXISTS channels(run_id TEXT, t REAL, name TEXT, blob BLOB);
 CREATE INDEX IF NOT EXISTS ix_channels_run_t ON channels(run_id, t);
@@ -44,21 +45,25 @@ class ExperienceLog:
         self._db = sqlite3.connect(str(path))
         self._db.executescript(_SCHEMA)
         self._db.execute("INSERT OR IGNORE INTO runs VALUES(?,?,?,?)", (run_id, recipe, seed, time.time()))
+        cols = [r[1] for r in self._db.execute("PRAGMA table_info(ticks)")]
+        if "decided" not in cols:
+            self._db.execute("ALTER TABLE ticks ADD COLUMN decided INTEGER NOT NULL DEFAULT 1")
         self._db.commit()
         self._rows = self._db.execute("SELECT COUNT(*) FROM ticks").fetchone()[0]
         self._last_sample = float("-inf")
         self._pending = 0
 
-    def write(self, exp: Experience, proposals: list[Proposal], shadow: list[Proposal]) -> None:
+    def write(self, exp: Experience, proposals: list[Proposal], shadow: list[Proposal],
+              decided: bool = True) -> None:
         events = [{"t": o.t, "kind": o.kind,
                    "data": {"private": True} if o.data.get("private") else dict(o.data)}
                   for o in exp.events]
         self._db.execute(
-            "INSERT INTO ticks(run_id,t,dt,action,prob,rewards_json,events_json,proposals_json,shadow_json)"
-            " VALUES(?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO ticks(run_id,t,dt,action,prob,rewards_json,events_json,proposals_json,shadow_json,decided)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?)",
             (self.run_id, exp.t, exp.dt, exp.action, exp.action_prob, _dumps(exp.rewards),
              _dumps(events), _dumps([_prop(p) for p in proposals]),
-             _dumps([_prop(p) for p in shadow])))
+             _dumps([_prop(p) for p in shadow]), int(decided)))
         self._rows += 1
         if exp.events or exp.t - self._last_sample >= self.sample_s:
             self._last_sample = exp.t
@@ -97,6 +102,7 @@ class TickRow:
     proposals: list[dict]
     shadow: list[dict]
     channels: dict[str, np.ndarray]
+    decided: bool = True   # a fresh arbiter decision was made for this row's action
 
 
 def list_runs(path: Path) -> list[dict]:
@@ -120,9 +126,10 @@ def read_log(path: Path, run_id: str | None = None) -> Iterator[TickRow]:
         ahead = chan_cur.fetchone()
         group_t: float | None = None
         group: dict[str, np.ndarray] = {}
-        cur = db.execute("SELECT t,dt,action,prob,rewards_json,events_json,proposals_json,shadow_json"
-                         " FROM ticks WHERE run_id=? ORDER BY t, id", (run_id,))
-        for t, dt, action, prob, rw, ev, pr, sh in cur:
+        has_dec = any(r[1] == "decided" for r in db.execute("PRAGMA table_info(ticks)"))
+        cur = db.execute("SELECT t,dt,action,prob,rewards_json,events_json,proposals_json,shadow_json,"
+                         + ("decided" if has_dec else "1") + " FROM ticks WHERE run_id=? ORDER BY t, id", (run_id,))
+        for t, dt, action, prob, rw, ev, pr, sh, dec in cur:
             if group_t != t:
                 group_t, group = t, {}
                 while ahead is not None and ahead[0] < t:
@@ -131,6 +138,6 @@ def read_log(path: Path, run_id: str | None = None) -> Iterator[TickRow]:
                     group[ahead[1]] = np.frombuffer(ahead[2], dtype=np.float32).copy()
                     ahead = chan_cur.fetchone()
             yield TickRow(t, dt, action, prob, json.loads(rw), json.loads(ev), json.loads(pr),
-                          json.loads(sh), dict(group))
+                          json.loads(sh), dict(group), bool(dec))
     finally:
         db.close()

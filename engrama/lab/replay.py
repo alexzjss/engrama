@@ -33,18 +33,25 @@ def replay_module(log_path: Path, spec: ModuleSpec, seed: int = 0,
     for c in mod.writes:
         out[c] = []
     out["proposals_top"] = []
-    for i, r in enumerate(rows):
-        if not per_row[i]:
+    # Tick 0 is never logged (the log starts one tick behind); prime the module with an event-free
+    # step on the first logged channels so stateful modules start from the live trajectory.
+    if rows and per_row[0]:
+        mod.step(_board(per_row[0], TickRow(rows[0].t, rows[0].dt, "", 1.0, {}, [], [], [], {})), rows[0].dt)
+    # Live order per tick j: learn(exp_j), then step with tick j's events/dt on the channels as they
+    # stand after tick j's step (= the channels logged on row j+1). Outputs are stamped with row j+1's t,
+    # so they line up with the logged channels at sampled rows.
+    for j in range(len(rows) - 1):
+        r, board_ch = rows[j], per_row[j + 1]
+        if not board_ch or not per_row[j]:
             continue
-        bb = _board(per_row[i], r)
+        evs = _board(board_ch, r).events
+        mod.learn(Experience(r.t, r.dt, evs, per_row[j], r.action, r.prob, r.rewards, board_ch))
+        bb = _board(board_ch, r)
         mod.step(bb, r.dt)
-        out["t"].append(r.t)
+        out["t"].append(rows[j + 1].t)
         for c in mod.writes:
             v = bb.get(c)
             out[c].append(None if v is None else v.tolist())
         props = mod.propose(bb)
         out["proposals_top"].append(max(props, key=lambda p: p.score).action if props else None)
-        if i + 1 < len(rows) and per_row[i + 1]:
-            mod.learn(Experience(r.t, r.dt, bb.events, per_row[i], r.action, r.prob, r.rewards,
-                                 per_row[i + 1]))
     return out
