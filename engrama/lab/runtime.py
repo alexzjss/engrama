@@ -87,7 +87,7 @@ class Runtime:
             action, prob, _ = self._arbiter.choose(live, bb.available_actions, bb, self._arbiter_rng)
             running, forced = k.execute(action)
             self._pending = {"channels": channels, "action": running, "prob": 1.0 if forced else prob,
-                             "live": live, "shadow": shadow, "decided": True}
+                             "live": live, "shadow": shadow, "decided": not forced}
         else:
             running, forced = k.execute(pend["action"])
             if forced or running != pend["action"]:

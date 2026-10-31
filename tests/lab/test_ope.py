@@ -36,3 +36,21 @@ def test_ips_counts_only_decision_ticks(tmp_path):
     assert 0 < decisions < len(rows) - 1
     out = ips_estimate(rows, lambda r: {r.action: r.prob})
     assert out["n"] == decisions
+
+
+def test_forced_action_is_not_a_decision(tmp_path):
+    from pathlib import Path
+    from engrama.lab.explog import ExperienceLog, read_log
+    from engrama.lab.runtime import Runtime
+    from engrama.mind.recipe import load_recipe
+    recipe = load_recipe(Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml")
+    el = ExperienceLog(tmp_path / "l.db", "r", recipe.name, 1)
+    rt = Runtime(recipe, 1, el)
+    real = rt.kernel.execute
+    rt.kernel.execute = lambda proposed: (real(proposed)[0], True)
+    for _ in range(4):
+        rt.tick(60.0, [])
+    el.close()
+    rows = list(read_log(tmp_path / "l.db"))
+    assert rows and all(r.prob == 1.0 and not r.decided for r in rows)
+    assert ips_estimate(rows, lambda r: {r.action: 1.0})["n"] == 0
