@@ -31,7 +31,7 @@ class TraitDrift(Module):
             out.append(("criatividade", 0.1))
         if r.get("petting", 0.0) > 0:
             out.append(("paciencia", 0.05))
-        return out
+        return [(k, d * B.TRAIT_NUDGE_SCALE) for k, d in out]
 
     def learn(self, exp: Experience) -> None:
         day = int(math.floor(exp.t / 86400.0))

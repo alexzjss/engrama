@@ -10,6 +10,7 @@ DECISION_PERIOD = 5.0            # sim-seconds between action decisions (at leas
 ASK_MIN_INTERVAL = 20 * 60.0
 ASK_ANSWER_WINDOW = 120.0
 TRAIT_MAX_DRIFT_PER_DAY = 2.0
+TRAIT_NUDGE_SCALE = 0.1          # per-event trait deltas are scaled so the daily cap rarely binds
 REWARD_WEIGHTS = {"need_relief": 1.0, "need_pain": -1.0, "user_response": 1.0, "ignored": -0.3,
                   "petting": 0.4, "msg_valence": 0.5, "novelty": 0.2}
 MODULE_DEFAULT_BUDGET_MS = 5.0
@@ -37,14 +38,14 @@ PAD_SURPRISE_GAIN = 0.3
 PAD_NEUTRAL_RADIUS = 0.15
 
 # --- Task 9 ---
-SNN_INPUT_HZ = 80.0
+SNN_INPUT_HZ = 150.0
 SNN_SUBSTEPS = 20                # 1 ms substeps per bin
 SNN_POP = 4                      # Poisson neurons per input unit
 SNN_WMAX = 2.0
 SNN_TARGET_HZ = 10.0
 SNN_HOMEO_TAU_BINS = 50
 SNN_HOMEO_GAIN = 0.5
-SNN_PRED_LR = 2.0
+SNN_PRED_LR = 0.3
 SNN_BIAS_LR = 0.2                # slow: the bias is a base rate, not a short-term memory
 SNN_FMEAN_RATE = 0.02            # running mean used to centre the readout features
 SNN_LIF_DECAY = 0.9              # membrane decay per ms (tau ~ 10 ms)

@@ -21,11 +21,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seconds", type=float, default=120.0)
     ap.add_argument("--recipe", type=Path, default=ROOT / "recipes" / "default-v1.toml")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--profile", default="attentive", choices=sorted(PROFILES))
     a = ap.parse_args(argv)
     rt = Runtime(load_recipe(a.recipe), a.seed)
-    user = SimUser(PROFILES["attentive"], np.random.default_rng([a.seed, 1]))
+    user = SimUser(PROFILES[a.profile], np.random.default_rng([a.seed, 1]))
     proc = psutil.Process()
-    proc.cpu_percent(None)
     cpu0, wall0 = sum(proc.cpu_times()[:2]), time.perf_counter()
     peak = proc.memory_info().rss
     ticks, nxt = 0, time.perf_counter()

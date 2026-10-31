@@ -2,19 +2,19 @@
 
 **PT** | [EN](#en)
 
-## O que e
+## O que é
 
 Engrama e um companheiro virtual local e offline, no estilo tamagotchi: uma criatura com necessidades, humor, personalidade e gostos proprios que mora no seu computador. Nada sai da maquina.
 
-### Arquitetura: corpo, mente, laboratorio
+### Arquitetura: corpo, mente, laboratório
 
-- **Corpo** (`engrama/kernel`): nucleo deterministico. Necessidades, estagios, acoes e recompensas. Mesma semente, mesmo resultado.
-- **Mente** (`engrama/mind`, `engrama/modules`): modulos trocaveis (drives, SNN temporal, afeto PAD, tracos, preferencias, politicas) que escrevem em um quadro-negro e propoem acoes; um arbitro softmax escolhe.
-- **Laboratorio** (`engrama/lab`): runtime de simulacao, log de experiencia (SQLite), replay, metricas e CLI.
+- **Corpo** (`engrama/kernel`): núcleo determinístico. Necessidades, estágios, ações e recompensas. Mesma semente, mesmo resultado.
+- **Mente** (`engrama/mind`, `engrama/modules`): módulos trocáveis (drives, SNN temporal, afeto PAD, traços, preferências, políticas) que escrevem em um quadro-negro e propõem ações; um árbitro softmax escolhe.
+- **Laboratório** (`engrama/lab`): runtime de simulação, log de experiência (SQLite), replay, métricas e CLI.
 
 ### Receitas
 
-Uma receita TOML em `recipes/` escolhe quais modulos formam a mente e seus pesos. `minimal-v1.toml` e `default-v1.toml` sao os exemplos.
+Uma receita TOML em `recipes/` escolhe quais módulos formam a mente e seus pesos. `minimal-v1.toml` e `default-v1.toml` são os exemplos.
 
 ### Instalar
 
@@ -24,7 +24,7 @@ python -m venv .venv
 pip install numpy psutil pytest
 ```
 
-### Laboratorio
+### Laboratório
 
 ```
 python -m engrama.lab sim --recipe recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
@@ -33,26 +33,26 @@ python -m engrama.lab compare --a recipes/minimal-v1.toml --b recipes/default-v1
 python -m engrama.lab replay --log data/run.db --module affect.pad --param k=v
 ```
 
-Perfis: `attentive`, `absent`, `night_owl`, `gamer`.
+Perfis (`--profile`): `attentive`, `absent`, `night_owl`, `gamer`. Outras flags: `--dt` (passo em segundos simulados, padrão 60), `--save DIR` (salva o estado ao fim do `sim`), `--run ID` (escolhe a execução dentro de um log, em `report` e `replay`), `--seed` (também em `replay`).
 
-### Escrever um modulo
+### Escrever um módulo
 
 1. Subclasse `engrama.mind.contracts.Module`: declare `reads`, `writes`, `rate_hz`; implemente `step(bb, dt)`, `propose(bb)`, `learn(exp)`, `state_dict`/`load_state_dict`.
 2. Registre em `engrama/mind/registry.py` (`REGISTRY["familia.nome"] = "pacote.arquivo:Classe"`).
-3. Adicione a uma receita como `[[module]]` (vivo, com `weight`) ou `[[shadow]]` (roda e e registrado, mas nao decide; util para comparar).
+3. Adicione a uma receita como `[[module]]` (vivo, com `weight`) ou `[[shadow]]` (roda e é registrado, mas não decide; útil para comparar).
 
-Regra de dependencia (verificada por `tests/test_architecture.py`): `kernel` nao importa `mind`, `modules`, `lab` nem `services`; `mind` nao importa `kernel` nem `modules`; um modulo so importa `engrama.mind`, `engrama.vocab`, `engrama.balance`, a propria familia, numpy e a stdlib.
+Regra de dependência (verificada por `tests/test_architecture.py`): `kernel` não importa `mind`, `modules`, `lab` nem `services`; `mind` não importa `kernel` nem `modules`; um módulo só importa `engrama.mind`, `engrama.vocab`, `engrama.balance`, a própria família, numpy e a stdlib.
 
 ### Testes e bench
 
 ```
 python -m pytest -q                      # inclui testes lentos (marcador slow)
-python tools/bench.py --seconds 120      # JSON: pico de RSS, CPU medio, mean_ms por modulo
+python tools/bench.py --seconds 120      # (--profile, --seed) JSON: pico de RSS, CPU médio, mean_ms por módulo
 ```
 
 ### Onde ficam os arquivos
 
-Saves e logs ficam em `Config.data_dir` (padrao: `data/` na raiz do repositorio, ignorado pelo git). Tudo no drive E:, nada no C:.
+A CLI do laboratório usa os caminhos explícitos `--log` e `--save` (não lê `Config`); o padrão sugerido nos exemplos é `data/`, ignorado pelo git. `Config.data_dir` (padrão: `data/` na raiz do repositório) é o diretório de dados do app. Com o repositório no drive E:, nada vai para o C:.
 
 ---
 
@@ -90,7 +90,7 @@ python -m engrama.lab compare --a recipes/minimal-v1.toml --b recipes/default-v1
 python -m engrama.lab replay --log data/run.db --module affect.pad --param k=v
 ```
 
-Profiles: `attentive`, `absent`, `night_owl`, `gamer`.
+Profiles (`--profile`): `attentive`, `absent`, `night_owl`, `gamer`. Other flags: `--dt` (step in simulated seconds, default 60), `--save DIR` (save state at the end of `sim`), `--run ID` (pick a run inside a log, for `report` and `replay`), `--seed` (also on `replay`).
 
 ### Writing a module
 
@@ -109,4 +109,4 @@ python tools/bench.py --seconds 120      # JSON: peak RSS, mean CPU, per-module 
 
 ### Where files live
 
-Saves and logs live under `Config.data_dir` (default: `data/` at the repo root, git-ignored). Everything stays on drive E:, nothing on C:.
+The lab CLI takes explicit `--log` and `--save` paths (it does not read `Config`); the examples use `data/`, which is git-ignored. `Config.data_dir` (default: `data/` at the repo root) is the app's data directory. With the repo on drive E:, nothing goes to C:.
