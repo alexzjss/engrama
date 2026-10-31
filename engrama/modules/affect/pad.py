@@ -4,20 +4,10 @@ from collections import deque
 import numpy as np
 import engrama.balance as B
 from engrama.mind.contracts import Module, Blackboard, VizSpec
-from engrama.vocab import NEED_KEYS, TRAIT_KEYS, INITIAL_TRAITS
+from engrama.mind.helpers import default_traits, read_traits
+from engrama.vocab import NEED_KEYS
 
 _SERIES_LEN = 300
-
-
-def default_traits() -> dict[str, float]:
-    return {k: INITIAL_TRAITS[k] / 100.0 for k in TRAIT_KEYS}
-
-
-def read_traits(bb: Blackboard) -> dict[str, float]:
-    v = bb.get("traits")
-    if v is None:
-        return default_traits()
-    return {k: float(x) for k, x in zip(TRAIT_KEYS, v)}
 
 
 def baseline(tr: dict[str, float]) -> np.ndarray:
