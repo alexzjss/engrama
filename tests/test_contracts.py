@@ -20,6 +20,14 @@ def test_blackboard_rejects_unknown_and_bad_dim():
         bb.write("body.needs", [0.0, 0.0, 0.0])
 
 
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_blackboard_rejects_non_finite(bad):
+    bb = Blackboard()
+    with pytest.raises(ValueError):
+        bb.write("affect.pad", [0.0, bad, 0.0])
+    assert not bb.has("affect.pad")
+
+
 def test_shadow_namespace_allowed():
     bb = Blackboard()
     bb.write("shadow/x/affect.pad", [0, 0, 0])

@@ -87,6 +87,8 @@ class Blackboard:
         arr = np.array(value, dtype=np.float64).reshape(-1)
         if arr.shape != (ch.dim,):
             raise ValueError(f"{name}: expected dim {ch.dim}, got {arr.shape}")
+        if not np.all(np.isfinite(arr)):
+            raise ValueError(f"{name}: non-finite value")
         self._v[name] = np.clip(arr, ch.lo, ch.hi)
 
     def read(self, name: str) -> np.ndarray:
