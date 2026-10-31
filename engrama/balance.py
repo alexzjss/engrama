@@ -74,3 +74,8 @@ FOOD_NOISE_SD = 0.02
 
 # --- Task 3 ---
 INTERACT_WINDOW_S = 60.0   # seconds of a step during which an interaction suppresses tedio/carinho growth
+
+# --- Task 8 ---
+# M1 calibration: with 45-60 s actions and one action per tick, the base per-hour effects cannot offset
+# tedio/curiosidade growth (needs >100% of awake time), so wellbeing stayed ~0.02. x3 gives ~0.69.
+ACTION_RELIEF_SCALE = 3.0

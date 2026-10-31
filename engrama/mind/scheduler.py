@@ -131,6 +131,18 @@ class Scheduler:
             except Exception as e:
                 self._fail(n, e)
 
+    def state_dict(self) -> dict:
+        return {"acc": dict(self._acc), "runs": dict(self._runs),
+                "status": {n: {"enabled": s.enabled, "rate_factor": s.rate_factor, "strikes": s.strikes,
+                               "error": s.error} for n, s in self._st.items()}}
+
+    def load_state_dict(self, d: dict) -> None:
+        for n in self._order:
+            self._acc[n] = float(d["acc"][n]); self._runs[n] = int(d["runs"][n])
+            st, o = self._st[n], d["status"][n]
+            st.enabled, st.rate_factor = bool(o["enabled"]), float(o["rate_factor"])
+            st.strikes, st.error = int(o["strikes"]), str(o["error"])
+
     def status(self) -> list[ModuleStatus]:
         return [self._st[n] for n in self._order]
 

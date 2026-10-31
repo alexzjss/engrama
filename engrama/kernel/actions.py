@@ -1,6 +1,7 @@
 """Action catalog and availability rules."""
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
+from engrama.balance import ACTION_RELIEF_SCALE
 from engrama.vocab import ACTIONS, STAGES
 
 
@@ -22,6 +23,9 @@ ACTION_SPECS: dict[str, ActionSpec] = {s.name: s for s in (
     ActionSpec("show_something", 20.0, "child", {"carinho": -10.0}),
     ActionSpec("hide", 60.0, "baby"),
 )}
+
+ACTION_SPECS = {n: replace(s, effects_per_h={k: v * ACTION_RELIEF_SCALE for k, v in s.effects_per_h.items()})
+                for n, s in ACTION_SPECS.items()}
 
 assert tuple(ACTION_SPECS) == ACTIONS
 

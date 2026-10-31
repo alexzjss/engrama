@@ -45,6 +45,10 @@ class Kernel:
         return self.lifecycle.stage
 
     @property
+    def action(self) -> str | None:
+        return self._action
+
+    @property
     def asleep(self) -> bool:
         return self._action == "sleep"
 
