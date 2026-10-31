@@ -33,6 +33,7 @@ class Kernel:
         self._action: str | None = None
         self._action_start = 0.0
         self._egg_clicks = 0
+        self._interact_until = -math.inf
 
     @property
     def t(self) -> float:
@@ -58,17 +59,16 @@ class Kernel:
         t0 = self._t
         self._t += dt
         before = self.needs.as_vector()
-        interacting = False
         for e in events:
             if self.world.apply(e):
                 self.tracker.on_novel()
             if e.kind in _WAKERS:
-                interacting = True
+                self._interact_until = max(self._interact_until, e.t + B.INTERACT_WINDOW_S)
                 if self.asleep:
                     self._action = None
             self._apply_event(e)
         awake = not self.asleep
-        hot = min(dt, B.INTERACT_WINDOW_S) if interacting else 0.0
+        hot = min(dt, max(0.0, self._interact_until - t0))
         if hot:
             self.needs.decay(hot, awake, True)
         if dt - hot > 0:
@@ -151,6 +151,7 @@ class Kernel:
             "queue": [{"t": e.t, "kind": e.kind, "data": dict(e.data)} for e in self._queue],
             "action": self._action, "action_start": self._action_start,
             "egg_clicks": self._egg_clicks,
+            "interact_until": None if self._interact_until == -math.inf else self._interact_until,
         }
 
     @classmethod
@@ -167,4 +168,6 @@ class Kernel:
         k._action = d["action"]
         k._action_start = float(d["action_start"])
         k._egg_clicks = int(d["egg_clicks"])
+        iu = d.get("interact_until")
+        k._interact_until = -math.inf if iu is None else float(iu)
         return k

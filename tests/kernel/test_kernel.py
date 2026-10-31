@@ -229,3 +229,22 @@ def test_interaction_suppression_is_windowed():
     # the hatch step in hatched() is identical in both; compare only post-click growth
     for key in ("tedio", "carinho", "fome"):
         assert abs(big.needs.values[key] - small.needs.values[key]) < 0.01 * max(1.0, small.needs.values[key]) + 0.05
+
+
+def test_interaction_window_spans_steps():
+    res = []
+    for dt in (1.0, 10.0, 60.0, 120.0):
+        k = hatched(5)
+        k.ingest([Obs(k.t, "click")])
+        for _ in range(int(120 / dt)):
+            k.step(dt)
+        res.append(k.needs.values["tedio"])
+    assert max(res) - min(res) < 0.01 * max(res) + 0.01
+
+
+def test_interact_until_roundtrips():
+    k = hatched(5)
+    k.ingest([Obs(k.t, "click")])
+    k.step(1.0)
+    k2 = Kernel.from_state_dict(json.loads(json.dumps(k.state_dict())))
+    assert k2._interact_until == k._interact_until
