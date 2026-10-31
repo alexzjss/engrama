@@ -31,9 +31,10 @@ class TemporalSNN(Module):
     def __init__(self, params: dict, rng: np.random.Generator) -> None:
         super().__init__(params, rng)
         self.stage = int(params.get("stage", 0))
-        n = int(params.get("n_hidden", B.SNN_HIDDEN_BY_STAGE[STAGES[self.stage]]))
+        self.readout_hidden = bool(params.get("readout_hidden", True))   # False: ablation, bias-only readout
+        n =int(params.get("n_hidden", B.SNN_HIDDEN_BY_STAGE[STAGES[self.stage]]))
         self.n = 0
-        self.feat = np.zeros(0)
+        self.feat = np.zeros(0); self.trace = np.zeros(0); self.fmean = np.zeros(0)
         self._alloc_empty()
         self._grow_to(n)
         self.bias = np.zeros(_NK)
@@ -82,6 +83,8 @@ class TemporalSNN(Module):
         self.w_pred = wp
         ft = np.zeros(n_new); ft[:n0] = self.feat
         self.feat = ft
+        tr = np.zeros(n_new); tr[:n0] = self.trace; self.trace = tr
+        fm = np.zeros(n_new); fm[:n0] = self.fmean; self.fmean = fm
         self.n = n_new
         self.v_e = np.zeros(n_new); self.v_i = np.zeros(ni)
 
@@ -157,7 +160,7 @@ class TemporalSNN(Module):
         f = self.feat
         g = B.SNN_PRED_LR / (1.0 + float(f @ f))
         self.w_pred += g * np.outer(err, f)
-        self.bias += g * err
+        self.bias += B.SNN_BIAS_LR * err
         self.raw_surprise = raw
         self.surprise_ema += (1.0 - B.SNN_SURPRISE_EMA) * (raw - self.surprise_ema)
         self.surprise_long += (raw - self.surprise_long) / B.SNN_FAMILIARITY_BINS
@@ -169,7 +172,10 @@ class TemporalSNN(Module):
         e = np.clip((rate - B.SNN_TARGET_HZ) / B.SNN_TARGET_HZ, -1.0, 4.0)
         self.theta = np.clip(self.theta + k * e, _THETA_MIN, _THETA_MAX)
 
-        self.feat = B.SNN_READOUT_DECAY * self.feat + rate / B.SNN_TARGET_HZ
+        self.trace = B.SNN_READOUT_DECAY * self.trace + rate / B.SNN_TARGET_HZ
+        self.fmean += B.SNN_FMEAN_RATE * (self.trace - self.fmean)
+        # centred features: the bias carries the base rate, the weights only see deviations
+        self.feat = self.trace - self.fmean if self.readout_hidden else np.zeros(self.n)
         self.pred = _sigmoid(self.w_pred @ self.feat + self.bias)
         fam = 1.0 - self.surprise_long
         bb.write("temporal.surprise", [self.surprise_ema])
@@ -187,15 +193,19 @@ class TemporalSNN(Module):
                 "w_ei": self.w_ei.copy(), "w_ie": self.w_ie.copy(),
                 "theta": self.theta.copy(), "v_e": self.v_e.copy(), "v_i": self.v_i.copy(),
                 "w_pred": self.w_pred.copy(), "bias": self.bias.copy(),
-                "feat": self.feat.copy(), "pred": self.pred.copy(),
-                "surprise_ema": self.surprise_ema, "surprise_long": self.surprise_long}
+                "feat": self.feat.copy(), "trace": self.trace.copy(), "fmean": self.fmean.copy(), "pred": self.pred.copy(),
+                "surprise_ema": self.surprise_ema, "surprise_long": self.surprise_long,
+                "raw_surprise": self.raw_surprise,
+                "series": np.array(self._series, dtype=np.float64).reshape(-1, 3)}
 
     def load_state_dict(self, d: dict) -> None:
         self.stage = int(d["stage"]); self.n = int(d["n"])
-        for k in ("w_in", "w_ee", "w_ei", "w_ie", "theta", "v_e", "v_i", "w_pred", "bias", "feat", "pred"):
+        for k in ("w_in", "w_ee", "w_ei", "w_ie", "theta", "v_e", "v_i", "w_pred", "bias", "feat", "trace", "fmean", "pred"):
             setattr(self, k, np.array(d[k], dtype=np.float64))
         self.m_in = np.array(d["m_in"], dtype=bool); self.m_ee = np.array(d["m_ee"], dtype=bool)
         self.surprise_ema = float(d["surprise_ema"]); self.surprise_long = float(d["surprise_long"])
+        self.raw_surprise = float(d.get("raw_surprise", 0.0))
+        self._series = deque((tuple(r) for r in np.asarray(d.get("series", np.zeros((0, 3))))), maxlen=_SERIES_LEN)
         self.last_spikes = np.zeros((B.SNN_SUBSTEPS, self.n), dtype=bool)
 
     def viz(self) -> list[VizSpec]:

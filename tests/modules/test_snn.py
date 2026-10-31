@@ -53,8 +53,9 @@ def test_habituation():
     assert np.mean(s[200:300]) < 0.5 * np.mean(s[0:20])
 
 
-def test_novelty_spike():
-    m = make()
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_novelty_spike(seed):
+    m = make(32, seed)
     bb = Blackboard()
     run(m, ["pet" if i % 2 == 0 else None for i in range(300)], bb)
     base = np.mean([o[0] for o in run(m, ["pet" if i % 2 == 0 else None for i in range(300, 350)], bb)])
@@ -62,15 +63,52 @@ def test_novelty_spike():
     assert nov > 2 * base
 
 
-def test_routine_expectation():
-    m = make()
+def routine_gap(seed, **params):
+    m = TemporalSNN({"n_hidden": 32, **params}, np.random.default_rng(seed))
     n = 400
     out = run(m, ["message" if i % 3 == 0 else None for i in range(n)])
     mi = EVENT_KINDS.index("message")
     # expectation after bin k predicts bin k+1
     due = [out[k][2][mi] for k in range(n - 60, n - 1) if (k + 1) % 3 == 0]
     other = [out[k][2][mi] for k in range(n - 60, n - 1) if (k + 1) % 3 != 0]
-    assert np.mean(due) > np.mean(other)
+    return float(np.mean(due) - np.mean(other))
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_routine_expectation(seed):
+    assert routine_gap(seed) >= 0.2
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_ablation_bias_only_has_no_routine_coding(seed):
+    """Without hidden features the readout is a base rate: the SNN is what carries the temporal code."""
+    assert abs(routine_gap(seed, readout_hidden=False)) < 0.05
+    assert routine_gap(seed) >= 0.2
+
+
+def test_stdp_strengthens_presented_kind():
+    m = make(32)
+    w0 = m.w_in.copy()
+    run(m, ["pet"] * 300)
+    pop = 4                                         # input units are populations of 4 neurons
+    sl = slice(EVENT_KINDS.index("pet") * pop, (EVENT_KINDS.index("pet") + 1) * pop)
+    unseen = slice(EVENT_KINDS.index("food") * pop, (EVENT_KINDS.index("food") + 1) * pop)
+    d = m.w_in - w0
+    gain = d[:, sl].sum() / m.m_in[:, sl].sum()
+    assert gain > 0.05
+    assert np.all(d[:, unseen] == 0)
+    assert np.all(m.w_in[~m.m_in] == 0) and np.all(m.w_ee[~m.m_ee] == 0)
+
+
+def test_stdp_weights_clipped_to_wmax(monkeypatch):
+    import engrama.balance as B
+    monkeypatch.setattr(B, "SNN_WMAX", 0.8)
+    monkeypatch.setattr(B, "SNN_STDP_APLUS", 0.05)
+    m = make(32)
+    run(m, ["pet", "click"] * 100)
+    for w in (m.w_in, m.w_ee):
+        assert w.min() >= 0.0 and w.max() <= 0.8 + 1e-12
+    assert np.isclose(m.w_in.max(), 0.8)           # the cap was actually reached
 
 
 def test_grow_preserves_weights():
@@ -104,6 +142,8 @@ def test_state_roundtrip_identical_outputs():
     a, b = run(m, seq), run(m2, seq)
     for (s1, _, e1), (s2, _, e2) in zip(a, b):
         assert s1 == s2 and np.array_equal(e1, e2)
+    assert m2.raw_surprise == m.raw_surprise
+    assert list(m2._series) == list(m._series)
 
 
 def test_channels_and_viz():
