@@ -55,6 +55,7 @@ class Kernel:
 
     def step(self, dt: float) -> tuple[list[Obs], dict[str, float]]:
         events, self._queue = self._queue, []
+        t0 = self._t
         self._t += dt
         before = self.needs.as_vector()
         interacting = False
@@ -66,11 +67,19 @@ class Kernel:
                 if self.asleep:
                     self._action = None
             self._apply_event(e)
-        self.needs.decay(dt, not self.asleep, interacting)
+        awake = not self.asleep
+        hot = min(dt, B.INTERACT_WINDOW_S) if interacting else 0.0
+        if hot:
+            self.needs.decay(hot, awake, True)
+        if dt - hot > 0:
+            self.needs.decay(dt - hot, awake, False)
         if self._action is not None:
             spec = ACTION_SPECS[self._action]
             if spec.effects_per_h:
-                self.needs.apply({k: v * dt / B.HOUR for k, v in spec.effects_per_h.items()})
+                run = dt
+                if spec.duration_s:
+                    run = min(dt, max(0.0, self._action_start + spec.duration_s - t0))
+                self.needs.apply({k: v * run / B.HOUR for k, v in spec.effects_per_h.items()})
             if self.asleep:
                 if self.needs.values["sono"] < WAKE_SONO:
                     self._action = None

@@ -26,16 +26,15 @@ class RewardTracker:
             elif e.kind == "message":
                 self._acc["msg_valence"] += float(e.data.get("valence", 0.0))
             if (e.kind in _ANSWERS and self._ask_t is not None
-                    and e.t - self._ask_t <= ASK_ANSWER_WINDOW):
+                    and 0.0 <= e.t - self._ask_t <= ASK_ANSWER_WINDOW):
                 self._acc["user_response"] = 1.0
                 self._ask_t = None
 
     def on_needs(self, before: np.ndarray, after: np.ndarray, dt: float) -> None:
         drop = before - after
         self._acc["need_relief"] += float(drop[(before >= RELIEF_FLOOR) & (drop > 0)].sum())
-        rise = after - before
         crossed = (before < PAIN_LEVEL) & (after >= PAIN_LEVEL)
-        self._acc["need_pain"] += float(rise[crossed].sum())
+        self._acc["need_pain"] += float(crossed.sum())
 
     def on_novel(self) -> None:
         self._acc["novelty"] += 1.0

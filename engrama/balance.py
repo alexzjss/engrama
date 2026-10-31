@@ -44,3 +44,6 @@ FOOD_NOVELTY_COUNT = 3
 FOOD_NOVELTY_GAIN = 0.05
 FOOD_COMFORT_GAIN = 0.03
 FOOD_NOISE_SD = 0.02
+
+# --- Task 3 ---
+INTERACT_WINDOW_S = 60.0   # seconds of a step during which an interaction suppresses tedio/carinho growth

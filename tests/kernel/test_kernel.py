@@ -184,3 +184,48 @@ def test_no_nan_long_dt():
     for v in k.channels().values():
         assert np.all(np.isfinite(v))
     assert all(np.isfinite(x) for x in k.needs.values.values())
+
+
+def _run(dt, total, start_action=None, events=(), tedio=None):
+    k = hatched(5)
+    if tedio is not None:
+        k.needs.values["tedio"] = tedio
+    k.ingest(list(events))
+    if start_action:
+        k.execute(start_action)
+    pain = 0.0
+    for _ in range(int(total / dt)):
+        pain += k.step(dt)[1]["need_pain"]
+        k.execute("idle")
+    return k, pain
+
+
+def test_dt_invariance_with_effect_action():
+    ref, _ = _run(1.0, 600.0, "play_alone", tedio=80.0)
+    for dt in (60.0, 600.0):
+        k, _ = _run(dt, 600.0, "play_alone", tedio=80.0)
+        assert abs(k.needs.values["tedio"] - ref.needs.values["tedio"]) < 0.01 * 100
+        assert abs(k.needs.values["tedio"] - ref.needs.values["tedio"]) < 0.01 * ref.needs.values["tedio"] + 0.05
+
+
+def test_need_pain_is_dt_independent():
+    pains = []
+    for dt in (1.0, 3600.0):
+        k = hatched(5)
+        k.needs.values["fome"] = 79.9
+        p = 0.0
+        for _ in range(int(3600 / dt)):
+            p += k.step(dt)[1]["need_pain"]
+        pains.append(p)
+    assert pains[0] == pains[1] == 1.0
+
+
+def test_interaction_suppression_is_windowed():
+    big, _ = _run(3600.0, 3600.0, events=[Obs(0.0, "click")])
+    small = hatched(5)
+    small.ingest([Obs(0.0, "click")])
+    for _ in range(60):
+        small.step(60.0)
+    # the hatch step in hatched() is identical in both; compare only post-click growth
+    for key in ("tedio", "carinho", "fome"):
+        assert abs(big.needs.values[key] - small.needs.values[key]) < 0.01 * max(1.0, small.needs.values[key]) + 0.05
