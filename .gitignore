@@ -7,3 +7,4 @@ spike/config_smoke.json
 spike/save_smoke.json
 .superpowers/
 data/
+.claude/worktrees/
