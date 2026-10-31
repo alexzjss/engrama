@@ -36,10 +36,19 @@ class Runtime:
     def __init__(self, recipe: Recipe, seed: int, log: ExperienceLog | None = None,
                  start_hour: float = 8.0) -> None:
         self.recipe, self.seed, self.start_hour, self.log = recipe, seed, start_hour, log
+        # live modules, then the arbiter, then shadows: adding a shadow never shifts a live stream
+        live_n = sum(not s.shadow for s in recipe.modules)
         rngs = np.random.default_rng(seed).spawn(len(recipe.modules) + 1)
-        mods = [registry.build(s, r) for s, r in zip(recipe.modules, rngs)]
+        li = si = 0
+        rng_of = []
+        for sp in recipe.modules:
+            if sp.shadow:
+                rng_of.append(rngs[live_n + 1 + si]); si += 1
+            else:
+                rng_of.append(rngs[li]); li += 1
+        mods = [registry.build(s, r) for s, r in zip(recipe.modules, rng_of)]
         self._scheduler = Scheduler(mods, list(recipe.modules))
-        self._arbiter_rng = rngs[-1]
+        self._arbiter_rng = rngs[live_n]
         self._arbiter = SoftmaxArbiter({s.name: s.weight for s in recipe.modules if not s.shadow},
                                        float(recipe.arbiter["temperature"]),
                                        bool(recipe.arbiter["trait_temperature"]))
