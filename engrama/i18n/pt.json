@@ -1,0 +1,62 @@
+{
+  "need.fome": "Fome",
+  "need.sono": "Sono",
+  "need.tedio": "Tédio",
+  "need.carinho": "Carinho",
+  "need.curiosidade": "Curiosidade",
+  "need.apoio": "Apoio",
+
+  "stage.egg": "Ovo",
+  "stage.baby": "Bebê",
+  "stage.child": "Criança",
+  "stage.adult": "Adulto",
+  "stage.perfect": "Perfeito",
+  "stage.final": "Final",
+
+  "action.feed": "Alimentar",
+  "action.play": "Brincar",
+  "action.sleep": "Dormir",
+  "action.rest": "Descansar",
+  "action.chat_hint": "Clique para conversar",
+
+  "menu.food.title": "Comida",
+  "menu.models.title": "Modelos",
+  "menu.models.other": "Outro modelo...",
+  "menu.models.installed": "instalado",
+  "menu.models.active": "ativo",
+  "menu.models.offline": "offline",
+  "menu.models.pulling": "baixando...",
+  "menu.settings.title": "Ajustes",
+  "menu.settings.lang": "Idioma",
+  "menu.settings.dev": "Modo dev",
+
+  "llm.offline": "LLM offline",
+  "llm.loading": "carregando modelo...",
+  "llm.ready": "pronto",
+  "llm.not_found": "modelo não encontrado",
+
+  "snn.title": "Cérebro",
+  "rest.on": "Descanso: ligado",
+  "rest.off": "Descanso: desligado",
+
+  "model.note.qwen3_1_7b": "recomendado: bom PT/EN, ~1,4 GB",
+  "model.note.gemma3_1b": "mais leve, ~0,8 GB",
+  "model.note.qwen2_5_1_5b": "alternativa leve, ~1 GB",
+  "model.note.llama3_2_1b": "leve, inglês melhor que português",
+  "model.note.qwen3_4b": "mais inteligente, mais pesado, ~2,6 GB; pode pesar em 8 GB de RAM",
+
+  "food.carne": "carne",
+  "food.fruta": "fruta",
+  "food.peixe": "peixe",
+  "food.bolinho": "bolinho",
+  "food.pacote": "pacote de dados",
+  "food.cookie": "cookie de navegador",
+  "food.bug": "bug frito",
+  "food.cache": "cache quentinho",
+  "food.byte": "byte crocante",
+  "food.ram": "raminho de RAM",
+
+  "babble.bleh": "bleh!",
+  "babble.missed_you": "demorou... gru?",
+  "babble.brain_loading": "zzz... (cérebro carregando)"
+}
