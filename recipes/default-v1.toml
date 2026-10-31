@@ -1,0 +1,29 @@
+[recipe]
+name = "default-v1"
+version = 1
+
+[arbiter]
+temperature = 0.5
+
+[[module]]
+type = "drives.needs"
+
+[[module]]
+type = "temporal.snn"
+
+[[module]]
+type = "affect.pad"
+
+[[module]]
+type = "traits.drift"
+
+[[module]]
+type = "prefs.food"
+
+[[module]]
+type = "policy.utility"
+weight = 1.0
+
+[[module]]
+type = "policy.qlearning"
+weight = 0.6
