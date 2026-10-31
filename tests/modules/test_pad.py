@@ -1,6 +1,7 @@
 import numpy as np
 from engrama.mind.contracts import Blackboard, Observation
-from engrama.modules.affect.pad import PadAffect, pad_label, baseline, default_traits
+from engrama.mind.helpers import default_traits
+from engrama.modules.affect.pad import PadAffect, pad_label, baseline
 
 
 def make():

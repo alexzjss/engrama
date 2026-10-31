@@ -1,7 +1,7 @@
 """UtilityPolicy: hand-written utility scores per action."""
 from __future__ import annotations
 from engrama.mind.contracts import Module, Blackboard, Proposal
-from engrama.modules.affect.pad import read_traits
+from engrama.mind.helpers import read_traits
 from engrama.vocab import NEED_KEYS
 
 
