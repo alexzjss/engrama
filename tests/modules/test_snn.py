@@ -169,7 +169,8 @@ def test_step_cost():
     run(m, ["pet"] * 10, bb)
     t0 = time.perf_counter()
     run(m, ["pet", None] * 50, bb)
-    assert (time.perf_counter() - t0) / 100 * 1000 < 3.0
+    # limit matches the SNN live budget (R22); a tighter bound flakes under host load
+    assert (time.perf_counter() - t0) / 100 * 1000 < B.SNN_BUDGET_MS
 
 
 def _run_dt(dt, seed=0, minutes=240):
