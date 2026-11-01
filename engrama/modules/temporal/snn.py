@@ -26,13 +26,13 @@ class TemporalSNN(Module):
     reads = ("body.stage", "world.hour", "world.user_active")
     writes = ("temporal.surprise", "temporal.familiarity", "temporal.expectation")
     rate_hz = 1.0
-    budget_ms = 3.0
+    budget_ms = B.SNN_BUDGET_MS
 
     def __init__(self, params: dict, rng: np.random.Generator) -> None:
         super().__init__(params, rng)
         self.stage = int(params.get("stage", 0))
         self.readout_hidden = bool(params.get("readout_hidden", True))   # False: ablation, bias-only readout
-        n =int(params.get("n_hidden", B.SNN_HIDDEN_BY_STAGE[STAGES[self.stage]]))
+        n = int(params.get("n_hidden", B.SNN_HIDDEN_BY_STAGE[STAGES[self.stage]]))
         self.n = 0
         self.feat = np.zeros(0); self.trace = np.zeros(0); self.fmean = np.zeros(0)
         self._alloc_empty()
@@ -44,6 +44,8 @@ class TemporalSNN(Module):
         self.pred = np.full(_NK, 0.5)
         self.last_spikes = np.zeros((B.SNN_SUBSTEPS, n), dtype=bool)
         self._series: deque = deque(maxlen=_SERIES_LEN)
+        self._bin_start: float | None = None          # sim-time start of the bin being filled
+        self._pending: list[tuple[float, str]] = []   # (t, kind) of events not yet binned
 
     # --- structure ---
     def _alloc_empty(self) -> None:
@@ -94,11 +96,10 @@ class TemporalSNN(Module):
             self.last_spikes = np.zeros((B.SNN_SUBSTEPS, self.n), dtype=bool)
 
     # --- encoding ---
-    def _encode(self, bb: Blackboard) -> np.ndarray:
+    def _encode(self, kinds, bb: Blackboard) -> np.ndarray:
         x = np.zeros(_N_UNITS)
-        for ev in bb.events:
-            if ev.kind in EVENT_KINDS:
-                x[EVENT_KINDS.index(ev.kind)] = 1.0
+        for kind in kinds:
+            x[EVENT_KINDS.index(kind)] = 1.0
         h = bb.get("world.hour")
         s, c = (float(h[0]), float(h[1])) if h is not None else (0.0, 0.0)
         x[_NK:_NK + 4] = (max(s, 0.0), max(-s, 0.0), max(c, 0.0), max(-c, 0.0))
@@ -147,13 +148,34 @@ class TemporalSNN(Module):
 
     # --- module api ---
     def step(self, bb: Blackboard, dt: float) -> None:
+        """Advance on fixed sim-time bins of SNN_BIN_S: dt is accumulated and each event goes into the bin
+        its timestamp belongs to, so the behaviour does not depend on the tick length. Between bins the
+        outputs stay as they were."""
         st = bb.get("body.stage")
         if st is not None:
             idx = int(np.clip(round(float(st[0])), 0, len(STAGES) - 1))
             if idx != self.stage:
                 self.stage = idx
                 self.grow(B.SNN_HIDDEN_BY_STAGE[STAGES[idx]])
-        x = self._encode(bb)
+        now, bin_s = float(bb.t), B.SNN_BIN_S
+        if self._bin_start is None:
+            self._bin_start = now - dt
+        self._pending.extend((float(ev.t), ev.kind) for ev in bb.events if ev.kind in EVENT_KINDS)
+        earliest = now - B.SNN_MAX_BINS_PER_STEP * bin_s
+        if self._bin_start < earliest:          # very long gap: do not simulate every missed bin
+            self._bin_start = earliest
+        while now - self._bin_start >= bin_s - 1e-9:
+            end = self._bin_start + bin_s
+            kinds = {k for t, k in self._pending if t < end - 1e-6}
+            self._pending = [(t, k) for t, k in self._pending if t >= end - 1e-6]
+            self._advance(self._encode(kinds, bb), end)
+            self._bin_start = end
+        if self.pred is not None:
+            bb.write("temporal.surprise", [self.surprise_ema])
+            bb.write("temporal.familiarity", [1.0 - self.surprise_long])
+            bb.write("temporal.expectation", self.pred)
+
+    def _advance(self, x: np.ndarray, t_end: float) -> None:
         ev = x[:_NK]
         err = ev - self.pred
         raw = float(np.mean(np.abs(err)))
@@ -177,11 +199,7 @@ class TemporalSNN(Module):
         # centred features: the bias carries the base rate, the weights only see deviations
         self.feat = self.trace - self.fmean if self.readout_hidden else np.zeros(self.n)
         self.pred = _sigmoid(self.w_pred @ self.feat + self.bias)
-        fam = 1.0 - self.surprise_long
-        bb.write("temporal.surprise", [self.surprise_ema])
-        bb.write("temporal.familiarity", [fam])
-        bb.write("temporal.expectation", self.pred)
-        self._series.append((bb.t, self.surprise_ema, fam))
+        self._series.append((t_end, self.surprise_ema, 1.0 - self.surprise_long))
 
     def learn(self, exp) -> None:
         return None
@@ -196,6 +214,7 @@ class TemporalSNN(Module):
                 "feat": self.feat.copy(), "trace": self.trace.copy(), "fmean": self.fmean.copy(), "pred": self.pred.copy(),
                 "surprise_ema": self.surprise_ema, "surprise_long": self.surprise_long,
                 "raw_surprise": self.raw_surprise,
+                "bin_start": self._bin_start, "pending": [[t, k] for t, k in self._pending],
                 "series": np.array(self._series, dtype=np.float64).reshape(-1, 3)}
 
     def load_state_dict(self, d: dict) -> None:
@@ -205,6 +224,9 @@ class TemporalSNN(Module):
         self.m_in = np.array(d["m_in"], dtype=bool); self.m_ee = np.array(d["m_ee"], dtype=bool)
         self.surprise_ema = float(d["surprise_ema"]); self.surprise_long = float(d["surprise_long"])
         self.raw_surprise = float(d.get("raw_surprise", 0.0))
+        bs = d.get("bin_start")
+        self._bin_start = None if bs is None else float(bs)
+        self._pending = [(float(t), str(k)) for t, k in d.get("pending", [])]
         self._series = deque((tuple(r) for r in np.asarray(d.get("series", np.zeros((0, 3))))), maxlen=_SERIES_LEN)
         self.last_spikes = np.zeros((B.SNN_SUBSTEPS, self.n), dtype=bool)
 

@@ -3,6 +3,7 @@ import os
 import time
 import numpy as np
 import pytest
+from engrama import balance as B
 from engrama.mind.contracts import Blackboard, Observation
 from engrama.modules.temporal.snn import TemporalSNN
 from engrama.vocab import EVENT_KINDS, STAGES
@@ -13,17 +14,21 @@ def make(n=32, seed=0):
 
 
 def run(m, kinds_per_bin, bb=None):
-    """Step once per entry (a kind, a tuple of kinds, or None); returns per-bin (surprise, raw, expectation)."""
+    """Step once per entry (a kind, a tuple of kinds, or None), one entry per SNN bin (the SNN advances on
+    fixed sim-time bins of SNN_BIN_S, so each step is dt = SNN_BIN_S); returns per-bin
+    (surprise, raw, expectation)."""
     bb = bb or Blackboard()
     out = []
-    for i, ks in enumerate(kinds_per_bin):
+    bs = B.SNN_BIN_S
+    for ks in kinds_per_bin:
+        i = round(bb.t / bs)      # bins stepped so far (bb.t is the end of the previous bin)
         if ks is None:
             ks = ()
         elif isinstance(ks, str):
             ks = (ks,)
-        bb.events = tuple(Observation(float(i), k) for k in ks)
-        bb.t = float(i)
-        m.step(bb, 1.0)
+        bb.events = tuple(Observation(i * bs, k) for k in ks)
+        bb.t = (i + 1) * bs
+        m.step(bb, bs)
         out.append((float(bb.read("temporal.surprise")[0]), m.raw_surprise,
                     bb.read("temporal.expectation")))
     return out
@@ -38,8 +43,9 @@ def test_bounded_rates_all_sizes_and_seeds(n, seed):
     counts = np.zeros(n)
     for i in range(300):
         ks = tuple(k for k in EVENT_KINDS if rs.random() < 0.15)
-        bb.events = tuple(Observation(float(i), k) for k in ks)
-        m.step(bb, 1.0)
+        bb.events = tuple(Observation(i * B.SNN_BIN_S, k) for k in ks)
+        bb.t = (i + 1) * B.SNN_BIN_S
+        m.step(bb, B.SNN_BIN_S)
         if i >= 200:
             counts += m.last_spikes.sum(axis=0)
     rates = counts / 100 * 50.0          # spikes per 20 ms bin -> Hz
@@ -164,3 +170,46 @@ def test_step_cost():
     t0 = time.perf_counter()
     run(m, ["pet", None] * 50, bb)
     assert (time.perf_counter() - t0) / 100 * 1000 < 3.0
+
+
+def _run_dt(dt, seed=0, minutes=240):
+    """Same timestamped event stream (a pet every 3 min, a message every 7 min) fed at tick length dt."""
+    m = make(32, seed)
+    bb = Blackboard()
+    surprise, expect = [], []
+    t, end = 0.0, minutes * 60.0
+    while t < end - 1e-9:
+        evs = []
+        for k in range(int(round(dt / 1.0))):          # events are on a whole-second grid
+            ts = t + k
+            if ts % 180 == 0:
+                evs.append(Observation(ts, "pet"))
+            if ts % 420 == 0 and ts > 0:
+                evs.append(Observation(ts, "message"))
+        bb.events, bb.t = tuple(evs), t + dt
+        m.step(bb, dt)
+        t += dt
+        if abs(t % B.SNN_BIN_S) < 1e-9:                # compare at bin boundaries
+            surprise.append(float(bb.read("temporal.surprise")[0]))
+            expect.append(bb.read("temporal.expectation"))
+    return np.array(surprise), np.array(expect)
+
+
+def test_dt_invariant_readouts():
+    """dt=10 and dt=60 over the same events give close readouts (the SNN lives on sim-time bins)."""
+    s10, e10 = _run_dt(10.0)
+    s60, e60 = _run_dt(60.0)
+    assert len(s10) == len(s60) == 240
+    assert abs(s10[60:].mean() - s60[60:].mean()) < 0.03, (s10[60:].mean(), s60[60:].mean())
+    assert abs(e10[60:].mean() - e60[60:].mean()) < 0.03
+    assert np.corrcoef(s10[60:], s60[60:])[0, 1] > 0.5
+    assert np.abs(e10[60:] - e60[60:]).mean() < 0.05
+
+
+def test_dt1_matches_dt60_bin_counts():
+    m = make(32)
+    bb = Blackboard()
+    for i in range(600):                                # 10 sim-minutes at dt=1 => exactly 10 bins
+        bb.t = float(i + 1)
+        m.step(bb, 1.0)
+    assert len(m._series) == 10 and m.last_spikes.shape[0] == B.SNN_SUBSTEPS
