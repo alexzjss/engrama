@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "engrama"
+version = "0.2.0"
+requires-python = ">=3.13"
+dependencies = ["numpy", "psutil"]
+
+[project.optional-dependencies]
+ui = ["pygame-ce"]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["engrama*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = ["slow: long-running acceptance tests (included in the default run)"]

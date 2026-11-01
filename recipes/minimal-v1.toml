@@ -1,0 +1,16 @@
+[recipe]
+name = "minimal-v1"
+version = 1
+
+[arbiter]
+temperature = 0.5
+
+[[module]]
+type = "drives.needs"
+
+[[module]]
+type = "affect.pad"
+
+[[module]]
+type = "policy.utility"
+weight = 1.0
