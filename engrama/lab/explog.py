@@ -12,7 +12,8 @@ from engrama.mind.contracts import Experience, Proposal
 
 _COMMIT_EVERY = 500
 _SCHEMA = """
-CREATE TABLE IF NOT EXISTS runs(run_id TEXT PRIMARY KEY, recipe TEXT, seed INTEGER, started REAL);
+CREATE TABLE IF NOT EXISTS runs(run_id TEXT PRIMARY KEY, recipe TEXT, seed INTEGER, started REAL,
+  recipe_version INTEGER);
 CREATE TABLE IF NOT EXISTS ticks(id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, t REAL, dt REAL,
   action TEXT, prob REAL, rewards_json TEXT, events_json TEXT, proposals_json TEXT, shadow_json TEXT,
   decided INTEGER NOT NULL DEFAULT 1);
@@ -40,11 +41,17 @@ def _prop(p: Proposal) -> dict:
 
 class ExperienceLog:
     def __init__(self, path: Path, run_id: str, recipe: str, seed: int,
-                 sample_s: float = B.EXPLOG_CHANNEL_SAMPLE_S, max_rows: int = B.EXPLOG_MAX_ROWS) -> None:
+                 sample_s: float = B.EXPLOG_CHANNEL_SAMPLE_S, max_rows: int = B.EXPLOG_MAX_ROWS,
+                 recipe_version: int | None = None) -> None:
+        """run_id should be unique per run (the lab uses a uuid4); reopening an existing run_id resumes it."""
         self.run_id, self.sample_s, self.max_rows = run_id, sample_s, max_rows
         self._db = sqlite3.connect(str(path))
+        self._db.execute("PRAGMA temp_store=MEMORY")     # sorts / rotation never spill to %TEMP% on C:
         self._db.executescript(_SCHEMA)
-        self._db.execute("INSERT OR IGNORE INTO runs VALUES(?,?,?,?)", (run_id, recipe, seed, time.time()))
+        if "recipe_version" not in [r[1] for r in self._db.execute("PRAGMA table_info(runs)")]:
+            self._db.execute("ALTER TABLE runs ADD COLUMN recipe_version INTEGER")
+        self._db.execute("INSERT OR IGNORE INTO runs(run_id,recipe,seed,started,recipe_version) VALUES(?,?,?,?,?)",
+                         (run_id, recipe, seed, time.time(), recipe_version))
         cols = [r[1] for r in self._db.execute("PRAGMA table_info(ticks)")]
         if "decided" not in cols:
             self._db.execute("ALTER TABLE ticks ADD COLUMN decided INTEGER NOT NULL DEFAULT 1")
@@ -103,15 +110,31 @@ class TickRow:
     shadow: list[dict]
     channels: dict[str, np.ndarray]
     decided: bool = True   # a fresh arbiter decision was made for this row's action
+    # Note: `channels` (when sampled) are the blackboard as it stood before this tick's modules ran, i.e. the
+    # state left by the previous tick, and `rewards` are the raw per-tick values: ask-window rewards sit on the
+    # row where the window closed, not on the ask (see contracts.credit_rows for the credited view).
 
 
 def list_runs(path: Path) -> list[dict]:
     db = sqlite3.connect(str(path))
     try:
-        cur = db.execute("SELECT run_id, recipe, seed, started FROM runs ORDER BY started, rowid")
-        return [dict(zip(("run_id", "recipe", "seed", "started"), r)) for r in cur]
+        has_v = any(r[1] == "recipe_version" for r in db.execute("PRAGMA table_info(runs)"))
+        cur = db.execute("SELECT run_id, recipe, seed, started, " + ("recipe_version" if has_v else "NULL")
+                         + " FROM runs ORDER BY started, rowid")
+        return [dict(zip(("run_id", "recipe", "seed", "started", "recipe_version"), r)) for r in cur]
     finally:
         db.close()
+
+
+def run_identity(path: Path, run_id: str | None = None) -> dict:
+    """{run_id, recipe, recipe_version} of a logged run (the latest one by default)."""
+    runs = list_runs(path)
+    if run_id is not None:
+        runs = [r for r in runs if r["run_id"] == run_id]
+    if not runs:
+        return {}
+    r = runs[-1]
+    return {"run_id": r["run_id"], "recipe": r["recipe"], "recipe_version": r["recipe_version"]}
 
 
 def read_log(path: Path, run_id: str | None = None) -> Iterator[TickRow]:

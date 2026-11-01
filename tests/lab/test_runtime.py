@@ -133,3 +133,55 @@ def test_forced_continuation_logs_prob_one_at_dt1():
     rt.tick(1.0, [Obs(rt.kernel.t, "fullscreen_on")])
     assert rt.kernel.world.fullscreen
     assert rt._last_action == "hide" and rt._pending["action"] == "hide" and rt._pending["prob"] == 1.0
+
+
+class SlowModule(Module):
+    reads = (); writes = ()
+    budget_ms = 0.001
+    def step(self, bb, dt): time.sleep(0.002)
+
+
+def test_default_runtime_is_deterministic_despite_slow_module():
+    """Lab runs do not demote on wall-clock time: a module far over budget changes nothing."""
+    registry.register("test.slow", f"{__name__}:SlowModule")
+    try:
+        base = load_recipe(RECIPE)
+        recipe = Recipe("slow", 1, (ModuleSpec("test.slow", "slow", {}),) + base.modules, base.arbiter)
+        runs = []
+        for _ in range(2):
+            rt = Runtime(recipe, 1); rt.user = _user()
+            runs.append(_actions(rt, 6 * 3600.0))
+            st = [s for s in rt.scheduler.status() if s.name == "slow"][0]
+            assert st.rate_factor == 1.0 and st.last_ms > 0.001   # far over its budget, never demoted
+        assert runs[0] == runs[1]
+        assert not Runtime(recipe, 1).scheduler.enforce_budgets
+        assert Runtime(recipe, 1, enforce_budgets=True).scheduler.enforce_budgets
+    finally:
+        registry.REGISTRY.pop("test.slow", None)
+
+
+def test_rerun_into_same_log_does_not_interleave(tmp_path):
+    from engrama.lab.explog import list_runs
+    db = tmp_path / "same.db"
+    a = run_days(RECIPE, 0.25, "attentive", 1, 60.0, db)
+    b = run_days(RECIPE, 0.25, "attentive", 1, 60.0, db)
+    assert a["run_id"] != b["run_id"] and len(a["run_id"]) == 32
+    assert a["ticks"] == b["ticks"] and a["days_simulated"] == b["days_simulated"]
+    runs = list_runs(db)
+    assert [r["run_id"] for r in runs] == [a["run_id"], b["run_id"]]
+    assert all(r["recipe"] == "minimal-v1" and r["recipe_version"] == 1 for r in runs)
+    ra, rb = list(read_log(db, a["run_id"])), list(read_log(db, b["run_id"]))
+    assert len(ra) == len(rb) == a["ticks"]
+    assert [(r.t, r.action) for r in ra] == [(r.t, r.action) for r in rb]       # same seed, same run
+    assert compute_metrics(read_log(db))["ticks"] == b["ticks"]                 # default = the latest run
+
+
+def test_default_recipe_save_load_continue_identical(tmp_path):
+    recipe = load_recipe(RECIPE.with_name("default-v1.toml"))
+    ref = Runtime(recipe, 5); ref.user = _user(5, "gamer")
+    full = _actions(ref, 6 * 3600.0)
+    rt = Runtime(recipe, 5); rt.user = _user(5, "gamer")
+    first = _actions(rt, 3 * 3600.0)
+    rt.save(tmp_path / "save")
+    rt2 = Runtime.load(tmp_path / "save")
+    assert first + _actions(rt2, 3 * 3600.0) == full

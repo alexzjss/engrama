@@ -143,3 +143,78 @@ def test_incomplete_backups_ignored(tmp_path):
     (tmp_path / "kernel.json").write_text("{bad")
     k, m, _ = p.load_run(tmp_path)
     assert k == {"tick": 1} and "a" in m
+
+
+def test_meta_gets_version_1(tmp_path):
+    p.save_run(tmp_path, {"tick": 1}, _modules(), {"seed": 7}, today=date(2026, 1, 1))
+    assert p.load_run(tmp_path)[2]["version"] == 1
+
+
+def test_newer_save_version_is_not_a_corruption_fallback(tmp_path):
+    _save(tmp_path)
+    (tmp_path / "meta.json").write_text(json.dumps({"version": 99}))
+    with pytest.raises(p.SaveVersionError):
+        p.load_run(tmp_path)
+
+
+def test_save_swaps_in_atomically_and_keeps_backups(tmp_path):
+    d = tmp_path / "save"
+    _save(d, date(2026, 1, 1), kernel={"tick": 1})
+    _save(d, date(2026, 1, 2), kernel={"tick": 2})
+    assert p.load_run(d)[0] == {"tick": 2}
+    assert sorted(x.name for x in (d / "backups").iterdir()) == ["2026-01-01", "2026-01-02"]
+    assert not [x for x in tmp_path.iterdir() if x.name != "save"]      # no staging / old dirs left
+
+
+def test_crash_mid_save_leaves_previous_save_whole(tmp_path, monkeypatch):
+    d = tmp_path / "save"
+    _save(d, kernel={"tick": 1})
+    real = p._write_json
+
+    def boom(path, obj):
+        if path.name == "meta.json":
+            raise OSError("disk full")
+        real(path, obj)
+
+    monkeypatch.setattr(p, "_write_json", boom)
+    with pytest.raises(OSError):
+        p.save_run(d, {"tick": 2}, {"a": {"w": np.zeros(1), "n": 9}}, {"seed": 8}, today=date(2026, 1, 2))
+    monkeypatch.undo()
+    k, m, meta = p.load_run(d)
+    assert k == {"tick": 1} and m["a"]["n"] == 3 and meta["seed"] == 7      # all old, nothing mixed
+    assert not [x for x in tmp_path.iterdir() if x.name != "save"]
+
+
+def test_crash_between_the_two_renames_is_recovered(tmp_path):
+    d = tmp_path / "save"
+    _save(d, kernel={"tick": 1})
+    d.rename(tmp_path / ".save.old-deadbeef")                # simulated crash: save_dir missing
+    assert p.load_run(d)[0] == {"tick": 1}
+
+
+@pytest.mark.parametrize("exc", [RuntimeError("bug"), TypeError("bug"), ZeroDivisionError()])
+def test_programming_errors_do_not_trigger_backup_fallback(tmp_path, monkeypatch, exc):
+    _save(tmp_path)
+
+    def bad(path):
+        raise exc
+
+    monkeypatch.setattr(p, "load_state_dict", bad)
+    with pytest.raises(type(exc)):
+        p.load_run(tmp_path)
+
+
+@pytest.mark.parametrize("damage", ["json", "missing_module_file", "badzip", "empty_meta"])
+def test_corruption_class_errors_fall_back_with_a_warning(tmp_path, damage):
+    _save(tmp_path)
+    if damage == "json":
+        (tmp_path / "kernel.json").write_text("{nope")
+    elif damage == "missing_module_file":
+        (tmp_path / "modules" / "a.npz").unlink()
+    elif damage == "badzip":
+        (tmp_path / "modules" / "a.npz").write_bytes(b"PK\x03\x04garbage")
+    else:
+        (tmp_path / "meta.json").write_text("")
+    with pytest.warns(RuntimeWarning, match="loaded backup"):
+        k, m, meta = p.load_run(tmp_path)
+    assert k == {"tick": 1}

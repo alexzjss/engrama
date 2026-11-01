@@ -18,3 +18,9 @@ def test_cli_sim_smoke(capsys, tmp_path):
 def test_cli_sim_without_log(capsys):
     assert main(["sim", "--recipe", RECIPE, "--days", "0.2"]) == 0
     assert "wellbeing" in json.loads(capsys.readouterr().out)
+
+
+def test_param_parsing_booleans_numbers_strings():
+    from engrama.lab.cli import _parse
+    assert _parse("False") is False and _parse("true") is True
+    assert _parse("3") == 3 and _parse("0.5") == 0.5 and _parse("abc") == "abc"

@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 import numpy as np
-from engrama.lab.explog import read_log
+from engrama.lab.explog import read_log, run_identity
 from engrama.lab.metrics import compute_metrics
 from engrama.lab.replay import replay_module
 from engrama.lab.runtime import run_days
@@ -17,6 +17,8 @@ def _num(x) -> bool:
 
 
 def _parse(v: str):
+    if v.lower() in ("true", "false"):
+        return v.lower() == "true"
     for f in (int, float):
         try:
             return f(v)
@@ -52,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--dt", type=float, default=60.0)
     s.add_argument("--log", type=Path, default=None)
     s.add_argument("--save", type=Path, default=None)
+    s.add_argument("--enforce-budgets", action="store_true",
+                   help="demote slow modules by wall-clock time (not deterministic; off for lab runs)")
     r = sub.add_parser("report", help="print metrics of a logged run")
     r.add_argument("--log", type=Path, required=True)
     r.add_argument("--run", default=None)
@@ -70,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--seed", type=int, default=0)
     a = ap.parse_args(argv)
     if a.cmd == "sim":
-        m = run_days(a.recipe, a.days, a.profile, a.seed, a.dt, a.log, a.save)
+        m = run_days(a.recipe, a.days, a.profile, a.seed, a.dt, a.log, a.save, a.enforce_budgets)
     elif a.cmd == "compare":
         ma = run_days(a.a, a.days, a.profile, a.seed, a.dt, None)
         mb = run_days(a.b, a.days, a.profile, a.seed, a.dt, None)
@@ -79,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
     elif a.cmd == "replay":
         m = _replay_summary(a)
     else:
-        m = compute_metrics(read_log(a.log, a.run))
+        m = {**compute_metrics(read_log(a.log, a.run)), **run_identity(a.log, a.run)}
     print(json.dumps(m, indent=2))
     return 0
 
