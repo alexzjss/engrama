@@ -78,7 +78,9 @@ def _surprise_after_events(seed: int, days: float = 7.0):
 
 @pytest.mark.slow
 @pytest.mark.parametrize("seed", [1, 2, 3])
-def test_snn_measures_novelty_in_replay(seed):
+def test_novelty_signal_is_higher_for_rare_events_live(seed):
+    """Regression guard, NOT evidence for the spiking network: the signal comes mostly from the readout's
+    base rate (the bias-only ablation scores the same ratio). Measured live on the blackboard, not in replay."""
     rare, common = _surprise_after_events(seed)
     assert len(rare) >= 30 and len(common) >= 30, (len(rare), len(common))
     ratio = np.mean(rare) / np.mean(common)
@@ -87,7 +89,8 @@ def test_snn_measures_novelty_in_replay(seed):
 
 
 @pytest.mark.slow
-def test_recipes_differ_on_metric():
+def test_minimal_and_default_recipes_differ_on_a_metric():
+    """A recipe difference (SNN, Q-learning, prefs and traits all differ), not an SNN-only claim."""
     a = run_days(MINIMAL, 10, "attentive", 1, 60.0, None)
     b = run_days(DEFAULT, 10, "attentive", 1, 60.0, None)
     d_ent = abs(b["behavior_entropy"] - a["behavior_entropy"])
@@ -162,8 +165,16 @@ def _brier(readout_hidden: bool, seed: int = 1, days: int = 4, dt: float = 60.0)
     return float(np.mean(errs))
 
 
+BRIER_MIN_REL_GAIN = 0.02
+
+
 @pytest.mark.slow
-def test_snn_beats_ablation_on_routine_prediction():
-    full, abl = _brier(True), _brier(False)
-    print("BRIER", full, abl)
-    assert full < abl, (full, abl)
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_snn_beats_bias_only_readout_on_routine_prediction(seed):
+    """What is evidenced about the SNN (R21): on a scripted periodic user, next-event prediction (Brier) of
+    the full model beats the bias-only readout (readout_hidden=False) by >= 2% on each of seeds 1, 2, 3.
+    It says nothing about random users, novelty or behaviour."""
+    full, abl = _brier(True, seed), _brier(False, seed)
+    gain = (abl - full) / abl
+    print("BRIER", seed, full, abl, gain)
+    assert gain >= BRIER_MIN_REL_GAIN, (seed, full, abl, gain)

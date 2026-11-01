@@ -252,6 +252,11 @@ tests/
    - SNN temporal, Q-learning contextual, preferências e deriva de traços.
    - Modo sombra, replay e `compare`.
    - Critério: a SNN mede de forma comprovável novidade e habituação no replay, e a receita com SNN difere da receita sem SNN numa métrica definida.
+   - **Nota (revisão final, R21): o que está evidenciado.**
+     - A SNN melhora a previsão de rotina sobre uma leitura só com viés (Brier no próximo evento, usuário periódico roteirizado, sementes 1, 2 e 3, ganho relativo de 4,0% a 5,1%; o teste exige pelo menos 2% em cada semente). Isso não vale para usuários aleatórios.
+     - O sinal de novidade vem principalmente da taxa-base (o viés da leitura): a ablação só com viés dá a mesma razão raro/comum. Habituação idem. Esses testes são guardas de regressão, não prova de que a rede de disparos carrega o sinal, e são medidos ao vivo no quadro-negro, não no replay.
+     - `minimal` contra `default` é uma diferença de receita (SNN, Q-learning, preferências e traços mudam juntos), não uma afirmação só da SNN.
+     - Em aberto como pesquisa: isolar o efeito da SNN no comportamento (hoje o único consumidor de `temporal.*` é o termo de ativação do PAD).
 3. **M3: Corpo e voz.**
    - Janela pygame, sprites e grunhidos procedurais, chat, LLM gerenciado, persona por estágio, Visão da Mente e descanso.
    - Critério: é o MVP do usuário (criatura visual, conversa, SNN visível).
