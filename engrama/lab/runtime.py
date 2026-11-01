@@ -1,17 +1,18 @@
 """The simulation loop: kernel (body) + scheduler/arbiter (mind) + experience log."""
 from __future__ import annotations
-from dataclasses import asdict
+import uuid
+from dataclasses import asdict, replace
 from pathlib import Path
 import numpy as np
 from engrama import balance as B
 from engrama.kernel.kernel import Kernel
 from engrama.kernel.sensors import Obs
-from engrama.lab.explog import ExperienceLog, TickRow, read_log
+from engrama.lab.explog import ExperienceLog, TickRow, read_log, run_identity
 from engrama.lab.metrics import compute_metrics
 from engrama.lab.simuser import PROFILES, SimUser
 from engrama.mind import registry
 from engrama.mind.arbiter import SoftmaxArbiter
-from engrama.mind.contracts import Blackboard, Experience, Observation, Proposal
+from engrama.mind.contracts import AskCredit, Blackboard, Experience, Observation, Proposal
 from engrama.mind.recipe import ModuleSpec, Recipe, load_recipe
 from engrama.mind.scheduler import Scheduler
 from engrama.services.persistence import load_run, rng_from_state, rng_state, save_run
@@ -25,6 +26,16 @@ def _lst(d: dict) -> dict:
     return {k: v.tolist() for k, v in d.items()}
 
 
+def _exp_to_dict(e: Experience) -> dict:
+    return {"t": e.t, "dt": e.dt, "action": e.action, "prob": e.action_prob,
+            "channels": _lst(e.channels), "next_channels": _lst(e.next_channels)}
+
+
+def _exp_from_dict(d: dict) -> Experience:
+    return Experience(float(d["t"]), float(d["dt"]), (), _arr(d["channels"]), d["action"], float(d["prob"]),
+                      {}, _arr(d["next_channels"]))
+
+
 def _props(ps: list[Proposal]) -> list[dict]:
     return [{"action": p.action, "score": p.score, "reason": p.reason, "source": p.source} for p in ps]
 
@@ -34,7 +45,8 @@ class Runtime:
     runtime continues bit-identically to an uninterrupted one."""
 
     def __init__(self, recipe: Recipe, seed: int, log: ExperienceLog | None = None,
-                 start_hour: float = 8.0) -> None:
+                 start_hour: float = 8.0, enforce_budgets: bool = False) -> None:
+        """enforce_budgets: wall-clock budget demotion. Off by default so lab runs stay deterministic."""
         self.recipe, self.seed, self.start_hour, self.log = recipe, seed, start_hour, log
         # live modules, then the arbiter, then shadows: adding a shadow never shifts a live stream
         live_n = sum(not s.shadow for s in recipe.modules)
@@ -47,7 +59,7 @@ class Runtime:
             else:
                 rng_of.append(rngs[li]); li += 1
         mods = [registry.build(s, r) for s, r in zip(recipe.modules, rng_of)]
-        self._scheduler = Scheduler(mods, list(recipe.modules))
+        self._scheduler = Scheduler(mods, list(recipe.modules), enforce_budgets=enforce_budgets)
         self._arbiter_rng = rngs[live_n]
         self._arbiter = SoftmaxArbiter({s.name: s.weight for s in recipe.modules if not s.shadow},
                                        float(recipe.arbiter["temperature"]),
@@ -58,6 +70,7 @@ class Runtime:
         self._since_decision = 0.0
         self._pending: dict | None = None   # channels, action, prob, live, shadow
         self._last_action = ""
+        self._credit = AskCredit()   # token = the Experience of the ask that opened the open window
 
     bb = property(lambda self: self._bb)
     kernel = property(lambda self: self._kernel)
@@ -75,7 +88,11 @@ class Runtime:
         if pend is not None:
             exp = Experience(bb.t, dt, conv, pend["channels"], pend["action"], pend["prob"], rewards,
                              bb.snapshot())
-            self._scheduler.learn(exp)
+            own, moved, ask = self._credit.push(exp.action, rewards, exp)
+            self._scheduler.learn(exp if not moved else replace(exp, rewards=own))
+            if moved:   # R24: the answer / ignore belongs to the ask that opened the window
+                self._scheduler.learn(Experience(bb.t, 0.0, (), ask.channels, ask.action, ask.action_prob,
+                                                 moved, ask.next_channels))
             if self.log is not None:
                 self.log.write(exp, pend["live"], pend["shadow"], pend.get("decided", True))
         self._scheduler.step(bb, dt)
@@ -127,6 +144,8 @@ class Runtime:
                 "live": _props(pend["live"]), "shadow": _props(pend["shadow"]),
                 "decided": pend.get("decided", True)},
             "user": None if self.user is None else self.user.state_dict(),
+            "credit": None if self._credit.token is None else _exp_to_dict(self._credit.token),
+            "enforce_budgets": self._scheduler.enforce_budgets,
         }
         save_run(Path(save_dir), self._kernel.state_dict(), {n: m.state_dict() for n, m in mods.items()}, meta)
 
@@ -137,7 +156,8 @@ class Runtime:
         specs = tuple(ModuleSpec(m["type"], m["name"], m["params"], float(m["weight"]), bool(m["shadow"]))
                       for m in r["modules"])
         rt = cls(Recipe(r["name"], int(r["version"]), specs, r["arbiter"]),
-                 int(meta["seed"]), log, float(meta["start_hour"]))
+                 int(meta["seed"]), log, float(meta["start_hour"]),
+                 bool(meta.get("enforce_budgets", False)))
         rt._kernel = Kernel.from_state_dict(kstate)
         for n, m in rt._scheduler.modules().items():
             m.load_state_dict(mstates.get(n, {}))
@@ -155,6 +175,8 @@ class Runtime:
                            "live": [Proposal(**x) for x in p["live"]],
                            "shadow": [Proposal(**x) for x in p["shadow"]],
                            "decided": bool(p.get("decided", True))}
+        if meta.get("credit") is not None:
+            rt._credit.token = _exp_from_dict(meta["credit"])
         if meta["user"] is not None:
             rt.user = SimUser.from_state_dict(meta["user"])
         return rt
@@ -177,16 +199,17 @@ class _Collector:
 
 
 def run_days(recipe_path: Path, days: float, profile: str, seed: int, dt: float,
-             log_path: Path | None, save_dir: Path | None = None) -> dict:
+             log_path: Path | None, save_dir: Path | None = None, enforce_budgets: bool = False) -> dict:
     recipe = load_recipe(Path(recipe_path))
-    log = (ExperienceLog(Path(log_path), f"{recipe.name}-{profile}-{seed}", recipe.name, seed)
+    run_id = uuid.uuid4().hex   # unique per run: a rerun into the same log never mixes with an earlier one
+    log = (ExperienceLog(Path(log_path), run_id, recipe.name, seed, recipe_version=recipe.version)
            if log_path else _Collector())
-    rt = Runtime(recipe, seed, log)
+    rt = Runtime(recipe, seed, log, enforce_budgets=enforce_budgets)
     user = SimUser(PROFILES[profile], np.random.default_rng([seed, 1]))
     rt.run(days * 24 * B.HOUR, dt, user)
     if save_dir is not None:
         rt.save(Path(save_dir))
     if log_path:
         log.close()
-        return compute_metrics(read_log(Path(log_path)))
+        return {**compute_metrics(read_log(Path(log_path), run_id)), **run_identity(Path(log_path), run_id)}
     return compute_metrics(log.rows)

@@ -11,7 +11,7 @@ def _rows(n=20):
 def test_ips_equals_logged_when_target_equals_behavior():
     rows = _rows()
     out = ips_estimate(rows, lambda r: {r.action: r.prob})
-    assert out["n"] == len(rows) - 1
+    assert out["n"] == len(rows)
     assert out["value"] == pytest.approx(out["logged_value"])
     assert out["ess"] == pytest.approx(out["n"])
 
@@ -32,8 +32,8 @@ def test_ips_counts_only_decision_ticks(tmp_path):
     log = tmp_path / "l.db"
     run_days(recipe, 0.05, "attentive", 1, 2.0, log)
     rows = list(read_log(log))
-    decisions = sum(1 for r in rows[:-1] if r.decided)
-    assert 0 < decisions < len(rows) - 1
+    decisions = sum(1 for r in rows if r.decided)
+    assert 0 < decisions < len(rows)
     out = ips_estimate(rows, lambda r: {r.action: r.prob})
     assert out["n"] == decisions
 

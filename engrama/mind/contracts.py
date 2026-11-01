@@ -122,3 +122,46 @@ class Module:
 def reward_combine(rewards: dict[str, float], weights: dict[str, float] | None = None) -> float:
     w = B.REWARD_WEIGHTS if weights is None else weights
     return float(sum(w.get(k, 0.0) * rewards.get(k, 0.0) for k in REWARD_KEYS))
+
+
+ASK_ACTION = "ask_attention"
+ASK_WINDOW_KEYS = ("user_response", "ignored")
+
+
+class AskCredit:
+    """Credit rule shared by the online learner (Runtime) and offline evaluation (OPE).
+
+    A reward is credited to the row whose action produced it, except `user_response` / `ignored`:
+    they close an ask window, so they are credited to the ask_attention row that opened that window
+    (the first ask of a chain; later asks in an open window do not re-arm it). `push` takes rows in
+    time order and returns (own, moved, token): `own` stays on this row; `moved` (non-empty) belongs
+    to the earlier row identified by `token`.
+    """
+    def __init__(self) -> None:
+        self.token: Any = None
+
+    def push(self, action: str, rewards: dict[str, float], token: Any = None):
+        opened_here = action == ASK_ACTION and self.token is None
+        if opened_here:
+            self.token = token
+        moved = {k: rewards[k] for k in ASK_WINDOW_KEYS if rewards.get(k, 0.0)}
+        if not moved:
+            return rewards, {}, None
+        target, self.token = self.token, None
+        if target is None or opened_here:
+            return rewards, {}, None
+        own = {k: (0.0 if k in moved else v) for k, v in rewards.items()}
+        return own, moved, target
+
+
+def credit_rows(rows) -> list[float]:
+    """Combined, credited reward per row for an iterable of (action, rewards) in time order."""
+    rows = list(rows)
+    out = [0.0] * len(rows)
+    tracker = AskCredit()
+    for i, (action, rewards) in enumerate(rows):
+        own, moved, target = tracker.push(action, rewards, i)
+        out[i] += reward_combine(own)
+        if moved:
+            out[target] += reward_combine(moved)
+    return out

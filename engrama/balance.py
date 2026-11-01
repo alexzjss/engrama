@@ -80,3 +80,10 @@ INTERACT_WINDOW_S = 60.0   # seconds of a step during which an interaction suppr
 # M1 calibration: with 45-60 s actions and one action per tick, the base per-hour effects cannot offset
 # tedio/curiosidade growth (needs >100% of awake time), so wellbeing stayed ~0.02. x3 gives ~0.69.
 ACTION_RELIEF_SCALE = 3.0
+
+# --- Final review fixes ---
+SNN_BIN_S = 60.0                 # the SNN advances on fixed sim-time bins of this length (dt-invariant)
+SNN_MAX_BINS_PER_STEP = 5        # a very long step (offline gap) runs at most this many bins
+MODULE_MIN_RATE_FACTOR = 0.125   # live budget demotion never slows a module below 1/8 of its rate
+MODULE_RECOVERY_RUNS = 50        # consecutive in-budget runs after which a demoted module speeds back up
+SNN_BUDGET_MS = 10.0
