@@ -1,6 +1,8 @@
 """Mind View: the recipe graph, tick proposals, module costs and each module's viz, all from a Snapshot."""
 from __future__ import annotations
 
+from typing import Callable
+
 import pygame
 
 from engrama.app import i18n
@@ -39,6 +41,7 @@ def _arrow(surface, a, b, color) -> None:
 class MindView:
     def __init__(self) -> None:
         self.state = VizState()
+        self.memory_summary: Callable[[], dict] | None = None
 
     def draw(self, surface: pygame.Surface, snap: Snapshot) -> None:
         try:
@@ -54,10 +57,27 @@ class MindView:
         y = 4
         y += draw_text(surface, f"{i18n.t('ui.mind.title')}  {snap.recipe_name} v{snap.recipe_version}"
                        f"  t={snap.t:.0f}s", (6, y), vd.ACCENT, 12) + 4
+        y = self._memory(surface, y)
         y = self._graph(surface, snap, y, W) + 6
         y = self._proposals(surface, snap, y, W) + 6
         y = self._costs(surface, snap, y, W) + 6
         self._grid(surface, snap, y, W, H)
+
+    def _memory(self, surface, y) -> int:
+        fn = self.memory_summary
+        if fn is None:
+            return y
+        try:
+            s = fn() or {}
+            line = (f"{i18n.t('ui.mind.memory')}: ep {int(s.get('episodes', 0))}  fatos {int(s.get('facts', 0))}"
+                    f"  assuntos {int(s.get('topics', 0))}  opin {int(s.get('opinions', 0))}")
+            refl = str(s.get("last_reflection", "") or "")
+        except Exception:
+            return y
+        y += draw_text(surface, line, (6, y), vd.FG, 10) + 1
+        if refl:
+            y += draw_text(surface, refl, (6, y), vd.DIM, 10) + 1
+        return y + 4
 
     def _graph(self, surface, snap, y, W) -> int:
         mods = snap.modules
