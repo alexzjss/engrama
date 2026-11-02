@@ -14,6 +14,8 @@ from engrama.services.memory import (
     CURRENT_MIN_SALIENCE, MAX_EPISODES, MAX_FACTS, MAX_TOPICS, PAST_MIN_AFFINITY,
     PAST_MIN_AGE, SALIENCE_HALF_LIFE)
 from engrama.services.memory import opinions
+from engrama.services.perception import (
+    ACTIVITY_EPISODE_EVERY_S, PERCEIVED_AFFINITY_CAP, PERCEIVED_AFFINITY_STEP)
 from engrama.services.memory.topics import SYNONYMS, normalize_topic, plain_text
 
 DAY = 86400.0
@@ -32,6 +34,8 @@ CREATE TABLE IF NOT EXISTS facts(
 CREATE TABLE IF NOT EXISTS topics(name TEXT PRIMARY KEY, affinity REAL, t REAL);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
 INSERT OR IGNORE INTO meta(k, v) VALUES('schema_version', '1');
+CREATE TABLE IF NOT EXISTS app_categories(
+    process TEXT PRIMARY KEY, category TEXT NOT NULL, source TEXT NOT NULL, t REAL NOT NULL DEFAULT 0);
 """
 
 _V2_STATEMENTS = (
@@ -341,6 +345,98 @@ class MemoryStore:
         rows.sort(key=lambda r: (-r["affinity"], -r["last_t"], r["name"]))
         return [r["name"] for r in rows[:n]]
 
+    # ---- perceived themes (M5) ----------------------------------------
+    def bump_perceived(self, theme: str, now: float) -> str:
+        """Nudge a theme seen on the user's screen. Returns the topic key, or "" if
+        silenced/blocked. Never stores anything but the extracted theme."""
+        key = normalize_topic(theme)
+        if not key:
+            return ""
+        with self._lock:
+            if self._blocked("perceived", key) or self._blocked("topic", key):
+                return ""
+            row = self._db.execute(
+                "SELECT affinity, salience, t_salience FROM topics WHERE name=?", (key,)).fetchone()
+            if row is None:
+                self._db.execute(
+                    "INSERT INTO topics(name, affinity, t, salience, t_salience, first_t,"
+                    " last_t, mentions, source) VALUES(?,?,?,?,?,?,?,?,?)",
+                    (key, min(PERCEIVED_AFFINITY_CAP, PERCEIVED_AFFINITY_STEP), now, 0.5, now,
+                     now, now, 1, "percepcao"))
+            else:
+                aff, sal, t_sal = row
+                if aff < PERCEIVED_AFFINITY_CAP:
+                    aff = min(PERCEIVED_AFFINITY_CAP, aff + PERCEIVED_AFFINITY_STEP)
+                self._db.execute(
+                    "UPDATE topics SET affinity=?, t=?, salience=?, t_salience=?, last_t=?,"
+                    " mentions=mentions+1 WHERE name=?",
+                    (aff, now, _decay(sal, t_sal, now) + 0.05, now, now, key))
+            mk = f"activity_ep:{key}"
+            last = self._db.execute("SELECT v FROM meta WHERE k=?", (mk,)).fetchone()
+            due = last is None or now - float(last[0]) >= ACTIVITY_EPISODE_EVERY_S
+            if due:
+                self._db.execute("INSERT OR REPLACE INTO meta(k, v) VALUES(?, ?)", (mk, repr(float(now))))
+            self._db.commit()
+        if due:
+            self.add_episode("atividade", f"passou um tempo com {key}", 0.0, 0.2,
+                             topic=key, topics=[key])
+        return key
+
+    def silence_theme(self, name: str) -> None:
+        key = normalize_topic(name)
+        if not key:
+            return
+        with self._lock:
+            self._block("perceived", key, self._now())
+            self._db.commit()
+
+    def unsilence_theme(self, name: str) -> None:
+        key = normalize_topic(name)
+        with self._lock:
+            self._db.execute("DELETE FROM blocklist WHERE kind='perceived' AND ref=?", (key,))
+            self._db.commit()
+
+    def silenced_themes(self) -> list[str]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT ref FROM blocklist WHERE kind='perceived' ORDER BY ref").fetchall()
+        return [r[0] for r in rows]
+
+    # ---- app categories (M5) ------------------------------------------
+    def app_category(self, process: str) -> str | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT category FROM app_categories WHERE process=?",
+                ((process or "").strip().lower(),)).fetchone()
+        return row[0] if row else None
+
+    def set_app_category(self, process: str, category: str, source: str) -> bool:
+        """Store a category; an LLM answer never overrides a user correction."""
+        p = (process or "").strip().lower()
+        if not p or not category:
+            return False
+        with self._lock:
+            row = self._db.execute(
+                "SELECT source FROM app_categories WHERE process=?", (p,)).fetchone()
+            if row and row[0] == "user" and source != "user":
+                return False
+            self._db.execute(
+                "INSERT OR REPLACE INTO app_categories(process, category, source, t) VALUES(?,?,?,?)",
+                (p, category, source, self._now()))
+            self._db.commit()
+        return True
+
+    def app_category_rows(self) -> list[dict]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT process, category, source, t FROM app_categories ORDER BY process").fetchall()
+        return [dict(process=p, category=c, source=s, t=t) for p, c, s, t in rows]
+
+    def clear_app_categories(self) -> None:
+        with self._lock:
+            self._db.execute("DELETE FROM app_categories")
+            self._db.commit()
+
     # ---- opinions ------------------------------------------------------
     def opinion_rows(self) -> list[dict]:
         with self._lock:
@@ -486,7 +582,7 @@ class MemoryStore:
                 self._block("topic", name, now)
             for (key,) in self._db.execute("SELECT key FROM facts").fetchall():
                 self._block("fact", key, now)
-            for table in ("facts", "topics", "episodes", "episode_links"):
+            for table in ("facts", "topics", "episodes", "episode_links", "app_categories"):
                 self._db.execute(f"DELETE FROM {table}")
             self._db.execute(
                 "UPDATE opinions SET experience=0, confidence=0, phrase=NULL, phrase_lang=NULL")
