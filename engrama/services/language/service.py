@@ -18,7 +18,7 @@ from typing import Callable
 
 from engrama.services.language.client import LLMOffline, LLMTimeout, strip_think
 from engrama.services.language.lang import detect_lang
-from engrama.services.language.persona import (OPINION_PROMPT, build_file_messages, REFLECT_PROMPT, SPEECH, SPONTANEOUS_PROMPT,
+from engrama.services.language.persona import (build_farewell_messages, farewell_babble, OPINION_PROMPT, build_file_messages, REFLECT_PROMPT, SPEECH, SPONTANEOUS_PROMPT,
                                                PersonaState, apply_recall, babble, build_messages, clean_reply,
                                                strip_emoji, valence)
 from engrama.services.memory import CONVERSATION_GAP_S
@@ -176,9 +176,44 @@ class LanguageService:
         self._spawn(work)
 
     def spontaneous(self, kind: str, topic: str | None = None) -> None:
-        """Rare self-initiated remark (kind: current | opinion | past | activity); low priority, ready + idle only."""
+        """Rare self-initiated remark (kind: current | opinion | past | activity | ancestral); low priority, ready + idle only."""
         if kind in SPONTANEOUS_PROMPT["pt"]:
             self._enqueue(P_COMMENT, lambda: self._spontaneous(kind, topic))
+
+    def farewell(self, cause: str, on_text: Callable[[str], None]) -> None:
+        """Last words at death (chat priority): short LLM goodbye when ready, else affectionate babble. Never raises."""
+        try:
+            self._enqueue(P_CHAT, lambda: self._farewell(cause, on_text))
+        except Exception:
+            log.exception("farewell enqueue failed")
+            try:
+                on_text(farewell_babble(self._last_lang, self._rng))
+            except Exception:
+                pass
+
+    def _farewell(self, cause: str, on_text: Callable[[str], None]) -> None:
+        lang = self._last_lang
+        text = None
+        try:
+            state = self.get_state()
+            max_words = SPEECH.get(state.stage, SPEECH["baby"])[0]
+            if max_words > 0 and state.stage not in ("egg", "baby") and self.status == "ready":
+                msgs = build_farewell_messages(state, cause, lang, self.food_name)
+                self._chatting += 1
+                try:
+                    text = clean_reply(self.client.chat(self.cfg.model, msgs, 20 + 3 * max_words, 0.8), max_words)
+                finally:
+                    self._chatting -= 1
+        except LLMOffline:
+            self._state, self._down_until = "offline", self._now() + OFFLINE_COOLDOWN
+        except Exception:
+            log.exception("farewell failed")
+        if not text:
+            text = farewell_babble(lang, self._rng)
+        try:
+            on_text(text)
+        except Exception:
+            log.exception("farewell callback failed")
 
     def tick(self, now: float) -> None:
         """Queue a reflection once a conversation went quiet; unload the model after keep_alive_s."""
@@ -556,6 +591,8 @@ class LanguageService:
         lang = self._last_lang
         topic = re.sub(r"\d+", "", topic or "").strip()
         state = apply_recall(state, recall(self.memory, topic, state.stage, lang))
+        if kind == "ancestral":
+            state.ancestral = [topic] if topic else []
         if topic and kind == "current":
             state.current_topics = [topic]
         elif topic and kind == "past":

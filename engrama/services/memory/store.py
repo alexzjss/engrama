@@ -10,6 +10,7 @@ from collections import deque
 from pathlib import Path
 from typing import Callable, Iterable
 
+from engrama.balance import ANCESTRAL_MAX
 from engrama.services.memory import (
     CURRENT_MIN_SALIENCE, MAX_EPISODES, MAX_FACTS, MAX_TOPICS, PAST_MIN_AFFINITY,
     PAST_MIN_AGE, SALIENCE_HALF_LIFE)
@@ -227,7 +228,7 @@ class MemoryStore:
             ws = [w.lower() for w in words if w]
             scored = []
             for _id, t, summary, importance, topic in self._db.execute(
-                    "SELECT id, t, summary, importance, topic FROM episodes"):
+                    "SELECT id, t, summary, importance, topic FROM episodes WHERE kind != 'ancestral'"):
                 text = f"{summary} {topic or ''}".lower()
                 overlap = sum(1 for w in ws if w in text) / len(ws) if ws else 0.0
                 recency = math.exp(-max(0.0, now - t) / RECENCY_TAU)
@@ -586,6 +587,86 @@ class MemoryStore:
                 self._db.execute(f"DELETE FROM {table}")
             self._db.execute(
                 "UPDATE opinions SET experience=0, confidence=0, phrase=NULL, phrase_lang=NULL")
+            self._db.commit()
+
+    # ---- generations / ancestral memory --------------------------------
+    def ancestral_candidates(self, k: int = ANCESTRAL_MAX) -> list[str]:
+        """Summaries of the most striking episodes: no digits, nothing blocked, no user facts."""
+        with self._lock:
+            refs = [r[0] for r in self._db.execute(
+                "SELECT ref FROM blocklist WHERE kind IN ('topic','perceived')")]
+            pats = [_term_regex(r) for r in refs if r]
+            fact_eps = {r[0] for r in self._db.execute(
+                "SELECT episode_id FROM episode_links WHERE kind='fact'")}
+            blocked_eps = {r[0] for r in self._db.execute(
+                "SELECT l.episode_id FROM episode_links l JOIN blocklist b"
+                " ON b.kind='topic' AND b.ref=l.ref WHERE l.kind='topic'")}
+            rows = self._db.execute(
+                "SELECT id, summary, topic FROM episodes WHERE kind NOT IN ('ancestral','arquivo')"
+                " ORDER BY importance DESC, ABS(valence) DESC, t DESC, id DESC").fetchall()
+        out: list[str] = []
+        for eid, summary, topic in rows:
+            summary = (summary or "").strip()
+            if not summary or re.search(r"\d", summary) or eid in fact_eps or eid in blocked_eps:
+                continue
+            text = plain_text(f"{summary} {topic or ''}")
+            if any(p.search(text) for p in pats):
+                continue
+            out.append(summary)
+            if len(out) >= k:
+                break
+        return out
+
+    def ancestral_rows(self, n: int = 1) -> list[str]:
+        """Ancestral summaries, newest first (n <= 0: all)."""
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT summary FROM episodes WHERE kind='ancestral' ORDER BY id DESC").fetchall()
+        out = [r[0] for r in rows]
+        return out[:n] if n > 0 else out
+
+    def retrieve_ancestral(self, words: list[str], k: int = 1) -> list[str]:
+        """Ancestral episodes whose text matches at least one word."""
+        ws = [w.lower() for w in words if w]
+        if not ws:
+            return []
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT id, summary FROM episodes WHERE kind='ancestral'").fetchall()
+        scored = []
+        for _id, summary in rows:
+            text = plain_text(summary)
+            hit = sum(1 for w in ws if w in text)
+            if hit:
+                scored.append((-hit, -_id, summary))
+        scored.sort()
+        return [x[2] for x in scored[:k]]
+
+    def archive_to(self, path: Path) -> None:
+        """Consistent copy of the database (sqlite3 backup API); creates parent folders."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with self._lock:
+            self._db.commit()
+            dest = sqlite3.connect(str(path))
+            try:
+                self._db.backup(dest)
+            finally:
+                dest.close()
+
+    def new_generation(self, ancestral: list[str]) -> None:
+        """Wipe the generation's memory; keep blocklist and app_categories; seed ancestral episodes."""
+        with self._lock:
+            now = self._now()
+            for table in ("episodes", "episode_links", "facts", "topics", "opinions"):
+                self._db.execute(f"DELETE FROM {table}")
+            self._db.execute("DELETE FROM meta WHERE k != 'schema_version'")
+            for summary in ancestral:
+                summary = (summary or "").strip()
+                if summary:
+                    self._db.execute(
+                        "INSERT INTO episodes(t, kind, summary, valence, importance, topic)"
+                        " VALUES(?,?,?,?,?,?)", (now, "ancestral", summary, 0.0, 0.6, None))
             self._db.commit()
 
     # ---- compaction / caps --------------------------------------------

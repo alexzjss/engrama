@@ -31,12 +31,14 @@ class PersonaState:
     current_topics: list[str] = field(default_factory=list)
     past_topics: list[str] = field(default_factory=list)
     opinion: str | None = None
+    ancestral: list[str] = field(default_factory=list)   # vague dreams from before birth
 
 
 def apply_recall(state: PersonaState, ctx) -> PersonaState:
     """Return a copy of state carrying a RecallContext (services.memory.recall)."""
     return replace(state, facts=list(ctx.facts), memories=list(ctx.episodes), current_topics=list(ctx.current),
-                   past_topics=list(ctx.past), opinion=ctx.opinion)
+                   past_topics=list(ctx.past), opinion=ctx.opinion,
+                   ancestral=list(getattr(ctx, "ancestral", []) or []))
 
 
 TRAIT_ADJ = {
@@ -125,6 +127,26 @@ SPONTANEOUS_PROMPT = {
            "past": "(The human said nothing. Fondly bring up, on your own, the old subject: {topic}. One short line.)",
            "activity": "(The human is busy with this right now: {topic}. Make a short, discreet remark about it on your own, without saying you are watching the screen. One short line.)"},
 }
+SPONTANEOUS_PROMPT["pt"]["ancestral"] = (
+    "(O humano não disse nada. Diga por conta própria, como quem acorda de um sonho vago de antes de nascer, "
+    "algo sobre isto: {topic}. Uma linha curta.)")
+SPONTANEOUS_PROMPT["en"]["ancestral"] = (
+    "(The human said nothing. Say on your own, like waking from a vague dream from before you were born, "
+    "something about this: {topic}. One short line.)")
+FAREWELL_PROMPT = {
+    "pt": {"old_age": "(Você está velho e cansado e chegou a hora de partir. Diga uma despedida curta, carinhosa e "
+                      "serena ao seu humano, agradecendo o tempo juntos. Uma linha curta.)",
+           "neglect": "(Você está fraco demais e chegou a hora de partir. Diga uma despedida curta e triste, sem "
+                      "culpar, ao seu humano. Uma linha curta.)"},
+    "en": {"old_age": "(You are old and tired and it is time to go. Say a short, warm, serene goodbye to your human, "
+                      "thanking them for the time together. One short line.)",
+           "neglect": "(You are too weak and it is time to go. Say a short, sad goodbye to your human, without "
+                      "blaming them. One short line.)"},
+}
+FAREWELL_BABBLE = {
+    "pt": ["pii... gru... (te quero bem)", "brr... mu... obrigado... pii", "nha... zzz... (adeus, gru)"],
+    "en": ["pii... gru... (love you)", "brr... mu... thank you... pii", "nha... zzz... (bye bye, gru)"],
+}
 FILE_PROMPT = {
     "pt": ("(O humano acabou de te mostrar um arquivo chamado \"{name}\", do tipo {kind}. A mensagem dele traz um "
            "trecho do conteúdo. Comente em uma linha curta, com curiosidade, sem listar números.)"),
@@ -167,6 +189,8 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
 
     mems = [re.sub(r"\s+", " ", re.sub(r"\d+", "", m)).strip() for m in state.memories[:3]]
     mems = [m for m in mems if m]
+    dreams = [re.sub(r"\s+", " ", re.sub(r"\d+", "", m)).strip() for m in state.ancestral[:1]]
+    dreams = [m for m in dreams if m]
     if en:
         parts = [
             "You are Engrama, a digital creature (Digimon-inspired, but original). You know you live in a small window "
@@ -183,6 +207,7 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
             f"What you know about your human: {'; '.join(state.facts)}." if state.facts else "",
             f"Current topics: {', '.join(state.current_topics)}." if state.current_topics else "",
             f"An old topic you may remember: {', '.join(state.past_topics)}." if state.past_topics else "",
+            f"A dream from before you were born (not something you lived; speak of it as a vague dream): {'; '.join(dreams)}." if dreams else "",
             f"Your opinion: you {state.opinion} (you may disagree with the human)." if state.opinion else "",
             "(Mention foods only if the human talks about food.) Reply in English.",
         ]
@@ -203,6 +228,7 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
             f"O que você sabe do seu humano: {'; '.join(state.facts)}." if state.facts else "",
             f"Assuntos de agora: {', '.join(state.current_topics)}." if state.current_topics else "",
             f"Um assunto antigo que você pode lembrar: {', '.join(state.past_topics)}." if state.past_topics else "",
+            f"Um sonho de antes de nascer (não é algo que você viveu; fale como de um sonho vago): {'; '.join(dreams)}." if dreams else "",
             f"Sua opinião: você {state.opinion} (pode discordar do humano)." if state.opinion else "",
             "(Só fale de comida se o humano falar de comida.) Responda em português.",
         ]
@@ -302,3 +328,15 @@ def build_file_messages(state: PersonaState, lang: str, name: str, kind: str, ex
     note = re.sub(r"\d", "", FILE_PROMPT[lang].format(name=name, kind=kind))
     msgs[0]["content"] = msgs[0]["content"] + " " + note
     return msgs
+
+
+def build_farewell_messages(state: PersonaState, cause: str, lang: str, food_name=None) -> list[dict]:
+    """Chat messages for the last words; same persona, the farewell instruction is the user turn."""
+    lang = _lang(lang)
+    prompts = FAREWELL_PROMPT[lang]
+    text = re.sub(r"\d", "", prompts.get(cause, prompts["old_age"]))
+    return build_messages(replace(state, ancestral=[]), [], text, lang, food_name)
+
+
+def farewell_babble(lang: str, rng: random.Random) -> str:
+    return rng.choice(FAREWELL_BABBLE[_lang(lang)])
