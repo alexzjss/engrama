@@ -101,7 +101,7 @@ def test_first_use_is_modal_but_f9_works():
     w.handle_event(key(pygame.K_F7))
     assert w.panel_name == "first_use"
     assert not any(p in ("pet", "click") for p in posts)
-    assert w.chat.input_text == "" if hasattr(w.chat, "input_text") else True
+    assert w.chat.composing == ""
     w.handle_event(key(pygame.K_F9))
     assert eyes == [True]
     w.frame(2.0)  # simulation keeps going
