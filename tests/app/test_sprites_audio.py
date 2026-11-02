@@ -44,7 +44,7 @@ def _pg():
     yield
 
 
-@pytest.mark.parametrize("stage,size", [("egg", 16), ("baby", 16), ("child", 24), ("adult", 24), ("perfect", 24), ("final", 24)])
+@pytest.mark.parametrize("stage,size", [("egg", 16), ("baby", 16), ("child", 24), ("adult", 28), ("perfect", 32), ("final", 32)])
 def test_frames_sizes_and_alpha(stage, size):
     for anim in ANIMS:
         frames = make_frames(G(), stage, anim)
