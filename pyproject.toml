@@ -4,12 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "engrama"
-version = "0.2.0"
+version = "0.3.0"
 requires-python = ">=3.13"
-dependencies = ["numpy", "psutil"]
+dependencies = ["pygame-ce", "numpy", "psutil"]
+
+[project.scripts]
+engrama = "engrama.app.host:main"
 
 [project.optional-dependencies]
-ui = ["pygame-ce"]
 dev = ["pytest"]
 
 [tool.setuptools.packages.find]

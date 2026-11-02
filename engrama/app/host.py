@@ -325,5 +325,137 @@ class Host:
         return out
 
 
+# ---- app entry point (composition root; everything below is wiring only) ---------------------------------
+
+def _build_persona(snap: Snapshot, memory):
+    from engrama.services.language.persona import PersonaState
+    needs = sorted(((v, n) for n, v in snap.needs.items() if v > 0.6), reverse=True)
+    liking = sorted(snap.food_liking.items(), key=lambda kv: kv[1])
+    try:
+        memories = memory.recent(3)
+    except Exception:
+        memories = []
+    return PersonaState(
+        stage=snap.stage, needs_top=[n for _, n in needs], traits=dict(snap.traits), mood=snap.pad_label,
+        curious=snap.surprise > B.SURPRISE_CURIOUS,
+        favorites=[f for f, v in reversed(liking) if v > 0][:2],
+        disliked=[f for f, v in liking if v < 0][:2],
+        memories=list(memories))
+
+
+class _NullServer:
+    """Stands in for OllamaServer under --no-llm: never available, never spawns anything."""
+    started_by_us = False
+
+    def available(self) -> bool: return False
+    def running(self) -> bool: return False
+    def start(self) -> bool: return False
+    def stop(self) -> None: pass
+
+
 def main(argv: list[str] | None = None) -> int:
-    raise NotImplementedError("the app entry point is wired in Task 10")
+    import argparse
+    import sys
+    import pygame
+    from engrama.app import i18n
+    from engrama.app.ui.menus import ModelsPanel, SettingsPanel
+    from engrama.app.ui.window import Window
+    from engrama.config import Config, default_data_dir
+    from engrama.services.language.client import OllamaClient
+    from engrama.services.language.lang import detect_lang
+    from engrama.services.language.persona import valence
+    from engrama.services.language.server import OllamaServer
+    from engrama.services.language.service import LanguageService
+    from engrama.services.memory.store import MemoryStore, WorkingMemory
+
+    ap = argparse.ArgumentParser(prog="engrama", description="Engrama: a local virtual companion.")
+    ap.add_argument("--data-dir", type=Path, default=None)
+    ap.add_argument("--recipe", type=Path, default=None)
+    ap.add_argument("--seed", type=int, default=None)
+    ap.add_argument("--time-scale", type=float, default=None)
+    ap.add_argument("--dev", action="store_true")
+    ap.add_argument("--no-llm", action="store_true", help="never start or contact Ollama (babble only)")
+    ap.add_argument("--frames", type=int, default=None, help="exit after N frames (smoke test; unthrottled)")
+    ap.add_argument("--seconds", type=float, default=None, help="exit after S wall seconds (bench)")
+    a = ap.parse_args(argv)
+
+    data_dir = Path(a.data_dir) if a.data_dir else default_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    cfg_path = data_dir / "config.json"
+    if cfg_path.exists():
+        cfg = Config.load(cfg_path)
+    else:
+        cfg = Config(data_dir=data_dir)
+        cfg.save(cfg_path)
+    cfg.data_dir = data_dir
+    if a.time_scale is not None:
+        cfg.time_scale = a.time_scale
+    if cfg.ui_lang in ("pt", "en"):
+        i18n.set_lang(cfg.ui_lang)
+    recipe = a.recipe or Path(__file__).resolve().parents[2] / "recipes" / f"{cfg.recipe}.toml"
+
+    host = Host(cfg, data_dir, recipe, seed=a.seed)
+    memory = MemoryStore(data_dir / "memory.sqlite")
+    working = WorkingMemory()
+    server = _NullServer() if a.no_llm else OllamaServer(cfg)
+    language = None
+    window = None
+    start_thread = None
+    try:
+        def food_name(food_id: str, lang: str) -> str:
+            return i18n._table(lang if lang in ("pt", "en") else "en").get(f"food.{food_id}", food_id)
+
+        language = LanguageService(
+            OllamaClient(cfg), server, cfg, memory, working,
+            get_state=lambda: _build_persona(host.snapshot(), memory), food_name=food_name,
+            idle=lambda: not host.snapshot().resting)
+        if not a.no_llm:   # never block the window on Ollama start-up
+            start_thread = threading.Thread(target=server.start, daemon=True, name="ollama-start")
+            start_thread.start()
+
+        window = Window(host.snapshot, host.post, language=language, set_rest=host.set_rest,
+                        set_time_scale=host.set_time_scale,
+                        valence_fn=lambda text: valence(text, detect_lang(text, "pt")))
+        window.config = cfg
+        window.save_config = lambda: cfg.save(cfg_path)
+        window.dev = bool(a.dev or cfg.dev_mode)
+        window.panels["models"] = lambda w: ModelsPanel(w)
+        window.panels["settings"] = lambda w: SettingsPanel(w)
+
+        def on_rest(resting: bool, reason: str) -> None:
+            if resting:
+                language.unload()
+        host.on_event = window.on_host_event
+        host.on_rest_change = on_rest
+        host.start()
+
+        clock = pygame.time.Clock()
+        n, t0 = 0, time.monotonic()
+        while window.running and (a.frames is None or n < a.frames)                 and (a.seconds is None or time.monotonic() - t0 < a.seconds):
+            for e in pygame.event.get():
+                window.handle_event(e)
+            if not window.running:
+                break
+            host.want_viz = window.panel_name == "mind"
+            language.tick(time.time())
+            window.frame()
+            n += 1
+            if a.frames is None:
+                clock.tick(window.target_fps)
+    finally:
+        if window is not None:
+            try:
+                window.close_panel()
+                pygame.display.quit()
+            except Exception:
+                pass
+        host.stop()
+        if language is not None:
+            language.shutdown()
+        if server.started_by_us:
+            server.stop()
+        try:
+            memory.close()
+        except Exception:
+            pass
+    return 0
