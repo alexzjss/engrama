@@ -79,5 +79,15 @@
   "ui.models.custom": "Outro modelo",
   "ui.models.installed": "instalado",
   "ui.models.failed": "falha no download",
-  "ui.models.active": "em uso"
+  "ui.models.active": "em uso",
+  "ui.memories.title": "Memórias",
+  "ui.memories.facts": "Fatos",
+  "ui.memories.topics": "Assuntos",
+  "ui.memories.opinions": "Opiniões",
+  "ui.memories.reflections": "Reflexões",
+  "ui.memories.forget_all": "Esquecer tudo",
+  "ui.memories.confirm": "Enter confirma, Esc cancela",
+  "ui.memories.empty": "Nada lembrado ainda",
+  "ui.memories.current": "atual",
+  "ui.mind.memory": "memória"
 }

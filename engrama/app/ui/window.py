@@ -15,7 +15,8 @@ from engrama.app.ui.scene import Scene
 SCALE = 4
 EAT_SECONDS = 2.0
 TIME_SCALES = (1.0, 10.0, 60.0, 600.0)
-KEY_PANELS = {pygame.K_F2: "mind", pygame.K_F4: "food", pygame.K_F5: "models", pygame.K_F6: "settings"}
+KEY_PANELS = {pygame.K_F2: "mind", pygame.K_F4: "food", pygame.K_F5: "models", pygame.K_F6: "settings",
+              pygame.K_F7: "memories"}
 
 # Panel registry: name -> factory(window) -> panel (draw(surface, snap), handle_event(event) -> bool,
 # optional on_open()/on_close()). T7/T8/T9 call register_panel (or set window.panels[name]) to plug in.
@@ -29,7 +30,11 @@ def register_panel(name: str, factory: Callable[["Window"], object]) -> None:
 def _mind_factory(win: "Window"):
     try:
         from engrama.app.ui.mind_view import MindView
-        return MindView()
+        mv = MindView()
+        provider = getattr(win, "memory_provider", None)
+        if provider is not None:
+            mv.memory_summary = lambda: provider.summary()
+        return mv
     except Exception:
         return menus.PlaceholderPanel("ui.mind.title")
 
@@ -38,6 +43,7 @@ register_panel("mind", _mind_factory)
 register_panel("food", lambda w: menus.FoodMenu(w.give_food))
 register_panel("models", lambda w: menus.PlaceholderPanel("ui.menu.models"))
 register_panel("settings", lambda w: menus.PlaceholderPanel("ui.menu.settings"))
+register_panel("memories", lambda w: menus.PlaceholderPanel("ui.memories.title"))
 
 
 class Window:
