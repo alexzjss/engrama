@@ -153,6 +153,29 @@ Regras (spec §5): pontuação por ramo = soma ponderada de traços/interesses/c
 
 ---
 
+### Tarefa 3b: arte V-Pet (substitui o visual da Tarefa 3) — depois da onda A
+
+**Decisão do usuário (2026-11-02):** a arte da T3 foi rejeitada. Adotado o protótipo "V-Pet" (scratchpad `artspike/`: `core.py`, `arch2.py`, `sheet.py`), inspirado no estilo de sprites de Digimon V-Pet / Pokémon GBA, **só como referência de estilo: todo desenho é original**. Pedidos do usuário: formas muito diferentes entre si, sprites maiores, variação de pose, traços únicos, cores de destaque.
+
+**Arquivos:** `engrama/app/art/sprites.py` (reescrito; pode virar pacote `engrama/app/art/vpet/` com `core.py`, `archetypes.py`), testes `tests/app/test_sprites*.py`.
+
+**Produz:**
+- `SIZES = {"egg": 16, "baby": 24, "child": 32, "adult": 40, "perfect": 44, "final": 48}`; ovo continua como hoje.
+- 6 tipos de bebê e 14 arquétipos (gosma, dragão, fera, ave, inseto, planta, fantasma, peixe, cavaleiro, robô, golem, alado, pilha, serpente), 4 poses cada, genes de assinatura (cabeça, boca, textura, acessório, chifre/orelha, cauda, padrão, olhos), paleta vívida com acento complementar/triádico, contorno escuro quente, rampa com matiz deslocado.
+- **Arquétipo por estágio é função pura** de `(seed, stage, lineage)`: o tipo de bebê vem da semente; cada estágio seguinte é sorteado (hash sha256 da semente + estágio) com viés de família e de ramo, como no protótipo. Genes extras derivados da semente: **sem campos novos no `Genome`** (saves intactos).
+- Ramos (ids de `vocab.BRANCHES`) como sobreposições e viés de arquétipo (ex.: `tecnico` → robô, `sombrio`/`rebelde`/`sombra` → paleta escura, olhos vermelhos, alado-demônio; `lendario` → coroa/auréola; `artista` → boina; `companheiro` → cachecol).
+- `ANIMS` (todas, por estágio): `idle` (bob 2 quadros), `walk` (bob + inclinação, 4), `eat` (boca aberta/fechada), `sleep` (olhos fechados + “z”), `happy` (olhos felizes + pulo), `sad` (olhos tristes, lágrima), `sick` (paleta esverdeada, olhos cansados), `evolve` (brilho crescente, 4), `old` (encurvado, cinza leve, 2), `dead` (deitado, esmaecendo, 2). Feitas por transformações do sprite inteiro e troca de template de olhos (sem animação de membros).
+- Corrigir os pontos fracos do protótipo: olhos que somem (golem, fera sentada) — sempre visíveis; brutamontes com a cabeça escondida; escorpião legível; estágios altos claramente maiores que os anteriores (o encolhe-para-caber não pode deixar um final menor que o adulto).
+- Cache LRU limitado (≤400) com chave incluindo semente, estágio, linhagem e anim; custo ≤10 ms por sprite, só na primeira vez.
+- `Look` mantém `branch`, `lineage` e a leitura tolerante de dicts antigos.
+
+- [ ] Testes: tamanhos; todos os arquétipos × poses × anims desenham; arquétipo determinístico por `(seed, stage, lineage)`; a forma muda em pelo menos uma evolução para a maioria das sementes 1–20; 20 sementes adultas dão ≥10 arquétipos distintos; olhos visíveis (há pixels de olho em todo `idle`); final maior que adulto em área ocupada; ramo desconhecido → base; cache limitado.
+- [ ] Salvar `.pytest_tmp/m6_vpet_sheet.png` e `.pytest_tmp/m6_vpet_lines.png` para revisão (não commitados).
+- [ ] `-m pytest -q tests/app tests/test_architecture.py`; `tools/bench.py --app --seconds 30` ≤2% CPU.
+- [ ] Commit `feat(m6): original V-Pet style procedural creatures`.
+
+---
+
 ### Tarefa 4: memória ancestral, arquivo e gerações (serviços) — onda A
 
 **Arquivos:** `engrama/services/memory/store.py`, `engrama/services/memory/recall.py`, `engrama/services/language/{persona,initiative,service}.py`, criar `engrama/services/generations.py`; testes `tests/services/memory/test_ancestral.py`, `tests/services/test_generations.py`, casos novos em `tests/services/language/test_initiative.py`
