@@ -366,9 +366,13 @@ def main(argv: list[str] | None = None) -> int:
     from engrama.services.language.persona import valence
     from engrama.services.language.server import OllamaServer
     from engrama.services.language.service import LanguageService
+    import logging
+    from engrama.services.language.initiative import InitiativePolicy
+    from engrama.services.memory import ACTIVE_WINDOW_S
+    from engrama.services.memory.opinions import innate_lean
     from engrama.services.memory.store import MemoryStore, WorkingMemory
 
-    ap = argparse.ArgumentParser(prog="engrama", description="Engrama: a local virtual companion.")
+    ap =argparse.ArgumentParser(prog="engrama", description="Engrama: a local virtual companion.")
     ap.add_argument("--data-dir", type=Path, default=None)
     ap.add_argument("--recipe", type=Path, default=None)
     ap.add_argument("--seed", type=int, default=None)
@@ -405,10 +409,18 @@ def main(argv: list[str] | None = None) -> int:
         def food_name(food_id: str, lang: str) -> str:
             return i18n._table(lang if lang in ("pt", "en") else "en").get(f"food.{food_id}", food_id)
 
+        def lean_fn(topic: str) -> float:
+            snap0 = host.snapshot()
+            return innate_lean(int((snap0.look or {}).get("seed", 0) or 0), topic,
+                               dict(snap0.traits or {}))
+
         language = LanguageService(
             OllamaClient(cfg), server, cfg, memory, working,
             get_state=lambda: _build_persona(host.snapshot(), memory), food_name=food_name,
-            idle=lambda: not host.snapshot().resting)
+            idle=lambda: not host.snapshot().resting, lean_fn=lean_fn)
+        policy = InitiativePolicy(memory, time.time)
+        last_input = float("-inf")
+        next_policy = 0.0
         if not a.no_llm:   # never block the window on Ollama start-up
             start_thread = threading.Thread(target=server.start, daemon=True, name="ollama-start")
             start_thread.start()
@@ -433,11 +445,26 @@ def main(argv: list[str] | None = None) -> int:
         n, t0 = 0, time.monotonic()
         while window.running and (a.frames is None or n < a.frames)                 and (a.seconds is None or time.monotonic() - t0 < a.seconds):
             for e in pygame.event.get():
+                if e.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.TEXTINPUT):
+                    last_input = time.time()
                 window.handle_event(e)
             if not window.running:
                 break
             host.want_viz = window.panel_name == "mind"
-            language.tick(time.time())
+            now_w = time.time()
+            language.tick(now_w)
+            if now_w >= next_policy:
+                next_policy = now_w + 1.0
+                try:
+                    snap = host.snapshot()
+                    res = policy.update(
+                        now_w, stage=snap.stage, user_active=now_w - last_input < ACTIVE_WINDOW_S,
+                        llm_ready=language.status == "ready", resting=snap.resting,
+                        fullscreen=snap.rest_reason == "fullscreen", action=snap.action)
+                    if res:
+                        language.spontaneous(res[0], res[1])
+                except Exception:
+                    logging.getLogger("engrama.app").exception("initiative failed")
             window.frame()
             n += 1
             if a.frames is None:

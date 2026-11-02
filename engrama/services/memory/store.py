@@ -122,6 +122,16 @@ class MemoryStore:
         self._lock = threading.Lock()
         self._db = self._open(Path(db_path))
 
+    def meta_get(self, k: str) -> str | None:
+        with self._lock:
+            row = self._db.execute("SELECT v FROM meta WHERE k=?", (k,)).fetchone()
+        return row[0] if row else None
+
+    def meta_set(self, k: str, v: str) -> None:
+        with self._lock:
+            self._db.execute("INSERT OR REPLACE INTO meta(k, v) VALUES(?, ?)", (k, v))
+            self._db.commit()
+
     # ---- open / migrate ------------------------------------------------
     def _open(self, path: Path) -> sqlite3.Connection:
         try:
