@@ -45,6 +45,10 @@ class Kernel:
         return self.lifecycle.stage
 
     @property
+    def egg_clicks(self) -> int:
+        return self._egg_clicks
+
+    @property
     def action(self) -> str | None:
         return self._action
 

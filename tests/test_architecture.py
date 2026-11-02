@@ -4,9 +4,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "engrama"
 FORBIDDEN = {
-    "kernel": ("engrama.mind", "engrama.modules", "engrama.lab", "engrama.services"),
-    "mind": ("engrama.kernel", "engrama.modules"),
+    "kernel": ("engrama.mind", "engrama.modules", "engrama.lab", "engrama.services", "engrama.app"),
+    "mind": ("engrama.kernel", "engrama.modules", "engrama.app"),
+    "services": ("engrama.mind", "engrama.modules", "engrama.kernel", "engrama.lab", "engrama.app"),
 }
+APP_PRESENTATION = ("ui", "art", "audio", "i18n")
+APP_ALLOWED = ("engrama.app", "engrama.vocab", "engrama.balance")
+APP_THIRD_PARTY = {"numpy", "pygame"}
 MODULE_ALLOWED = ("engrama.mind", "engrama.vocab", "engrama.balance")
 STDLIB = set(sys.stdlib_module_names)
 
@@ -44,6 +48,18 @@ def check(root: Path) -> list[tuple[str, str]]:
             for m in _imports(f, root):
                 if any(_under(m, b) for b in banned):
                     bad.append((f.relative_to(root).as_posix(), m))
+    app = root / "app"
+    files = [app / "snapshot.py"] if (app / "snapshot.py").exists() else []
+    for sub in APP_PRESENTATION:
+        files += sorted((app / sub).rglob("*.py")) if (app / sub).exists() else []
+    for f in files:
+        for m in _imports(f, root):
+            top = m.split(".")[0]
+            if top == "engrama":
+                if not any(_under(m, a) for a in APP_ALLOWED) or _under(m, "engrama.app.host"):
+                    bad.append((f.relative_to(root).as_posix(), m))
+            elif top not in APP_THIRD_PARTY and top not in STDLIB:
+                bad.append((f.relative_to(root).as_posix(), m))
     mods = root / "modules"
     for f in sorted(mods.rglob("*.py")) if mods.exists() else []:
         pkg = _package(f, root)
@@ -99,3 +115,49 @@ def test_modules_may_not_import_other_families(tmp_path):
     assert ("modules/drives/d.py", "engrama.modules.temporal.snn.z") in bad
     assert ("modules/e.py", "engrama.modules.drives") in bad
     assert not [b for b in bad if b[0] == "modules/temporal/snn.py"]
+
+
+def test_app_ui_cannot_import_kernel(tmp_path):
+    root = _tree(tmp_path, {
+        "app/ui/a.py": "from engrama.kernel import kernel\n",
+        "app/art/b.py": "from ...mind import contracts\nimport requests\n",
+        "app/i18n/c.py": "from engrama.app.host import Host\n",
+        "app/snapshot.py": "from engrama.lab import runtime\n",
+        "app/audio/ok.py": "import numpy, pygame, json\nfrom engrama import vocab, balance\nfrom engrama.app import i18n\n",
+    })
+    bad = check(root)
+    assert ("app/ui/a.py", "engrama.kernel.kernel") in bad
+    assert ("app/art/b.py", "engrama.mind.contracts") in bad
+    assert ("app/art/b.py", "requests") in bad
+    assert ("app/i18n/c.py", "engrama.app.host.Host") in bad
+    assert ("app/snapshot.py", "engrama.lab.runtime") in bad
+    assert not [b for b in bad if b[0] == "app/audio/ok.py"]
+
+
+def test_services_cannot_import_mind(tmp_path):
+    root = _tree(tmp_path, {
+        "services/a.py": "from engrama.mind import contracts\n",
+        "services/b.py": "from ..kernel import kernel\n",
+        "services/c.py": "from engrama.app import i18n\nfrom engrama.modules import x\nfrom engrama.lab import y\n",
+        "services/ok.py": "import json\nfrom engrama.config import Config\n",
+    })
+    bad = check(root)
+    assert len(bad) == 5
+    assert not [b for b in bad if b[0] == "services/ok.py"]
+
+
+def test_kernel_and_mind_cannot_import_app(tmp_path):
+    root = _tree(tmp_path, {
+        "kernel/a.py": "from engrama.app import i18n\n",
+        "mind/b.py": "from ..app import snapshot\n",
+    })
+    assert len(check(root)) == 2
+
+
+def test_host_may_import_everything(tmp_path):
+    root = _tree(tmp_path, {
+        "app/host.py": "from engrama.kernel import kernel\nfrom engrama.mind import scheduler\n"
+                       "from engrama.services import persistence\nfrom engrama.lab import runtime\nimport psutil\n",
+        "__main__.py": "from engrama.app import host\nfrom engrama.modules import x\n",
+    })
+    assert check(root) == []

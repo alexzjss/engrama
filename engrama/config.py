@@ -17,7 +17,10 @@ class Config:
     ollama_exe: Path = Path(r"E:\Ollama\ollama.exe")
     ollama_home: Path = Path(r"E:\Ollama\home")
     ollama_models: Path = Path(r"E:\Ollama\models")
-    ollama_url: str = "http://localhost:11434"
+    ollama_url: str = "http://127.0.0.1:11434"
+    model: str = "qwen3:1.7b"
+    keep_alive_s: float = 600.0
+    recommended_models: tuple[str, ...] = ("qwen3:1.7b", "qwen3:0.6b", "gemma3:1b", "llama3.2:1b")
     recipe: str = "default-v1"
     ui_lang: str | None = None
     time_scale: float = 1.0
@@ -39,6 +42,8 @@ class Config:
             v = raw[f.name]
             if f.name in ("data_dir", "ollama_exe", "ollama_home", "ollama_models"):
                 v = Path(v)
+            elif f.name == "recommended_models":
+                v = tuple(v)
             elif f.name == "permissions":
                 v = {**_default_permissions(), **v}
             kwargs[f.name] = v
@@ -51,4 +56,6 @@ class Config:
         for k, v in d.items():
             if isinstance(v, Path):
                 d[k] = str(v)
+            elif isinstance(v, tuple):
+                d[k] = list(v)
         path.write_text(json.dumps(d, indent=2), encoding="utf-8")
