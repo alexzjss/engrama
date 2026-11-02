@@ -136,6 +136,7 @@ class Host:
     def start(self) -> None:
         if self._thread is not None or self._stopped:
             return
+        self._warm_log()
         self._thread = threading.Thread(target=self._run, name="engrama-sim", daemon=True)
         self._thread.start()
 
@@ -157,6 +158,20 @@ class Host:
         """Run n ticks on the calling thread (tests / headless use). Not for use while the thread runs."""
         for _ in range(n):
             self._tick()
+
+    def _warm_log(self) -> None:
+        """Create the explog schema on the caller's thread, before the sim thread exists.
+
+        On a cold database the schema creation fsyncs for 0.4-1.6 s; if it ran inside the first tick, a stop()
+        arriving meanwhile would have to wait for it. Once the schema exists the sim thread's own open is cheap."""
+        path = self.data_dir / "explog.sqlite"
+        if path.exists():
+            return
+        try:
+            ExperienceLog(path, self._run_id, self._rt.recipe.name, self._rt.seed,
+                          recipe_version=self._rt.recipe.version).close()
+        except Exception as e:
+            self.last_error = f"explog: {e!r}"
 
     # ---- simulation thread --------------------------------------------------------------------------
 
