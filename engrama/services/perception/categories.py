@@ -25,3 +25,38 @@ CATEGORIES = tuple(sorted(set(APP_TABLE.values())))
 
 def table_category(process: str) -> str | None:
     return APP_TABLE.get((process or "").strip().lower())
+
+
+class Categorizer:
+    """process -> category: local table, then the SQLite cache, then "programa".
+
+    An unknown process asks the LLM once per session (low-priority job); the answer
+    lands in the cache and is used from the next call on. Blocked processes never
+    reach here (the caller checks the blocklist first).
+    """
+
+    def __init__(self, memory, language=None) -> None:
+        self.memory = memory
+        self.language = language
+        self._asked: set[str] = set()
+
+    def __call__(self, process: str) -> str:
+        p = (process or "").strip().lower()
+        if not p:
+            return "programa"
+        cat = table_category(p)
+        if cat:
+            return cat
+        try:
+            cat = self.memory.app_category(p)
+        except Exception:
+            cat = None
+        if cat:
+            return cat
+        if self.language is not None and p not in self._asked:
+            self._asked.add(p)
+            try:
+                self.language.classify_app(p)
+            except Exception:
+                pass
+        return "programa"

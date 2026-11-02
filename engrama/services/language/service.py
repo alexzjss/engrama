@@ -40,6 +40,8 @@ FACTS_PROMPT = {
            "facts: facts about the user (confidence 0..1); topics: subjects mentioned (delta -1..1); "
            "valence: mood of the message. Empty lists if nothing applies."),
 }
+CLASSIFY_PROMPT = ("Classify the program by its process name only. Answer with exactly one word "
+                   "from this list and nothing else: {cats}.")
 
 
 @dataclass(frozen=True)
@@ -137,6 +139,15 @@ class LanguageService:
         text = (text or "").strip()[:MAX_INPUT]
         if text:
             self._enqueue(P_COMMENT, lambda: self._comment(text))
+
+    def classify_app(self, process: str) -> None:
+        """Low-priority: ask the LLM for a category of `process` (name only). Never raises."""
+        try:
+            process = (process or "").strip().lower()[:80]
+            if process:
+                self._enqueue(P_FACTS, lambda: self._classify_app(process))
+        except Exception:
+            log.exception("classify_app enqueue failed")
 
     def submit_job(self, priority: int, fn: Callable[[], None]) -> None:
         """Generic background job (priority 1-3); runs only when ready and idle."""
@@ -399,6 +410,23 @@ class LanguageService:
             return
         if out:
             self.replies.put(Reply(out, lang, "llm"))
+
+    def _classify_app(self, process: str) -> None:
+        try:
+            from engrama.services.perception.categories import CATEGORIES
+            allowed = set(CATEGORIES) | {"programa"}
+            if self.memory.app_category(process) is not None:
+                return
+            msgs = [{"role": "system", "content": CLASSIFY_PROMPT.format(cats=", ".join(sorted(allowed)))},
+                    {"role": "user", "content": process}]
+            out = self.client.chat(self.cfg.model, msgs, 8, 0.0)
+            ans = plain_text(strip_think(out or "")).strip().strip(".,!\"' ")
+            if ans in allowed:
+                self.memory.set_app_category(process, ans, "llm")
+        except LLMOffline:
+            self._state, self._down_until = "offline", self._now() + OFFLINE_COOLDOWN
+        except Exception:
+            log.exception("classify_app failed")
 
     def _extract(self, text: str, lang: str, t_msg: float | None = None, eid: int | None = None) -> None:
         t_msg = self._now() if t_msg is None else t_msg
