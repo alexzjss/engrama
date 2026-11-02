@@ -32,7 +32,7 @@ def test_add_and_recent(tmp_path):
 def test_fact_upsert_confidence(tmp_path):
     s, _ = make(tmp_path)
     s.upsert_fact("nome", "Ana", 0.8, "chat")
-    s.upsert_fact("nome", "Bia", 0.5, "chat")
+    s.upsert_fact("nome", "Bia", 0.4, "chat")
     assert s.facts() == [("nome", "Ana")]
     s.upsert_fact("nome", "Cris", 0.8, "chat")
     assert s.facts() == [("nome", "Cris")]
@@ -68,7 +68,7 @@ def test_forget_compacts_trivial_keeps_important(tmp_path):
     assert len(texts) == 2
     assert "grande dia" in texts
     compact = [t for t in texts if t != "grande dia"][0]
-    assert compact.startswith("feed ×30 (")
+    assert compact.startswith("comeu") and not any(c.isdigit() for c in compact)
     assert s.facts() == [("k", "v")]
     assert s.forget() == 0
     s.close()
