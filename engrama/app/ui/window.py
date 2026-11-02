@@ -8,6 +8,7 @@ from engrama.app.audio.growl import Growler
 from engrama.app.art.sprites import Look
 from engrama.app.snapshot import Snapshot
 from engrama.app.ui import menus
+from engrama.app.ui.chat import ChatBox
 from engrama.app.ui.hud import Hud
 from engrama.app.ui.scene import Scene
 
@@ -43,7 +44,8 @@ class Window:
     def __init__(self, get_snapshot: Callable[[], Snapshot], post: Callable[[str, dict | None], None],
                  language=None, size: tuple[int, int] = (640, 480), growler=None,
                  set_rest: Callable[[bool], None] | None = None,
-                 set_time_scale: Callable[[float], None] | None = None) -> None:
+                 set_time_scale: Callable[[float], None] | None = None,
+                 valence_fn: Callable[[str], float] | None = None) -> None:
         self.get_snapshot = get_snapshot
         self.post = post
         self.language = language
@@ -58,6 +60,8 @@ class Window:
         self.scene = Scene(self.low.get_size())
         self.hud = Hud()
         self.growler = growler if growler is not None else Growler()
+        self.chat = ChatBox(language, post, self.growler, valence_fn,
+                            lambda: Look.from_dict(self._snap.look).voice_pitch)
         self.panels: dict[str, Callable[["Window"], object]] = dict(PANELS)
         self.panel_name: str | None = None
         self.panel = None
@@ -133,6 +137,8 @@ class Window:
                 self.set_time_scale(TIME_SCALES[self._scale_i])
             elif self.panel is not None:
                 self.panel.handle_event(e)
+            else:
+                self.chat.handle_event(e)
         elif e.type == pygame.MOUSEBUTTONDOWN and getattr(e, "button", 1) == 1:
             self._touch()
             if self.panel is not None:
@@ -141,6 +147,8 @@ class Window:
                 self._click(e.pos)
         elif self.panel is not None and e.type in (pygame.TEXTINPUT, pygame.TEXTEDITING, pygame.MOUSEWHEEL):
             self.panel.handle_event(e)
+        elif e.type in (pygame.TEXTINPUT, pygame.TEXTEDITING):
+            self.chat.handle_event(e)
 
     def _set_focus(self, on: bool) -> None:
         self.focused = on
@@ -180,6 +188,7 @@ class Window:
         self.scene.draw(self.low, snap, now, eating=time.monotonic() < self.eat_until)
         pygame.transform.scale(self.low, self.size, self.screen)
         self.hud.draw(self.screen, snap, self.dev)
+        self.chat.draw(self.screen, self.scene.creature_rect, now)
         if self.panel is not None:
             self.panel.draw(self.screen, snap)
         pygame.display.flip()
