@@ -12,7 +12,7 @@ def test_cli_sim_smoke(capsys, tmp_path):
     assert "wellbeing" in m and m["ticks"] > 1000
     assert (tmp_path / "s" / "kernel.json").exists()
     assert main(["report", "--log", str(tmp_path / "l.db")]) == 0
-    assert json.loads(capsys.readouterr().out) == m
+    assert json.loads(capsys.readouterr().out) == {k: v for k, v in m.items() if k != "lives"}   # lives are not in the log
 
 
 def test_cli_sim_without_log(capsys):

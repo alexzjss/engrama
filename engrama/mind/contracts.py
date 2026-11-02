@@ -18,6 +18,7 @@ CHANNELS: dict[str, Channel] = {c.name: c for c in (
     Channel("body.needs", len(NEED_KEYS), 0, 1, "needs/100, NEED_KEYS order"),
     Channel("body.stage", 1, 0, 5, "index into STAGES"),
     Channel("body.asleep", 1, 0, 1),
+    Channel("body.health", 3, 0, 1, "sick, severity, old"),
     Channel("world.hour", 2, -1, 1, "sin, cos of 2*pi*hour/24"),
     Channel("world.user_active", 1, 0, 1),
     Channel("world.fullscreen", 1, 0, 1),
