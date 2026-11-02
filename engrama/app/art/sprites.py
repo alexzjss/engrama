@@ -257,6 +257,7 @@ _ICONS = {
     "cache": ["..r..r..", "...r.r..", "........", ".ssssss.", "sooooooS", "soyyyyoS", "sooooooS", ".SSSSSS."],
     "byte": ["........", ".yyyyyy.", "yykkykky", "yykyykky", "yykkykky", "yyykkyyy", ".yyyyyy.", "........"],
     "ram": ["GGGGGGGG", "GkkGkkkG", "GkkGkkkG", "GGGGGGGG", "GkkGkkkG", "GkkGkkkG", "GGGGGGGG", "y.y.y.y."],
+    "remedio": ["........", "..wwww..", ".wwrrww.", "wwwrrwww", "wrrrrrrw", "wwwrrwww", ".wwrrww.", "..wwww.."],
 }
 _icon_cache: dict[str, pygame.Surface] = {}
 

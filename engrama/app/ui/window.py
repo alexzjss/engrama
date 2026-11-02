@@ -4,20 +4,21 @@ import queue
 import time
 from typing import Callable
 import pygame
+from engrama import vocab
 from engrama.app import i18n
 from engrama.app.audio.growl import Growler
 from engrama.app.art.sprites import Look
 from engrama.app.snapshot import Snapshot
 from engrama.app.ui import menus
-from engrama.app.ui.chat import ChatBox
-from engrama.app.ui.hud import Hud, draw_text
-from engrama.app.ui.scene import Scene
+from engrama.app.ui.chat import ChatBox, _wrap as chat_wrap
+from engrama.app.ui.hud import Hud, draw_text, font
+from engrama.app.ui.scene import FAREWELL_BUBBLE_AT, Scene
 
 SCALE = 4
 EAT_SECONDS = 2.0
 TIME_SCALES = (1.0, 10.0, 60.0, 600.0)
 KEY_PANELS = {pygame.K_F2: "mind", pygame.K_F4: "food", pygame.K_F5: "models", pygame.K_F6: "settings",
-              pygame.K_F7: "memories", pygame.K_F8: "permissions"}
+              pygame.K_F7: "memories", pygame.K_F8: "permissions", pygame.K_F10: "generations"}
 
 # Panel registry: name -> factory(window) -> panel (draw(surface, snap), handle_event(event) -> bool,
 # optional on_open()/on_close()). T7/T8/T9 call register_panel (or set window.panels[name]) to plug in.
@@ -47,6 +48,12 @@ register_panel("settings", lambda w: menus.PlaceholderPanel("ui.menu.settings"))
 register_panel("memories", lambda w: menus.PlaceholderPanel("ui.memories.title"))
 register_panel("permissions", lambda w: menus.PlaceholderPanel("ui.perm.title"))
 register_panel("first_use", lambda w: menus.PlaceholderPanel("ui.perm.first.title"))
+register_panel("generations", lambda w: _generations_factory(w))
+
+
+def _generations_factory(win: "Window"):
+    from engrama.app.ui.generations import GenerationsPanel
+    return GenerationsPanel(win)
 
 
 class Window:
@@ -79,6 +86,9 @@ class Window:
         self.set_eyes_closed: Callable[[bool], None] | None = None
         self.on_file_drop: Callable[[str], object] | None = None
         self.perception_provider = None
+        self.generations_provider = None          # duck-typed: records() -> list, delete_archive(n)
+        self.farewell_text = ""                   # shown in the bubble while the creature is dead
+        self.on_farewell_skip: Callable[[], object] | None = None
         self.save_config: Callable[[], None] | None = None
         self._notice = ("", 0.0)
         self._first_use_done = False
@@ -113,7 +123,8 @@ class Window:
     # --- actions
     def give_food(self, food_id: str) -> None:
         self.post("food", {"food": food_id})
-        self.eat_until = time.monotonic() + EAT_SECONDS
+        if food_id != vocab.MEDICINE_ID:
+            self.eat_until = time.monotonic() + EAT_SECONDS
         self.close_panel()
 
     def on_host_event(self, name: str, data: dict) -> None:
@@ -207,6 +218,11 @@ class Window:
             self.post("user_active", None)
 
     def _click(self, pos) -> None:
+        if self._snap.dead:   # farewell: a click after the text is shown (or after the fade) moves on
+            shown = bool(self.farewell_text) and self.scene.farewell_age >= FAREWELL_BUBBLE_AT
+            if (shown or self.scene.farewell_done) and callable(self.on_farewell_skip):
+                self.on_farewell_skip()
+            return
         r = self.scene.creature_rect
         hit = pygame.Rect(r.x * SCALE, r.y * SCALE, r.w * SCALE, r.h * SCALE).inflate(16, 16)
         if hit.collidepoint(pos):
@@ -235,14 +251,37 @@ class Window:
         self.scene.draw(self.low, snap, now, eating=time.monotonic() < self.eat_until)
         pygame.transform.scale(self.low, self.size, self.screen)
         self.hud.draw(self.screen, snap, self.dev)
-        self.chat.draw(self.screen, self.scene.creature_rect, now)
-        if snap.eyes_closed:
+        if snap.dead:
+            self._draw_farewell_bubble()
+        else:
+            self.chat.draw(self.screen, self.scene.creature_rect, now)
+        if snap.eyes_closed and not snap.dead:
             draw_text(self.screen, i18n.t("ui.eyes.closed"), (self.size[0] // 2, 20), (170, 180, 240), 20, "midtop")
         if self._notice[0] and time.monotonic() < self._notice[1]:
             draw_text(self.screen, self._notice[0], (self.size[0] // 2, self.size[1] - 24), (240, 160, 120), 22, "midbottom")
         if self.panel is not None:
             self.panel.draw(self.screen, snap)
         pygame.display.flip()
+
+    def _draw_farewell_bubble(self) -> None:
+        text = (self.farewell_text or "").strip()
+        if not text or self.scene.farewell_age < FAREWELL_BUBBLE_AT:
+            return
+        sw = self.size[0]
+        lines = chat_wrap(text, 20, min(260, sw - 40))
+        f = font(20)
+        bw = max(f.size(ln)[0] for ln in lines) + 16
+        bh = len(lines) * 18 + 12
+        r = self.scene.creature_rect
+        cx = r.centerx * SCALE if r.w > 0 else sw // 2
+        top = (r.y * SCALE if r.w > 0 else 200) - bh - 12
+        box = pygame.Rect(0, max(50, top), bw, bh)
+        box.centerx = max(bw // 2 + 4, min(sw - bw // 2 - 4, cx))
+        pygame.draw.rect(self.screen, (250, 250, 245), box, border_radius=8)
+        pygame.draw.polygon(self.screen, (250, 250, 245), [(box.centerx - 6, box.bottom),
+                                                           (box.centerx + 6, box.bottom), (box.centerx, box.bottom + 8)])
+        for i, ln in enumerate(lines):
+            draw_text(self.screen, ln, (box.x + 8, box.y + 6 + i * 18), (40, 36, 50), 20)
 
     def run(self) -> None:
         clock = pygame.time.Clock()

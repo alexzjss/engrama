@@ -40,21 +40,24 @@ class FoodMenu:
     def __init__(self, on_pick) -> None:
         self.on_pick = on_pick
         self.sel = 0
+        self._ids: tuple[str, ...] = tuple(vocab.FOOD_IDS)   # medicine is appended in draw() unless the creature is an egg
         self._rects: list[pygame.Rect] = []
 
     def _layout(self, surface) -> None:
         r = panel_rect(surface)
         cols = max(1, (r.w - 28) // self.CELL[0])
         self._rects = []
-        for i in range(len(vocab.FOOD_IDS)):
+        for i in range(len(self._ids)):
             x = r.x + 14 + (i % cols) * self.CELL[0]
             y = r.y + 50 + (i // cols) * self.CELL[1]
             self._rects.append(pygame.Rect(x, y, self.CELL[0] - 8, self.CELL[1] - 8))
 
     def draw(self, surface, snap) -> None:
         draw_frame(surface, i18n.t("ui.menu.food"))
+        self._ids = tuple(vocab.FOOD_IDS) + (() if snap.stage == "egg" else (vocab.MEDICINE_ID,))
+        self.sel = min(self.sel, len(self._ids) - 1)
         self._layout(surface)
-        for i, (fid, rect) in enumerate(zip(vocab.FOOD_IDS, self._rects)):
+        for i, (fid, rect) in enumerate(zip(self._ids, self._rects)):
             pygame.draw.rect(surface, (60, 56, 90) if i == self.sel else (42, 40, 62), rect, border_radius=6)
             icon = pygame.transform.scale(sprites.food_icon(fid), (40, 40))
             surface.blit(icon, icon.get_rect(midtop=(rect.centerx, rect.y + 6)))
@@ -64,17 +67,17 @@ class FoodMenu:
         if event.type == pygame.MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             for i, r in enumerate(self._rects):
                 if r.collidepoint(event.pos):
-                    self.on_pick(vocab.FOOD_IDS[i])
+                    self.on_pick(self._ids[i])
                     return True
             return True
         if event.type == pygame.KEYDOWN:
-            n = len(vocab.FOOD_IDS)
+            n = len(self._ids)
             if event.key in (pygame.K_RIGHT, pygame.K_DOWN):
                 self.sel = (self.sel + 1) % n
             elif event.key in (pygame.K_LEFT, pygame.K_UP):
                 self.sel = (self.sel - 1) % n
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                self.on_pick(vocab.FOOD_IDS[self.sel])
+                self.on_pick(self._ids[self.sel])
             else:
                 return False
             return True
