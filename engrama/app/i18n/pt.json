@@ -72,5 +72,10 @@
   "ui.ollama.loading": "carregando modelo...",
   "ui.lang": "Idioma",
   "ui.mute": "Mudo",
-  "ui.dev": "Modo dev"
+  "ui.dev": "Modo dev",
+  "ui.download": "Baixar",
+  "ui.models.custom": "Outro modelo",
+  "ui.models.installed": "instalado",
+  "ui.models.failed": "falha no download",
+  "ui.models.active": "em uso"
 }
