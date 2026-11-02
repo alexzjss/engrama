@@ -123,6 +123,12 @@ SPONTANEOUS_PROMPT = {
            "opinion": "(The human said nothing. Say on your own what you think about {topic}, following your opinion. One short line.)",
            "past": "(The human said nothing. Fondly bring up, on your own, the old subject: {topic}. One short line.)"},
 }
+FILE_PROMPT = {
+    "pt": ("(O humano acabou de te mostrar um arquivo chamado \"{name}\", do tipo {kind}. A mensagem dele traz um "
+           "trecho do conteúdo. Comente em uma linha curta, com curiosidade, sem listar números.)"),
+    "en": ("(The human just showed you a file named \"{name}\", of type {kind}. Their message holds an excerpt "
+           "of the content. Comment in one short line, with curiosity, listing no numbers.)"),
+}
 
 
 def _lang(lang: str) -> str:
@@ -284,3 +290,13 @@ def valence(text: str, lang: str) -> float:
     if not n:
         return 0.0
     return max(-1.0, min(1.0, score / n))
+
+
+def build_file_messages(state: PersonaState, lang: str, name: str, kind: str, excerpt: str,
+                        food_name=None) -> list[dict]:
+    """Chat messages for a dropped file: name/kind go in the (digit-free) system prompt, excerpt as the user turn."""
+    lang = _lang(lang)
+    msgs = build_messages(state, [], excerpt, lang, food_name)
+    note = re.sub(r"\d", "", FILE_PROMPT[lang].format(name=name, kind=kind))
+    msgs[0]["content"] = msgs[0]["content"] + " " + note
+    return msgs
