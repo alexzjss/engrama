@@ -4,19 +4,20 @@ import queue
 import time
 from typing import Callable
 import pygame
+from engrama.app import i18n
 from engrama.app.audio.growl import Growler
 from engrama.app.art.sprites import Look
 from engrama.app.snapshot import Snapshot
 from engrama.app.ui import menus
 from engrama.app.ui.chat import ChatBox
-from engrama.app.ui.hud import Hud
+from engrama.app.ui.hud import Hud, draw_text
 from engrama.app.ui.scene import Scene
 
 SCALE = 4
 EAT_SECONDS = 2.0
 TIME_SCALES = (1.0, 10.0, 60.0, 600.0)
 KEY_PANELS = {pygame.K_F2: "mind", pygame.K_F4: "food", pygame.K_F5: "models", pygame.K_F6: "settings",
-              pygame.K_F7: "memories"}
+              pygame.K_F7: "memories", pygame.K_F8: "permissions"}
 
 # Panel registry: name -> factory(window) -> panel (draw(surface, snap), handle_event(event) -> bool,
 # optional on_open()/on_close()). T7/T8/T9 call register_panel (or set window.panels[name]) to plug in.
@@ -44,6 +45,8 @@ register_panel("food", lambda w: menus.FoodMenu(w.give_food))
 register_panel("models", lambda w: menus.PlaceholderPanel("ui.menu.models"))
 register_panel("settings", lambda w: menus.PlaceholderPanel("ui.menu.settings"))
 register_panel("memories", lambda w: menus.PlaceholderPanel("ui.memories.title"))
+register_panel("permissions", lambda w: menus.PlaceholderPanel("ui.perm.title"))
+register_panel("first_use", lambda w: menus.PlaceholderPanel("ui.perm.first.title"))
 
 
 class Window:
@@ -73,6 +76,12 @@ class Window:
         self.panel = None
         self.focused = True
         self.dev = False
+        self.set_eyes_closed: Callable[[bool], None] | None = None
+        self.on_file_drop: Callable[[str], object] | None = None
+        self.perception_provider = None
+        self.save_config: Callable[[], None] | None = None
+        self._notice = ("", 0.0)
+        self._first_use_done = False
         self.rest_manual = False
         self.running = True
         self.eat_until = 0.0
@@ -127,7 +136,11 @@ class Window:
             self._set_focus(False)
         elif e.type == pygame.KEYDOWN:
             self._touch()
-            if e.key == pygame.K_ESCAPE:
+            if e.key == pygame.K_F9:
+                self.toggle_eyes()
+            elif self.panel_name == "first_use":
+                self.panel.handle_event(e)   # modal: nothing else reacts while it is open
+            elif e.key == pygame.K_ESCAPE:
                 self.close_panel()
             elif e.key in KEY_PANELS:
                 self.toggle_panel(KEY_PANELS[e.key])
@@ -155,6 +168,34 @@ class Window:
             self.panel.handle_event(e)
         elif e.type in (pygame.TEXTINPUT, pygame.TEXTEDITING):
             self.chat.handle_event(e)
+        elif e.type == pygame.DROPFILE:
+            self._drop(getattr(e, "file", None))
+
+    def toggle_eyes(self) -> None:
+        cfg = getattr(self, "config", None)
+        cur = bool(cfg.eyes_closed) if cfg is not None else bool(self._snap.eyes_closed)
+        if callable(self.set_eyes_closed):
+            try:
+                self.set_eyes_closed(not cur)
+            except Exception:
+                pass
+
+    def _drop(self, path) -> None:
+        if not path or not callable(self.on_file_drop):
+            return
+        try:
+            ok = self.on_file_drop(str(path))
+        except Exception:
+            ok = False
+        if ok is False:
+            self._notice = (i18n.t("ui.file.refused"), time.monotonic() + 3.0)
+
+    def _maybe_first_use(self) -> None:
+        cfg = getattr(self, "config", None)
+        if cfg is None or self._first_use_done or getattr(cfg, "perception_asked", True):
+            return
+        self._first_use_done = True
+        self.open_panel("first_use")
 
     def _set_focus(self, on: bool) -> None:
         self.focused = on
@@ -189,11 +230,16 @@ class Window:
     def frame(self, now: float | None = None) -> None:
         now = time.monotonic() if now is None else now
         self._snap = snap = self.get_snapshot()
+        self._maybe_first_use()
         self._drain_host_events()
         self.scene.draw(self.low, snap, now, eating=time.monotonic() < self.eat_until)
         pygame.transform.scale(self.low, self.size, self.screen)
         self.hud.draw(self.screen, snap, self.dev)
         self.chat.draw(self.screen, self.scene.creature_rect, now)
+        if snap.eyes_closed:
+            draw_text(self.screen, i18n.t("ui.eyes.closed"), (self.size[0] // 2, 20), (170, 180, 240), 20, "midtop")
+        if self._notice[0] and time.monotonic() < self._notice[1]:
+            draw_text(self.screen, self._notice[0], (self.size[0] // 2, self.size[1] - 24), (240, 160, 120), 22, "midbottom")
         if self.panel is not None:
             self.panel.draw(self.screen, snap)
         pygame.display.flip()
