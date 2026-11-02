@@ -18,7 +18,25 @@ def _weighted(samples: list[tuple[float, float]]) -> float:
     return acc / tot if tot > 0 else (samples[0][1] if samples else 0.0)
 
 
-def compute_metrics(rows: Iterable[TickRow]) -> dict:
+def life_metrics(lives: list[dict]) -> dict:
+    """Per-generation rows (the last may be the unfinished current life, cause '') plus aggregates over
+    the finished ones."""
+    per = [{"generation": int(l["generation"]), "lineage": list(l["lineage"]), "days": float(l["days"]),
+            "sick_hours": float(l["sick_hours"]), "colds": int(l["colds"]), "cause": str(l["cause"]),
+            "final_day": l.get("final_day")} for l in lives]
+    done = [l for l in per if l["cause"]]
+    causes: dict[str, int] = {}
+    for l in done:
+        causes[l["cause"]] = causes.get(l["cause"], 0) + 1
+    return {"per_generation": per,
+            "generations_finished": len(done),
+            "life_days_mean": float(np.mean([l["days"] for l in done])) if done else 0.0,
+            "sick_hours_total": float(sum(l["sick_hours"] for l in per)),
+            "colds_total": int(sum(l["colds"] for l in per)),
+            "deaths_by_cause": causes}
+
+
+def compute_metrics(rows: Iterable[TickRow], lives: list[dict] | None = None) -> dict:
     ticks = 0
     total_dt = 0.0
     time_by_action: dict[str, float] = {}
@@ -70,6 +88,8 @@ def compute_metrics(rows: Iterable[TickRow]) -> dict:
         "days_simulated": total_dt / (24 * B.HOUR),
         "ticks": ticks,
     }
+    if lives is not None:
+        out["lives"] = life_metrics(lives)
     if surprise:
         out["surprise_mean"] = float(np.mean(surprise))
     return out

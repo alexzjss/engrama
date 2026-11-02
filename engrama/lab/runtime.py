@@ -5,6 +5,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 import numpy as np
 from engrama import balance as B
+from engrama.kernel.branches import derive_seed
 from engrama.kernel.kernel import Kernel
 from engrama.kernel.sensors import Obs
 from engrama.lab.explog import ExperienceLog, TickRow, read_log, run_identity
@@ -15,6 +16,7 @@ from engrama.mind.arbiter import SoftmaxArbiter
 from engrama.mind.contracts import AskCredit, Blackboard, Experience, Observation, Proposal
 from engrama.mind.recipe import ModuleSpec, Recipe, load_recipe
 from engrama.mind.scheduler import Scheduler
+from engrama.vocab import INITIAL_TRAITS, TRAIT_KEYS
 from engrama.services.persistence import load_run, rng_from_state, rng_state, save_run
 
 
@@ -48,6 +50,23 @@ class Runtime:
                  start_hour: float = 8.0, enforce_budgets: bool = False) -> None:
         """enforce_budgets: wall-clock budget demotion. Off by default so lab runs stay deterministic."""
         self.recipe, self.seed, self.start_hour, self.log = recipe, seed, start_hour, log
+        self._enforce_budgets = enforce_budgets
+        self._build_mind(seed)
+        self._kernel = Kernel(seed, start_hour * B.HOUR)
+        self.lives: list[dict] = []
+        self._life_start = self._kernel.t
+        self._stage_first: dict[str, float] = {}
+        self._bb = Blackboard()
+        self.user: SimUser | None = None
+        self._since_decision = 0.0
+        self._pending: dict | None = None   # channels, action, prob, live, shadow
+        self._last_action = ""
+        self._last_choice = ""
+        self._credit = AskCredit()   # token = the Experience of the ask that opened the open window
+
+    def _build_mind(self, seed: int) -> None:
+        """Modules, scheduler and arbiter from the recipe, RNGs derived from seed."""
+        recipe = self.recipe
         # live modules, then the arbiter, then shadows: adding a shadow never shifts a live stream
         live_n = sum(not s.shadow for s in recipe.modules)
         rngs = np.random.default_rng(seed).spawn(len(recipe.modules) + 1)
@@ -59,19 +78,11 @@ class Runtime:
             else:
                 rng_of.append(rngs[li]); li += 1
         mods = [registry.build(s, r) for s, r in zip(recipe.modules, rng_of)]
-        self._scheduler = Scheduler(mods, list(recipe.modules), enforce_budgets=enforce_budgets)
+        self._scheduler = Scheduler(mods, list(recipe.modules), enforce_budgets=self._enforce_budgets)
         self._arbiter_rng = rngs[live_n]
         self._arbiter = SoftmaxArbiter({s.name: s.weight for s in recipe.modules if not s.shadow},
                                        float(recipe.arbiter["temperature"]),
                                        bool(recipe.arbiter["trait_temperature"]))
-        self._kernel = Kernel(seed, start_hour * B.HOUR)
-        self._bb = Blackboard()
-        self.user: SimUser | None = None
-        self._since_decision = 0.0
-        self._pending: dict | None = None   # channels, action, prob, live, shadow
-        self._last_action = ""
-        self._last_choice = ""
-        self._credit = AskCredit()   # token = the Experience of the ask that opened the open window
 
     bb = property(lambda self: self._bb)
     kernel = property(lambda self: self._kernel)
@@ -96,6 +107,11 @@ class Runtime:
             bb.write(name, v)
         conv = tuple(Observation(e.t, e.kind, dict(e.data)) for e in evs)
         bb.events, bb.t, bb.available_actions = conv, k.t, k.available_actions()
+        if k.stage not in self._stage_first:
+            self._stage_first[k.stage] = k.t
+        if k.dead:   # no decisions, no learning: only the body clock moves
+            self._last_action = "idle"
+            return "idle"
         pend = self._pending
         if pend is not None:
             exp = Experience(bb.t, dt, conv, pend["channels"], pend["action"], pend["prob"], rewards,
@@ -108,6 +124,8 @@ class Runtime:
             if self.log is not None:
                 self.log.write(exp, pend["live"], pend["shadow"], pend.get("decided", True))
         self._scheduler.step(bb, dt)
+        if bb.has("traits"):
+            k.observe_traits(bb.read("traits"))
         self._since_decision += dt
         channels = bb.snapshot()
         if pend is None or self._since_decision >= B.DECISION_PERIOD or k.action is None:
@@ -130,9 +148,44 @@ class Runtime:
 
     def creature(self) -> dict:
         k = self._kernel
-        return {"action": self._last_action, "needs": k.needs.values, "stage": k.stage}
+        return {"action": self._last_action, "needs": k.needs.values, "stage": k.stage,
+                "sick": k.health.sick}
 
-    def run(self, seconds: float, dt: float, user: SimUser | None = None) -> None:
+    def life_summary(self) -> dict:
+        k = self._kernel
+        h = k.health
+        day = 24 * B.HOUR
+        return {"generation": k.generation, "lineage": list(k.lineage), "seed": self.seed,
+                "days": (k.t - self._life_start) / day, "cause": k.death_cause,
+                "final_traits": [float(x) for x in k._traits],
+                "sick_hours": h.sick_total_s / B.HOUR, "colds": h.cold_count,
+                "final_day": (None if "final" not in self._stage_first
+                              else (self._stage_first["final"] - self._life_start) / day)}
+
+    def rebirth(self, now: float | None = None) -> dict:
+        """Close the current life and start the next generation; returns the finished life's summary."""
+        old = self._kernel
+        summary = self.life_summary()
+        gen = old.generation + 1
+        new_seed = derive_seed(self.seed, gen)
+        self.seed = new_seed
+        self._kernel = Kernel(new_seed, old.t if now is None else float(now), gen)
+        self._build_mind(new_seed)
+        for m in self._scheduler.modules().values():
+            if "traits" in m.writes:
+                biased = {k: INITIAL_TRAITS[k] + B.TRAIT_INHERIT * (v * 100.0 - INITIAL_TRAITS[k])
+                          for k, v in zip(TRAIT_KEYS, summary["final_traits"])}
+                m.load_state_dict({"traits": biased, "day": 0, "used": {k: 0.0 for k in TRAIT_KEYS}})
+        self._bb = Blackboard()
+        self._pending = None
+        self._credit = AskCredit()
+        self._since_decision = 0.0
+        self._last_action = self._last_choice = ""
+        self._life_start = self._kernel.t
+        self._stage_first = {}
+        return summary
+
+    def run(self, seconds: float, dt: float, user: SimUser | None = None, rebirth: bool = True) -> None:
         if user is not None:
             self.user = user
         end = self._kernel.t + seconds
@@ -140,6 +193,8 @@ class Runtime:
             step = min(dt, end - self._kernel.t)
             evs = self.user.events(self._kernel.t, step, self.creature()) if self.user else []
             self.tick(step, evs)
+            if rebirth and self._kernel.dead:
+                self.lives.append(self.rebirth())
 
     def save(self, save_dir: Path) -> None:
         mods = self._scheduler.modules()
@@ -159,6 +214,7 @@ class Runtime:
             "user": None if self.user is None else self.user.state_dict(),
             "credit": None if self._credit.token is None else _exp_to_dict(self._credit.token),
             "enforce_budgets": self._scheduler.enforce_budgets,
+            "lives": self.lives, "life_start": self._life_start, "stage_first": self._stage_first,
         }
         save_run(Path(save_dir), self._kernel.state_dict(), {n: m.state_dict() for n, m in mods.items()}, meta)
 
@@ -192,6 +248,9 @@ class Runtime:
             rt._last_choice = p["action"]
         if meta.get("credit") is not None:
             rt._credit.token = _exp_from_dict(meta["credit"])
+        rt.lives = list(meta.get("lives", []))
+        rt._life_start = float(meta.get("life_start", rt._kernel.t))
+        rt._stage_first = {str(a): float(b) for a, b in meta.get("stage_first", {}).items()}
         if meta["user"] is not None:
             rt.user = SimUser.from_state_dict(meta["user"])
         return rt
@@ -224,7 +283,9 @@ def run_days(recipe_path: Path, days: float, profile: str, seed: int, dt: float,
     rt.run(days * 24 * B.HOUR, dt, user)
     if save_dir is not None:
         rt.save(Path(save_dir))
+    lives = rt.lives + [rt.life_summary()]
     if log_path:
         log.close()
-        return {**compute_metrics(read_log(Path(log_path), run_id)), **run_identity(Path(log_path), run_id)}
-    return compute_metrics(log.rows)
+        return {**compute_metrics(read_log(Path(log_path), run_id), lives),
+                **run_identity(Path(log_path), run_id)}
+    return compute_metrics(log.rows, lives)

@@ -195,13 +195,14 @@ class Kernel:
             "body.needs": self.needs.as_vector(),
             "body.stage": np.array([float(self.lifecycle.stage_index)]),
             "body.asleep": np.array([1.0 if self.asleep else 0.0]),
+            "body.health": self.health_vector(),
             "world.hour": np.array([math.sin(ang), math.cos(ang)]),
             "world.user_active": np.array([1.0 if self.world.user_active else 0.0]),
             "world.fullscreen": np.array([1.0 if self.world.fullscreen else 0.0]),
         }
 
     def health_vector(self) -> np.ndarray:
-        """[sick, severity, old]; not a blackboard channel (mind.contracts.CHANNELS is outside the kernel)."""
+        """[sick, severity, old]; exposed as the body.health channel."""
         return np.array([1.0 if self.health.sick else 0.0, self.health.severity,
                          1.0 if self.lifecycle.old else 0.0])
 
