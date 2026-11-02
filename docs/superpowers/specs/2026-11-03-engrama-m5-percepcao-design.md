@@ -161,13 +161,14 @@ Testes headless com fontes falsas, relógio falso e LLM falso:
 - **Ociosidade do sistema substitui a da janela** quando permitida. Sem ela, vale o comportamento atual do M4 (input na janela).
 - **Até a tela de primeiro uso ser respondida, nada é lido**, nem a ociosidade, que no spec v1 vinha ligada por padrão. Isso segue a escolha "perguntar no primeiro uso".
 - **Eventos novos, sem reaproveitar nomes ambíguos.**
-  - Hoje a janela já posta `app_focus {"on": bool}` para o foco da *própria janela*. Esse evento é renomeado para `window_focus {"on"}` (kind novo em `EVENT_KINDS`).
+  - **`EVENT_KINDS` não muda.** A SNN usa cada kind como uma unidade de entrada, e um kind novo mudaria as dimensões da rede e quebraria os saves.
+  - Hoje a janela já posta `app_focus {"on": bool}` para o foco da *própria janela*. A janela deixa de postar esse evento e passa a usar o foco só internamente, para o FPS.
   - `app_focus {category}` fica só para o app do PC.
   - O kernel recebe **só a categoria**. O nome do processo nunca entra em `WorldState`, no snapshot nem no explog. Isso é mais restritivo que a §6 original e substitui a regra de "processo só com permissão".
   - A percepção higieniza o evento antes de postar. O processo e o título ficam só dentro do serviço.
   - Os saves antigos com `last_app` contendo um processo são limpos na carga (o valor vira a categoria ou "").
-  - Ociosidade do sistema: `sys_active` e `sys_idle`, separados de `user_active` (input na janela). O host trata `sys_active` como input para a cota de iniciativa e para o descanso por ociosidade **só quando a permissão de ociosidade está ligada**. Assim, usar outro app conta como "usuário presente", mas não como "falando com ela".
-  - Os replays e o explog aceitam os kinds novos. Os antigos continuam válidos.
+  - Ociosidade do sistema: o serviço posta os kinds existentes `user_active` e `user_idle` com `data={"source": "system"}`, só com a permissão de ociosidade. O host conta `user_active` de sistema como presença, tanto para a cota de iniciativa quanto para o descanso por ociosidade. Assim, usar outro app conta como "usuário presente", mas não como "falando com ela" (o chat não muda).
+  - O explog e os replays não mudam, porque não há kind novo.
 - **Olhos fechados é estado do host e do `Config`, não do kernel.**
   - O host publica `eyes_closed` no `Snapshot`, e a cena desenha os olhos fechados.
   - O serviço de percepção consulta um callable `eyes_closed()` antes de cada leitura.
