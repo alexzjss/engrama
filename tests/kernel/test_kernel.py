@@ -295,3 +295,23 @@ def test_ask_interval_roundtrip():
     k2 = Kernel.from_state_dict(json.loads(json.dumps(k.state_dict())))
     assert k2.tracker.last_close == k.tracker.last_close
     assert k2.available_actions() == k.available_actions()
+
+
+def test_last_app_is_category_only():
+    from engrama.kernel.sensors import WorldState
+    w = WorldState()
+    w.apply(Obs(0.0, "app_focus", {"app": "bank.exe", "category": "privado"}))
+    assert w.last_app == "privado"
+    assert "bank.exe" not in str(w.to_dict())
+    w.apply(Obs(1.0, "app_focus", {"app": "x.exe"}))
+    assert w.last_app == ""
+
+
+def test_old_save_last_app_sanitized():
+    from engrama.kernel.sensors import WorldState
+    w = WorldState.from_dict({"user_active": True, "fullscreen": False,
+                              "last_app": "steam.exe", "seen_apps": ["jogo"]})
+    assert w.last_app == ""
+    w = WorldState.from_dict({"user_active": True, "fullscreen": False,
+                              "last_app": "jogo", "seen_apps": ["jogo"]})
+    assert w.last_app == "jogo"

@@ -6,7 +6,7 @@ def test_config_roundtrip(tmp_path):
     p = tmp_path / "config.json"
     cfg = Config.load(p)
     assert p.exists()
-    assert cfg.recipe == "default-v1" and cfg.permissions["time"] is True
+    assert cfg.recipe == "default-v1" and cfg.permissions["time"] is False
     cfg.recipe = "other"
     cfg.save(p)
     assert Config.load(p) == cfg
@@ -26,3 +26,15 @@ def test_old_config_without_llm_fields_loads_defaults(tmp_path):
     assert cfg.ollama_url == "http://127.0.0.1:11434"
     cfg.save(p)
     assert Config.load(p) == cfg
+
+
+def test_config_m5_defaults_and_old_config(tmp_path):
+    cfg = Config.load(tmp_path / "new.json")
+    assert not any(cfg.permissions.values()) and cfg.perception_asked is False
+    assert cfg.eyes_closed is False and cfg.perception_interval_s == 30.0
+    assert cfg.perception_blocklist == [] and cfg.eyes_hotkey == "ctrl+alt+e"
+    p = tmp_path / "old.json"
+    p.write_text(json.dumps({"permissions": {"idle": True}}), encoding="utf-8")
+    old = Config.load(p)
+    assert old.permissions["idle"] is True and old.permissions["time"] is False
+    assert old.perception_asked is False and old.eyes_hotkey == "ctrl+alt+e"

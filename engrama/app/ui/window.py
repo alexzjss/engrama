@@ -158,7 +158,6 @@ class Window:
 
     def _set_focus(self, on: bool) -> None:
         self.focused = on
-        self.post("app_focus", {"on": on})
 
     def _touch(self) -> None:
         now = time.monotonic()

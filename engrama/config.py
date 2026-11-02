@@ -8,7 +8,7 @@ def default_data_dir() -> Path:
 
 
 def _default_permissions() -> dict[str, bool]:
-    return {"time": True, "idle": True, "active_window": False, "process": False, "system_load": False}
+    return {"time": False, "idle": False, "active_window": False, "process": False, "system_load": False}
 
 
 @dataclass
@@ -26,6 +26,11 @@ class Config:
     time_scale: float = 1.0
     dev_mode: bool = False
     permissions: dict[str, bool] = field(default_factory=_default_permissions)
+    perception_asked: bool = False
+    eyes_closed: bool = False
+    perception_interval_s: float = 30.0
+    perception_blocklist: list[str] = field(default_factory=list)
+    eyes_hotkey: str = "ctrl+alt+e"
 
     @classmethod
     def load(cls, path: Path) -> "Config":
@@ -46,6 +51,8 @@ class Config:
                 v = tuple(v)
             elif f.name == "permissions":
                 v = {**_default_permissions(), **v}
+            elif f.name == "perception_blocklist":
+                v = [str(x) for x in v]
             kwargs[f.name] = v
         return cls(**kwargs)
 
