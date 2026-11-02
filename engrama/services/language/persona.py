@@ -99,6 +99,32 @@ BABBLE = {
 }
 
 
+REFLECT_PROMPT = {
+    "pt": ("Você é a memória do Engrama. Leia a conversa abaixo e responda em JSON puro e nada mais: "
+           '{"summary": "uma frase curta, sem números, sobre o que o humano e você conversaram", '
+           '"topic": "o assunto principal em uma ou duas palavras, ou null"}.'),
+    "en": ("You are Engrama's memory. Read the conversation below and answer in pure JSON and nothing else: "
+           '{"summary": "one short sentence, no numbers, about what the human and you talked about", '
+           '"topic": "the main subject in one or two words, or null"}.'),
+}
+OPINION_PROMPT = {
+    "pt": ("Escreva em uma linha curta, sem números, a opinião do Engrama sobre \"{topic}\". Comece pela expressão "
+           "\"{stance}\" (a posição dele) e mantenha a coerência com ela. "
+           "Formato de exemplo: \"{stance} {topic} porque...\". Só a frase, sem aspas."),
+    "en": ("Write in one short line, no numbers, Engrama's opinion about \"{topic}\". Start with the phrase "
+           "\"{stance}\" (his stance) and stay consistent with it. "
+           "Format example: \"{stance} {topic} because...\". Only the sentence, no quotes."),
+}
+SPONTANEOUS_PROMPT = {
+    "pt": {"current": "(O humano não disse nada. Puxe papo por conta própria sobre o assunto de agora: {topic}. Uma linha curta.)",
+           "opinion": "(O humano não disse nada. Diga por conta própria o que você acha de {topic}, de acordo com a sua opinião. Uma linha curta.)",
+           "past": "(O humano não disse nada. Lembre por conta própria, com saudade, do assunto antigo: {topic}. Uma linha curta.)"},
+    "en": {"current": "(The human said nothing. Start a chat on your own about the current subject: {topic}. One short line.)",
+           "opinion": "(The human said nothing. Say on your own what you think about {topic}, following your opinion. One short line.)",
+           "past": "(The human said nothing. Fondly bring up, on your own, the old subject: {topic}. One short line.)"},
+}
+
+
 def _lang(lang: str) -> str:
     return lang if lang in ("pt", "en") else "en"
 

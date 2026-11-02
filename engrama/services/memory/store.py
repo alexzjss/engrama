@@ -192,6 +192,21 @@ class MemoryStore:
             self._db.commit()
             return eid
 
+    def link_episode(self, episode_id: int, topics: Iterable[str] = (), facts: Iterable[str] = ()) -> None:
+        """Add topic/fact links to an already-written episode (no-op if it was deleted)."""
+        with self._lock:
+            if self._db.execute("SELECT 1 FROM episodes WHERE id=?", (episode_id,)).fetchone() is None:
+                return
+            links = {("topic", normalize_topic(t)) for t in topics if t and normalize_topic(t)}
+            links |= {("fact", f) for f in facts if f}
+            self._db.executemany(
+                "INSERT INTO episode_links(episode_id, kind, ref) VALUES(?,?,?)",
+                [(episode_id, k, r) for k, r in sorted(links)
+                 if not self._db.execute(
+                     "SELECT 1 FROM episode_links WHERE episode_id=? AND kind=? AND ref=?",
+                     (episode_id, k, r)).fetchone()])
+            self._db.commit()
+
     def retrieve(self, words: list[str], k: int = 5) -> list[str]:
         with self._lock:
             now = self._now()
@@ -377,11 +392,8 @@ class MemoryStore:
                 return
             now = self._now()
             self._db.execute(
-                "INSERT INTO opinions(topic, lean, experience, confidence, phrase, phrase_lang, t)"
-                " VALUES(?,0,0,0,?,?,?)"
-                " ON CONFLICT(topic) DO UPDATE SET phrase=excluded.phrase,"
-                " phrase_lang=excluded.phrase_lang, t=excluded.t",
-                (key, phrase, lang, now))
+                "UPDATE opinions SET phrase=?, phrase_lang=?, t=? WHERE topic=?",
+                (phrase, lang, now, key))
             self._db.commit()
 
     # ---- deletion / blocklist -----------------------------------------
