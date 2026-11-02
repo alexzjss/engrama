@@ -78,6 +78,8 @@ class Hud:
             x += 28
         if snap.resting:
             draw_text(surface, "z z  " + i18n.t("ui.rest.on"), (w - 10, 12), (170, 180, 240), 20, "topright")
+        if snap.stage == "egg":
+            draw_text(surface, i18n.t("ui.egg.hint"), (w // 2, 44), (225, 225, 235), 20, "midtop")
         if dev:
             y = 44
             for k, v in snap.needs.items():

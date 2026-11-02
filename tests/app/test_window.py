@@ -160,3 +160,53 @@ def test_custom_panel_registry():
     w.frame(0)
     w.close_panel()
     assert state == {"opened": True, "closed": True}
+
+
+def test_egg_hint_shown_only_in_egg_stage():
+    seen = []
+    hud.add_text_hook(seen.append)
+    try:
+        from engrama.app import i18n
+        w, _, h = make(snap(stage="egg"))
+        w.frame(1.0)
+        hint = i18n.t("ui.egg.hint")
+        assert hint != "ui.egg.hint" and hint in seen
+        assert not any(c.isdigit() for c in hint)
+        seen.clear()
+        h["s"] = snap(stage="baby")
+        w.frame(1.0)
+        assert hint not in seen
+    finally:
+        hud.remove_text_hook(seen.append)
+
+
+def test_egg_hint_in_both_languages():
+    import json
+    from pathlib import Path
+    base = Path(__file__).resolve().parents[2] / "engrama" / "app" / "i18n"
+    for lang in ("pt", "en"):
+        d = json.loads((base / f"{lang}.json").read_text(encoding="utf-8"))
+        assert d["ui.egg.hint"] and not any(c.isdigit() for c in d["ui.egg.hint"])
+
+
+def test_egg_click_center_and_edge_post_click():
+    w, posts, _ = make(snap(stage="egg"))
+    assert w.size == (640, 480)
+    w.frame(1.0)
+    r = w.scene.creature_rect
+    on_screen = pygame.Rect(r.x * 4, r.y * 4, r.w * 4, r.h * 4)
+    for pos in (on_screen.center, (on_screen.left + 1, on_screen.centery), (on_screen.right - 1, on_screen.centery),
+                (on_screen.centerx, on_screen.top + 1), (on_screen.centerx, on_screen.bottom - 1)):
+        posts.clear()
+        w.handle_event(click(pos))
+        assert ("click", None) in posts, pos
+
+
+def test_egg_click_does_not_touch_chat_input():
+    w, posts, _ = make(snap(stage="egg"))
+    w.chat.text = "oi"
+    w.frame(1.0)
+    r = w.scene.creature_rect
+    w.handle_event(click((r.centerx * 4, r.centery * 4)))
+    assert posts.count(("click", None)) == 1
+    assert w.chat.text == "oi"

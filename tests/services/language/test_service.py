@@ -292,3 +292,116 @@ def test_shutdown_is_fast_even_when_worker_blocked(tmp_path):
     svc.shutdown()
     assert time.monotonic() - t0 <= 1.0
     gate.set()
+
+
+def _wait(cond, timeout=2.0):
+    end = time.monotonic() + timeout
+    while not cond() and time.monotonic() < end:
+        time.sleep(0.01)
+    return cond()
+
+
+def test_pending_message_answered_after_warm(tmp_path):
+    gate = threading.Event()
+    client = FakeClient(reply="oi amigo", gate=gate)
+    svc, _, work = make(tmp_path, client=client, sync=False)
+    try:
+        svc.request("oi")
+        r = get(svc)
+        assert r.source == "babble" and "cérebro carregando" in r.text
+        assert svc.busy                       # waiting on warm-up counts as thinking
+        gate.set()
+        r2 = get(svc, 3.0)
+        assert r2.source == "llm" and r2.text
+        assert [m["content"] for m in work.messages() if m["role"] == "user"] == ["oi"]
+        assert _wait(lambda: not svc.busy)
+    finally:
+        gate.set()
+        svc.shutdown()
+
+
+def test_pending_answered_in_sync_mode_without_duplicate_user_turn(tmp_path):
+    client = FakeClient()
+    svc, mem, work = make(tmp_path, client=client)
+    svc._state = "loading"
+    svc.request("oi")
+    svc.pump()
+    assert get(svc).source == "babble"
+    assert not client.chats
+    svc.warm()                                # warm succeeds inline
+    svc.pump()
+    r = get(svc)
+    assert r.source == "llm"
+    users = [m for m in work.messages() if m["role"] == "user"]
+    assert len(users) == 1
+    assert sum(1 for m in client.chats[0] if m["content"] == "oi") == 1   # prompt has the turn once
+    assert len(mem._db.execute("SELECT 1 FROM episodes WHERE kind='chat'").fetchall()) == 1
+
+
+def test_pending_dropped_if_warm_fails(tmp_path):
+    client = FakeClient(warm_exc=LLMOffline("down"))
+    svc, _, _ = make(tmp_path, client=client)
+    svc._state = "loading"
+    svc.request("oi")
+    svc.pump()
+    assert get(svc).source == "babble"
+    svc.warm()
+    svc.pump()
+    assert svc.replies.empty() and not client.chats
+    assert not svc.busy
+
+
+def test_only_latest_pending_is_answered(tmp_path):
+    client = FakeClient()
+    svc, _, _ = make(tmp_path, client=client)
+    svc._state = "loading"
+    svc.request("primeira")
+    svc.request("segunda")
+    svc.pump()
+    svc.warm()
+    svc.pump()
+    sources = []
+    while not svc.replies.empty():
+        sources.append(svc.replies.get().source)
+    assert sources == ["babble", "babble", "llm"]
+    chats = [c for c in client.chats if "JSON" not in c[0]["content"]]
+    assert len(chats) == 1 and chats[0][-1]["content"].startswith("segunda")
+
+
+def test_pending_not_answered_after_newer_llm_reply(tmp_path):
+    client = FakeClient()
+    svc, _, _ = make(tmp_path, client=client)
+    svc._state = "loading"
+    svc.request("velha")
+    svc.pump()
+    get(svc)
+    svc._state = "ready"                      # warm finished elsewhere, no pending job queued
+    svc.request("nova")
+    svc.pump()
+    assert get(svc).source == "llm"
+    svc._answer_pending(("velha", "pt", []))  # stale job must be a no-op
+    assert svc.replies.empty()
+
+
+def test_busy_true_during_chat_call(tmp_path):
+    class Blocking(FakeClient):
+        def __init__(self):
+            super().__init__()
+            self.started, self.release = threading.Event(), threading.Event()
+
+        def chat(self, *a, **k):
+            self.started.set()
+            self.release.wait(5)
+            return "oi amigo"
+
+    client = Blocking()
+    svc, _, _ = make(tmp_path, client=client, sync=False)
+    try:
+        assert not svc.busy
+        svc.request("oi")
+        assert _wait(lambda: svc.busy)
+        client.release.set()
+        assert _wait(lambda: not svc.busy)
+    finally:
+        client.release.set()
+        svc.shutdown()

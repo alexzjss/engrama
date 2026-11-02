@@ -130,6 +130,14 @@ class ChatBox:
                 self._status = "missing"
         return self._status
 
+    @property
+    def busy(self) -> bool:
+        """Attribute read each frame (cheap); duck-typed so any language object works."""
+        try:
+            return bool(getattr(self.language, "busy", False))
+        except Exception:
+            return False
+
     def status_line(self, now: float) -> str:
         key = _STATUS_KEYS.get(self.status(now))
         return i18n.t(key) if key else ""
@@ -140,6 +148,8 @@ class ChatBox:
         w, h = surface.get_size()
         if self.bubble and now < self.bubble_until:
             self._draw_bubble(surface, creature_rect)
+        elif self.busy:
+            self._draw_thinking(surface, creature_rect, now)
         field = pygame.Rect(10, h - 34, w - 20, 24)
         pygame.draw.rect(surface, (30, 28, 40), field, border_radius=6)
         pygame.draw.rect(surface, (90, 90, 120), field, 1, border_radius=6)
@@ -165,6 +175,22 @@ class ChatBox:
                 break
             hud.draw_text(surface, item, (field.x + 2, y), (150, 150, 170), 16)
             y -= 14
+
+    def _draw_thinking(self, surface: pygame.Surface, creature_rect: pygame.Rect, now: float) -> None:
+        sw, _ = surface.get_size()
+        bw, bh = 44, 24
+        known = creature_rect.w > 0
+        cx = creature_rect.centerx * SCALE if known else sw // 2
+        top = (creature_rect.y * SCALE if known else 200) - bh - 12
+        box = pygame.Rect(0, max(50, top), bw, bh)
+        box.centerx = max(bw // 2 + 4, min(sw - bw // 2 - 4, cx))
+        pygame.draw.rect(surface, (250, 250, 245), box, border_radius=8)
+        pygame.draw.polygon(surface, (250, 250, 245), [(box.centerx - 6, box.bottom),
+                                                       (box.centerx + 6, box.bottom), (box.centerx, box.bottom + 8)])
+        lit = int(now * 3) % 3
+        for i in range(3):
+            y = box.centery - (3 if i == lit else 0)
+            pygame.draw.circle(surface, (40, 36, 50) if i == lit else (150, 150, 165), (box.x + 12 + i * 10, y), 3)
 
     def _draw_bubble(self, surface: pygame.Surface, creature_rect: pygame.Rect) -> None:
         sw, _ = surface.get_size()

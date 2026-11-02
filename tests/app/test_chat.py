@@ -126,3 +126,49 @@ def test_shift_enter_newline_and_backspace():
     assert w.chat.text == "ab\n" and lang.requests == []
     w.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_BACKSPACE))
     assert w.chat.text == "ab"
+
+
+class BusyLang(FakeLang):
+    busy = False
+
+
+def _thinking_frame(busy, replies=False):
+    lang = BusyLang()
+    lang.busy = busy
+    w = Window(lambda: Snapshot(look=LOOK, stage="baby"), lambda k, d=None: None, language=lang,
+               growler=FakeGrowler())
+    seen = []
+    hud.add_text_hook(seen.append)
+    try:
+        w.frame(1.0)
+        w.frame(1.0)
+    finally:
+        hud.remove_text_hook(seen.append)
+    return w, pygame.image.tostring(w.screen, "RGB"), seen
+
+
+def test_thinking_bubble_drawn_while_busy_without_digits():
+    _, idle_img, _ = _thinking_frame(False)
+    _, busy_img, seen = _thinking_frame(True)
+    assert busy_img != idle_img
+    assert not any(c.isdigit() for s in seen for c in s)
+
+
+def test_thinking_dots_animate_and_yield_to_speech():
+    lang = BusyLang()
+    lang.busy = True
+    w = Window(lambda: Snapshot(look=LOOK, stage="baby"), lambda k, d=None: None, language=lang,
+               growler=FakeGrowler())
+    calls = []
+    orig = w.chat._draw_thinking
+    w.chat._draw_thinking = lambda *a: (calls.append(a[-1]), orig(*a))
+    w.frame(1.0)
+    w.frame(1.4)
+    assert len(calls) == 2
+    w.chat.bubble, w.chat.bubble_until = "oi", 1e9
+    w.frame(1.5)
+    assert len(calls) == 2          # a speech bubble replaces the dots
+    lang.busy = False
+    w.chat.bubble_until = 0.0
+    w.frame(1.6)
+    assert len(calls) == 2

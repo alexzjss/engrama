@@ -84,6 +84,8 @@ class LanguageService:
         self._last_lang = "pt"
         self._jobs: list[tuple[int, int, Callable[[], None]]] = []
         self._seq = 0
+        self._chatting = 0                      # chat-priority LLM calls in flight
+        self._pending: tuple[str, str, list[dict]] | None = None   # message that arrived while loading
         self._cv = threading.Condition()
         self._stop = False
         self._thread: threading.Thread | None = None
@@ -102,6 +104,11 @@ class LanguageService:
         except Exception:
             return "missing"
         return self._state
+
+    @property
+    def busy(self) -> bool:
+        """True while a chat answer is being produced (LLM call in flight or waiting on warm-up)."""
+        return self._chatting > 0 or (self._pending is not None and self._state == "loading")
 
     def installed_models(self) -> set[str] | None:
         try:
@@ -247,9 +254,13 @@ class LanguageService:
             if gen == self._gen:
                 self._state = "ready"
                 self._last_activity = self._now()
+                pending = self._pending
+                if pending is not None:
+                    self._enqueue(P_CHAT, lambda: self._answer_pending(pending))
         except Exception as e:
             if gen == self._gen:
                 self._state = "offline"
+                self._pending = None
                 if not isinstance(e, LLMTimeout):
                     self._down_until = self._now() + OFFLINE_COOLDOWN
 
@@ -269,28 +280,58 @@ class LanguageService:
             self.warm()
         st = self.status
         reply: Reply | None = None
+        history = self.working.messages()
         if max_words > 0 and st == "ready":
             self._last_activity = now
-            msgs = build_messages(state, self.working.messages(), text, lang, self.food_name)
-            num_predict = 20 + 3 * max_words
-            out = None
-            try:
-                for temp in (0.8, 0.9):
-                    out = clean_reply(self.client.chat(self.cfg.model, msgs, num_predict, temp), max_words)
-                    if out:
-                        break
-            except LLMOffline:
-                self._state, self._down_until = "offline", self._now() + OFFLINE_COOLDOWN
-            except LLMTimeout:
-                self.warm()
+            out = self._ask(state, history, text, lang, max_words)
             if out:
                 reply = Reply(out, lang, "llm")
+                self._pending = None
         if reply is None:
             reply = self._babble(text, state.stage, lang, hint=max_words > 0 and st == "loading")
+        if reply.source == "babble" and max_words > 0 and st == "loading":
+            pending = self._pending = (text, lang, history)   # answered by the LLM once warm-up finishes
+            if self._state == "ready":       # warm-up finished while we were building the babble
+                self._enqueue(P_CHAT, lambda: self._answer_pending(pending))
         self._record(text, reply, lang)
         self.replies.put(reply)
         if reply.source == "llm":
             self._enqueue(P_FACTS, lambda: self._extract(text, lang))
+
+    def _ask(self, state, history: list[dict], text: str, lang: str, max_words: int) -> str | None:
+        msgs = build_messages(state, history, text, lang, self.food_name)
+        num_predict = 20 + 3 * max_words
+        out = None
+        self._chatting += 1
+        try:
+            for temp in (0.8, 0.9):
+                out = clean_reply(self.client.chat(self.cfg.model, msgs, num_predict, temp), max_words)
+                if out:
+                    break
+        except LLMOffline:
+            self._state, self._down_until = "offline", self._now() + OFFLINE_COOLDOWN
+        except LLMTimeout:
+            self.warm()
+        finally:
+            self._chatting -= 1
+        return out or None
+
+    def _answer_pending(self, pending) -> None:
+        if self._pending is not pending:     # superseded by a newer message, or already answered
+            return
+        text, lang, history = pending
+        self._pending = None
+        state = self.get_state()
+        max_words = SPEECH.get(state.stage, SPEECH["baby"])[0]
+        if max_words <= 0 or self.status != "ready":
+            return
+        self._last_activity = self._now()
+        out = self._ask(state, history, text, lang, max_words)
+        if not out:
+            return
+        self.working.add("assistant", out)
+        self.replies.put(Reply(out, lang, "llm"))
+        self._enqueue(P_FACTS, lambda: self._extract(text, lang))
 
     def _record(self, text: str, reply: Reply, lang: str) -> None:
         self.working.add("user", text)
