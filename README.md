@@ -23,8 +23,26 @@ Python 3.13 ou mais novo.
 ```
 python -m venv .venv
 .venv\Scripts\activate
-pip install numpy psutil pytest
+pip install -e .[dev]   # pygame-ce, numpy e psutil
 ```
+
+### O app (M3)
+
+```
+pip install -e .[dev]
+python -m engrama                     # ou o comando `engrama`
+python -m engrama --dev --time-scale 60 --seed 1
+python -m engrama --no-llm --frames 600     # sem Ollama; encerra após 600 quadros (smoke test)
+```
+
+Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra números e escala de tempo), `--no-llm`, `--frames N`, `--seconds S`.
+
+- **Pré-requisito da conversa:** Ollama em `E:\Ollama` (`ollama.exe`, `home`, `models`; os caminhos vêm de `Config`). O Engrama inicia o `ollama serve` sozinho, em segundo plano, com tudo apontado para o E:, e o encerra ao sair se foi ele quem o iniciou. O modelo padrão é `qwen3:1.7b`; baixe pelo menu de modelos (F5). O modelo só fica carregado durante e logo após a conversa (`keep_alive` de 600 s).
+- **Teclas:** F2 Visão da Mente, F3 descanso manual, F4 comidas, F5 modelos, F6 configurações, F12 modo dev (números, `PgUp`/`PgDn` mudam a escala de tempo), Esc fecha o painel. Enter envia a mensagem.
+- **Descanso:** manual (F3) ou automático (app em tela cheia, pouca RAM livre ou 30 min sem uso). Em descanso a janela cai para 2 FPS, a mente roda em ritmo reduzido e o LLM é descarregado. Sem foco a janela usa 5 FPS; com foco, 20 FPS.
+- **Visão da Mente (F2):** o grafo da receita, as propostas do tick (a vencedora destacada), o custo em ms de cada módulo e as visualizações de cada um, como o raster de disparos e a surpresa da SNN. Só aqui e no modo dev aparecem números.
+- **Dados:** em `Config.data_dir` (padrão `data/`, no drive do repositório): `config.json`, `save/` (estado da mente e do corpo), `host.json`, `explog.sqlite` (log de experiência) e `memory.sqlite` (memória da conversa). Nada vai para o C:.
+- **Sem o LLM:** tudo funciona. Se o Ollama estiver ausente, parado ou sem o modelo, a UI mostra o estado ("Ollama não encontrado", "baixando modelo") e a conversa vira balbucio; a criatura segue viva. O LLM só produz fala, nunca escolhe ações.
 
 ### Laboratório
 
@@ -89,8 +107,26 @@ Python 3.13 or newer.
 ```
 python -m venv .venv
 .venv\Scripts\activate
-pip install numpy psutil pytest
+pip install -e .[dev]   # pygame-ce, numpy and psutil
 ```
+
+### The app (M3)
+
+```
+pip install -e .[dev]
+python -m engrama                     # or the `engrama` command
+python -m engrama --dev --time-scale 60 --seed 1
+python -m engrama --no-llm --frames 600     # no Ollama; exits after 600 frames (smoke test)
+```
+
+Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows numbers and the time scale), `--no-llm`, `--frames N`, `--seconds S`.
+
+- **Chat prerequisite:** Ollama in `E:\Ollama` (`ollama.exe`, `home`, `models`; paths come from `Config`). Engrama starts `ollama serve` itself, in the background, with everything pointed at E:, and stops it on exit if it started it. The default model is `qwen3:1.7b`; download it from the models menu (F5). The model stays loaded only during and shortly after a conversation (`keep_alive` 600 s).
+- **Keys:** F2 Mind View, F3 manual rest, F4 foods, F5 models, F6 settings, F12 dev mode (numbers; `PgUp`/`PgDn` change the time scale), Esc closes the panel. Enter sends the message.
+- **Rest:** manual (F3) or automatic (a fullscreen app, low free RAM, or 30 min without input). While resting the window drops to 2 FPS, the mind runs at a reduced rate and the LLM is unloaded. Unfocused the window runs at 5 FPS; focused, 20 FPS.
+- **Mind View (F2):** the recipe graph, the tick's proposals (winner highlighted), each module's cost in ms and each module's visualisations, such as the SNN spike raster and surprise. Numbers appear only here and in dev mode.
+- **Data:** in `Config.data_dir` (default `data/`, on the repo's drive): `config.json`, `save/` (mind and body state), `host.json`, `explog.sqlite` (experience log) and `memory.sqlite` (chat memory). Nothing goes to C:.
+- **Without the LLM:** everything works. If Ollama is missing, stopped or lacks the model, the UI shows the state ("Ollama not found", "downloading model") and chat turns into babble; the creature keeps living. The LLM only produces speech, it never picks actions.
 
 ### Lab
 
@@ -123,6 +159,7 @@ Dependency rule (enforced by `tests/test_architecture.py`): `kernel` imports non
 ```
 python -m pytest -q                      # includes slow tests (slow marker)
 python tools/bench.py --seconds 120      # JSON: peak RSS, mean CPU, per-module mean_ms
+python tools/bench.py --app --seconds 60   # the whole app (dummy SDL, --no-llm): peak RSS and mean CPU
 ```
 
 ### Where files live
