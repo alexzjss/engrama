@@ -38,11 +38,20 @@ python -m engrama --no-llm --frames 600     # sem Ollama; encerra após 600 quad
 Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra números e escala de tempo), `--no-llm`, `--frames N`, `--seconds S`.
 
 - **Pré-requisito da conversa:** Ollama em `E:\Ollama` (`ollama.exe`, `home`, `models`; os caminhos vêm de `Config`). O Engrama inicia o `ollama serve` sozinho, em segundo plano, com tudo apontado para o E:, e o encerra ao sair se foi ele quem o iniciou. O modelo padrão é `qwen3:1.7b`; baixe pelo menu de modelos (F5). O modelo só fica carregado durante e logo após a conversa (`keep_alive` de 600 s).
-- **Teclas:** F2 Visão da Mente, F3 descanso manual, F4 comidas, F5 modelos, F6 configurações, F12 modo dev (números, `PgUp`/`PgDn` mudam a escala de tempo), Esc fecha o painel. Enter envia a mensagem.
+- **Teclas:** F2 Visão da Mente, F3 descanso manual, F4 comidas, F5 modelos, F6 configurações, F7 Memórias, F12 modo dev (números, `PgUp`/`PgDn` mudam a escala de tempo), Esc fecha o painel. Enter envia a mensagem.
 - **Descanso:** manual (F3) ou automático (app em tela cheia, pouca RAM livre ou 30 min sem uso). Em descanso a janela cai para 2 FPS, a mente roda em ritmo reduzido e o LLM é descarregado. Sem foco a janela usa 5 FPS; com foco, 20 FPS.
 - **Visão da Mente (F2):** o grafo da receita, as propostas do tick (a vencedora destacada), o custo em ms de cada módulo e as visualizações de cada um, como o raster de disparos e a surpresa da SNN. Só aqui e no modo dev aparecem números.
 - **Dados:** em `Config.data_dir` (padrão `data/`, no drive do repositório): `config.json`, `save/` (estado da mente e do corpo), `host.json`, `explog.sqlite` (log de experiência) e `memory.sqlite` (memória da conversa). Nada vai para o C:.
 - **Sem o LLM:** tudo funciona. Se o Ollama estiver ausente, parado ou sem o modelo, a UI mostra o estado ("Ollama não encontrado", "baixando modelo") e a conversa vira balbucio; a criatura segue viva. O LLM só produz fala, nunca escolhe ações.
+
+### Memória viva (M4)
+
+- **O que ela guarda:** fatos sobre você, assuntos (atuais e passados), opiniões próprias e reflexões depois das conversas. Tudo em `memory.sqlite`, com os tetos de 2000 episódios, 300 fatos e 300 assuntos. Episódios antigos e pouco importantes são compactados (`forget()` roda ao abrir e a cada 6 h).
+- **Opiniões:** a posição vem de uma inclinação inata (semente + traços) e da experiência dela, nunca do que você gosta. O LLM só escreve a frase. Ela pode discordar de você.
+- **Reflexão:** depois de uma conversa que esfriou, um job de baixa prioridade resume o que foi dito. Nunca carrega o LLM: só roda com o modelo já pronto e a máquina livre.
+- **Iniciativa:** rara e por estágio (criança puxa o assunto atual, adulto opina, perfeito/final retoma algo antigo). Cota de cerca de um comentário por hora de uso ativo; nunca em descanso, em tela cheia ou sem o LLM pronto.
+- **Painel Memórias (F7):** lista fatos, assuntos, opiniões e reflexões. Apague um item (Enter ou o x) ou "esquecer tudo" (pede confirmação em etapas).
+- **Privacidade:** tudo fica local, no seu disco. Apagar é definitivo: o item sai do banco, dos episódios que o citam e da memória de curto prazo, e só volta se você mencionar de novo.
 
 ### Laboratório
 
@@ -122,11 +131,20 @@ python -m engrama --no-llm --frames 600     # no Ollama; exits after 600 frames 
 Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows numbers and the time scale), `--no-llm`, `--frames N`, `--seconds S`.
 
 - **Chat prerequisite:** Ollama in `E:\Ollama` (`ollama.exe`, `home`, `models`; paths come from `Config`). Engrama starts `ollama serve` itself, in the background, with everything pointed at E:, and stops it on exit if it started it. The default model is `qwen3:1.7b`; download it from the models menu (F5). The model stays loaded only during and shortly after a conversation (`keep_alive` 600 s).
-- **Keys:** F2 Mind View, F3 manual rest, F4 foods, F5 models, F6 settings, F12 dev mode (numbers; `PgUp`/`PgDn` change the time scale), Esc closes the panel. Enter sends the message.
+- **Keys:** F2 Mind View, F3 manual rest, F4 foods, F5 models, F6 settings, F7 Memories, F12 dev mode (numbers; `PgUp`/`PgDn` change the time scale), Esc closes the panel. Enter sends the message.
 - **Rest:** manual (F3) or automatic (a fullscreen app, low free RAM, or 30 min without input). While resting the window drops to 2 FPS, the mind runs at a reduced rate and the LLM is unloaded. Unfocused the window runs at 5 FPS; focused, 20 FPS.
 - **Mind View (F2):** the recipe graph, the tick's proposals (winner highlighted), each module's cost in ms and each module's visualisations, such as the SNN spike raster and surprise. Numbers appear only here and in dev mode.
 - **Data:** in `Config.data_dir` (default `data/`, on the repo's drive): `config.json`, `save/` (mind and body state), `host.json`, `explog.sqlite` (experience log) and `memory.sqlite` (chat memory). Nothing goes to C:.
 - **Without the LLM:** everything works. If Ollama is missing, stopped or lacks the model, the UI shows the state ("Ollama not found", "downloading model") and chat turns into babble; the creature keeps living. The LLM only produces speech, it never picks actions.
+
+### Living memory (M4)
+
+- **What it keeps:** facts about you, subjects (current and past), opinions of its own and reflections after conversations. All in `memory.sqlite`, capped at 2000 episodes, 300 facts and 300 subjects. Old, low-importance episodes are compacted (`forget()` runs at start-up and every 6 h).
+- **Opinions:** the position comes from an innate lean (seed + traits) and its own experience, never from what you like. The LLM only writes the phrase. It can disagree with you.
+- **Reflection:** after a conversation goes quiet, a low-priority job summarises what was said. It never loads the LLM: it runs only with the model already ready and the machine idle.
+- **Initiative:** rare and stage-gated (child brings up the current subject, adult gives an opinion, perfect/final revisits something old). A quota of about one remark per hour of active use; never while resting, in fullscreen or without the LLM ready.
+- **Memories panel (F7):** lists facts, subjects, opinions and reflections. Delete one item (Enter or the x) or "forget everything" (asks for confirmation in steps).
+- **Privacy:** everything stays local, on your disk. Deleting is final: the item leaves the database, the episodes that mention it and the short-term memory, and only returns if you mention it again.
 
 ### Lab
 
