@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import random
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from engrama.services.language.client import strip_think
 
@@ -27,6 +27,16 @@ class PersonaState:
     favorites: list[str] = field(default_factory=list)
     disliked: list[str] = field(default_factory=list)
     memories: list[str] = field(default_factory=list)
+    facts: list[str] = field(default_factory=list)
+    current_topics: list[str] = field(default_factory=list)
+    past_topics: list[str] = field(default_factory=list)
+    opinion: str | None = None
+
+
+def apply_recall(state: PersonaState, ctx) -> PersonaState:
+    """Return a copy of state carrying a RecallContext (services.memory.recall)."""
+    return replace(state, facts=list(ctx.facts), memories=list(ctx.episodes), current_topics=list(ctx.current),
+                   past_topics=list(ctx.past), opinion=ctx.opinion)
 
 
 TRAIT_ADJ = {
@@ -136,6 +146,10 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
             f"Favorite foods: {foods(state.favorites)}." if state.favorites else "",
             f"Foods you dislike: {foods(state.disliked)}." if state.disliked else "",
             f"Recent memories: {'; '.join(mems)}." if mems else "",
+            f"What you know about your human: {'; '.join(state.facts)}." if state.facts else "",
+            f"Current topics: {', '.join(state.current_topics)}." if state.current_topics else "",
+            f"An old topic you may remember: {', '.join(state.past_topics)}." if state.past_topics else "",
+            f"Your opinion: you {state.opinion} (you may disagree with the human)." if state.opinion else "",
             "(Mention foods only if the human talks about food.) Reply in English.",
         ]
     else:
@@ -152,6 +166,10 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
             f"Comidas favoritas: {foods(state.favorites)}." if state.favorites else "",
             f"Comidas que você não gosta: {foods(state.disliked)}." if state.disliked else "",
             f"Memórias recentes: {'; '.join(mems)}." if mems else "",
+            f"O que você sabe do seu humano: {'; '.join(state.facts)}." if state.facts else "",
+            f"Assuntos de agora: {', '.join(state.current_topics)}." if state.current_topics else "",
+            f"Um assunto antigo que você pode lembrar: {', '.join(state.past_topics)}." if state.past_topics else "",
+            f"Sua opinião: você {state.opinion} (pode discordar do humano)." if state.opinion else "",
             "(Só fale de comida se o humano falar de comida.) Responda em português.",
         ]
     system = re.sub(r"\d", "", " ".join(p for p in parts if p))

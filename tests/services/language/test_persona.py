@@ -73,3 +73,17 @@ def test_valence():
     assert valence("mesa", "pt") == 0.0
     assert valence("não gosto", "pt") < 0
     assert -1.0 <= valence("amo odeio", "pt") <= 1.0
+
+
+def test_prompt_includes_memory_without_digits():
+    from engrama.services.language.persona import apply_recall
+    from engrama.services.memory.recall import RecallContext
+    st = PersonaState(stage="adult", facts=["time: 2 gatos"], opinion="detesta jogo",
+                      current_topics=["música"], past_topics=["futebol"])
+    for lang in ("pt", "en"):
+        system = build_messages(st, [], "oi", lang)[0]["content"]
+        assert "gatos" in system and "detesta jogo" in system and "música" in system and "futebol" in system
+        assert not re.search(r"\d", system)
+    st2 = apply_recall(PersonaState(), RecallContext(["a: b"], ["ep"], ["t"], ["p"], "op"))
+    assert (st2.facts, st2.memories, st2.current_topics, st2.past_topics, st2.opinion) == (
+        ["a: b"], ["ep"], ["t"], ["p"], "op")
