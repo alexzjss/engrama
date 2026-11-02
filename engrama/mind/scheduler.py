@@ -82,6 +82,27 @@ class Scheduler:
         self._runs = {n: 0 for n in self._order}
         self._evbuf: dict[str, list[Observation]] = {n: [] for n in self._order}
         self._evticks = {n: 0 for n in self._order}
+        self._rest = False
+        self._rest_saved: dict[str, float] | None = None
+
+    @property
+    def resting(self) -> bool:
+        return self._rest
+
+    def set_rest(self, on: bool) -> None:
+        """Rest mode: every module runs at MODULE_MIN_RATE_FACTOR; leaving it restores the previous factors."""
+        on = bool(on)
+        if on == self._rest:
+            return
+        self._rest = on
+        if on:
+            self._rest_saved = {n: s.rate_factor for n, s in self._st.items()}
+            for s in self._st.values():
+                s.rate_factor = B.MODULE_MIN_RATE_FACTOR
+        else:
+            for n, s in self._st.items():
+                s.rate_factor = (self._rest_saved or {}).get(n, 1.0)
+            self._rest_saved = None
 
     def _view(self, name: str, bb: Blackboard, events=None):
         if self._st[name].shadow:
@@ -121,7 +142,7 @@ class Scheduler:
             self._runs[n] += 1
             st.last_ms = ms
             st.mean_ms += (ms - st.mean_ms) / self._runs[n]
-            if not self.enforce_budgets:
+            if not self.enforce_budgets or self._rest:
                 continue
             if ms > m.budget_ms:
                 st.good_runs = 0
@@ -173,7 +194,9 @@ class Scheduler:
                 "evbuf": {n: [[o.t, o.kind, dict(o.data)] for o in b] for n, b in self._evbuf.items()},
                 "evticks": dict(self._evticks),
                 "status": {n: {"enabled": s.enabled, "rate_factor": s.rate_factor, "strikes": s.strikes,
-                               "good_runs": s.good_runs, "error": s.error} for n, s in self._st.items()}}
+                               "good_runs": s.good_runs, "error": s.error} for n, s in self._st.items()},
+                "rest": self._rest,
+                "rest_saved": None if self._rest_saved is None else dict(self._rest_saved)}
 
     def load_state_dict(self, d: dict) -> None:
         for n in self._order:
@@ -184,6 +207,9 @@ class Scheduler:
             st.good_runs = int(o.get("good_runs", 0))
             self._evbuf[n] = [Observation(float(t), k, dict(data)) for t, k, data in d.get("evbuf", {}).get(n, [])]
             self._evticks[n] = int(d.get("evticks", {}).get(n, 0))
+        self._rest = bool(d.get("rest", False))
+        rs = d.get("rest_saved")
+        self._rest_saved = None if rs is None else {k: float(v) for k, v in rs.items()}
 
     def status(self) -> list[ModuleStatus]:
         return [self._st[n] for n in self._order]
