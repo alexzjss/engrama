@@ -87,3 +87,10 @@ SNN_MAX_BINS_PER_STEP = 5        # a very long step (offline gap) runs at most t
 MODULE_MIN_RATE_FACTOR = 0.125   # live budget demotion never slows a module below 1/8 of its rate
 MODULE_RECOVERY_RUNS = 50        # consecutive in-budget runs after which a demoted module speeds back up
 SNN_BUDGET_MS = 10.0
+
+# Task M3-5
+HOST_TICK_S = 1.0               # real seconds between host ticks
+AUTOSAVE_S = 300.0              # wall seconds between autosaves
+REST_RAM_FREE_MB = 1000         # free RAM below this triggers rest
+REST_IDLE_S = 1800.0            # no user input for this long triggers rest
+SURPRISE_CURIOUS = 0.5          # temporal.surprise above this makes the creature "curious"

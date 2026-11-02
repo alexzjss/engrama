@@ -70,11 +70,23 @@ class Runtime:
         self._since_decision = 0.0
         self._pending: dict | None = None   # channels, action, prob, live, shadow
         self._last_action = ""
+        self._last_choice = ""
         self._credit = AskCredit()   # token = the Experience of the ask that opened the open window
 
     bb = property(lambda self: self._bb)
     kernel = property(lambda self: self._kernel)
     scheduler = property(lambda self: self._scheduler)
+
+    @property
+    def last_proposals(self) -> tuple[list[Proposal], list[Proposal]]:
+        """(live, shadow) proposals of the last decision (fresh lists)."""
+        p = self._pending
+        return ([], []) if p is None else (list(p["live"]), list(p["shadow"]))
+
+    @property
+    def last_choice(self) -> str:
+        """The action the arbiter picked at the last decision ('' before the first)."""
+        return self._last_choice
 
     def tick(self, dt: float, events: list[Obs]) -> str:
         k, bb = self._kernel, self._bb
@@ -102,6 +114,7 @@ class Runtime:
             self._since_decision = 0.0
             live, shadow = self._scheduler.proposals(bb)
             action, prob, _ = self._arbiter.choose(live, bb.available_actions, bb, self._arbiter_rng)
+            self._last_choice = action
             running, forced = k.execute(action)
             self._pending = {"channels": channels, "action": running, "prob": 1.0 if forced else prob,
                              "live": live, "shadow": shadow, "decided": not forced}
@@ -175,6 +188,8 @@ class Runtime:
                            "live": [Proposal(**x) for x in p["live"]],
                            "shadow": [Proposal(**x) for x in p["shadow"]],
                            "decided": bool(p.get("decided", True))}
+        if p is not None:
+            rt._last_choice = p["action"]
         if meta.get("credit") is not None:
             rt._credit.token = _exp_from_dict(meta["credit"])
         if meta["user"] is not None:
