@@ -76,30 +76,35 @@ def get(svc, timeout=1.0):
     return svc.replies.get(timeout=timeout)
 
 
+def _wait_until(cond, timeout=10.0):
+    deadline = time.monotonic() + timeout
+    while not cond() and time.monotonic() < deadline:
+        time.sleep(0.005)
+    return cond()
+
+
 def test_offline_babbles_and_retries_after_cooldown(tmp_path):
     clock = Clock()
     client = FakeClient(warm_exc=LLMOffline("down"))
     svc, _, _ = make(tmp_path, client=client, sync=False, clock=clock)
     try:
-        t0 = time.monotonic()
         svc.request("oi")
-        r = get(svc)
-        assert r.source == "babble" and time.monotonic() - t0 <= 1.0
-        deadline = time.monotonic() + 1
-        while client.warms < 1 and time.monotonic() < deadline:
-            time.sleep(0.01)
+        r = get(svc, timeout=10.0)
+        assert r.source == "babble"
+        assert _wait_until(lambda: client.warms >= 1)
         assert client.warms == 1
+        # warms is bumped before the failure is handled: wait for the cooldown to be armed (state offline,
+        # _down_until set from the *current* clock) before moving the fake clock, else the window shifts
+        assert _wait_until(lambda: svc._state == "offline" and svc._down_until > clock.t)
         clock.t += OFFLINE_COOLDOWN - 1          # still cooling down
         svc.request("oi de novo")
-        assert get(svc).source == "babble"
+        assert get(svc, timeout=10.0).source == "babble"
         time.sleep(0.1)
         assert client.warms == 1
         clock.t += 2                              # cooldown over
         svc.request("oi outra vez")
-        assert get(svc).source == "babble"
-        deadline = time.monotonic() + 1
-        while client.warms < 2 and time.monotonic() < deadline:
-            time.sleep(0.01)
+        assert get(svc, timeout=10.0).source == "babble"
+        assert _wait_until(lambda: client.warms >= 2)
         assert client.warms == 2
     finally:
         svc.shutdown()

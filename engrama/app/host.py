@@ -30,6 +30,7 @@ __all__ = ["Host", "RestPolicy", "Snapshot", "Viz", "to_viz", "main"]
 _INPUT_KINDS = frozenset({"click", "pet", "message", "food", "user_active", "answered"})
 _POST_CAP = 1000
 _VIZ_EVERY_S = 1.0
+FORGET_EVERY_S = 6 * 3600.0
 
 
 def _safe(cb: Callable | None, *args) -> None:
@@ -343,6 +344,69 @@ def _build_persona(snap: Snapshot, memory):
         memories=list(memories))
 
 
+class _MemoryProvider:
+    """Adapter the Memories panel (F7) talks to: MemoryStore + WorkingMemory behind the duck-typed protocol."""
+
+    def __init__(self, memory, working) -> None:
+        self.memory, self.working = memory, working
+
+    @staticmethod
+    def _lang() -> str:
+        from engrama.app import i18n
+        return i18n.get_lang()
+
+    def facts(self) -> list[tuple[str, str]]:
+        return [(r["key"], r["value"]) for r in self.memory.fact_rows()]
+
+    def topics(self) -> list[tuple[str, bool]]:
+        cur = set(self.memory.current_topics(10 ** 6))
+        return [(r["name"], r["name"] in cur) for r in self.memory.topic_rows()]
+
+    def opinions(self) -> list[tuple[str, str]]:
+        from engrama.services.memory.opinions import stance_word
+        lang = self._lang()
+        return [(r["topic"], r["phrase"] or stance_word(r["stance"], lang))
+                for r in self.memory.opinion_rows() if r["confidence"] > 0]
+
+    def reflections(self) -> list[str]:
+        return list(self.memory.recent_reflections(5))
+
+    def summary(self) -> dict:
+        refl = self.memory.recent_reflections(1)
+        return {"episodes": len(self.memory.recent(10 ** 6)), "facts": len(self.memory.fact_rows()),
+                "topics": len(self.memory.topic_rows()),
+                "opinions": len([r for r in self.memory.opinion_rows() if r["confidence"] > 0]),
+                "last_reflection": refl[0] if refl else ""}
+
+    def _drop_working(self, needles: list[str]) -> None:
+        from engrama.services.memory.topics import plain_text
+        needles = [plain_text(n) for n in needles if n]
+        keep = [m for m in self.working.messages()
+                if not any(n and n in plain_text(m.get("content", "")) for n in needles)]
+        self.working.clear()
+        for m in keep:
+            self.working.add(m["role"], m["content"])
+
+    def delete_fact(self, key: str) -> None:
+        value = next((v for k, v in self.facts() if k == key), "")
+        self.memory.delete_fact(key)
+        self._drop_working([value, key.replace("_", " ")])
+
+    def delete_topic(self, name: str) -> None:
+        from engrama.services.memory.topics import SYNONYMS, normalize_topic
+        key = normalize_topic(name)
+        self.memory.delete_topic(name)
+        self._drop_working([key] + [k for k, v in SYNONYMS.items() if v == key])
+
+    def forget_all(self) -> None:
+        self.memory.forget_all_about_user()
+        self.working.clear()
+
+
+def _memory_provider(memory, working) -> _MemoryProvider:
+    return _MemoryProvider(memory, working)
+
+
 class _NullServer:
     """Stands in for OllamaServer under --no-llm: never available, never spawns anything."""
     started_by_us = False
@@ -421,6 +485,7 @@ def main(argv: list[str] | None = None) -> int:
         policy = InitiativePolicy(memory, time.time)
         last_input = float("-inf")
         next_policy = 0.0
+        next_forget = 0.0
         if not a.no_llm:   # never block the window on Ollama start-up
             start_thread = threading.Thread(target=server.start, daemon=True, name="ollama-start")
             start_thread.start()
@@ -429,6 +494,7 @@ def main(argv: list[str] | None = None) -> int:
                         set_time_scale=host.set_time_scale,
                         valence_fn=lambda text: valence(text, detect_lang(text, "pt")))
         window.config = cfg
+        window.memory_provider = _memory_provider(memory, working)
         window.save_config = lambda: cfg.save(cfg_path)
         window.dev = bool(a.dev or cfg.dev_mode)
         window.panels["models"] = lambda w: ModelsPanel(w)
@@ -453,6 +519,12 @@ def main(argv: list[str] | None = None) -> int:
             host.want_viz = window.panel_name == "mind"
             now_w = time.time()
             language.tick(now_w)
+            if now_w >= next_forget:   # at startup, then every 6 h of wall time
+                next_forget = now_w + FORGET_EVERY_S
+                try:
+                    memory.forget()
+                except Exception:
+                    logging.getLogger("engrama.app").exception("memory.forget failed")
             if now_w >= next_policy:
                 next_policy = now_w + 1.0
                 try:
