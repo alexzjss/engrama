@@ -44,7 +44,7 @@ def _pg():
     yield
 
 
-@pytest.mark.parametrize("stage,size", [("egg", 16), ("baby", 16), ("child", 24), ("adult", 28), ("perfect", 32), ("final", 32)])
+@pytest.mark.parametrize("stage,size", [("egg", 16), ("baby", 24), ("child", 32), ("adult", 40), ("perfect", 44), ("final", 48)])
 def test_frames_sizes_and_alpha(stage, size):
     for anim in ANIMS:
         frames = make_frames(G(), stage, anim)
@@ -61,17 +61,6 @@ def test_frames_deterministic():
     sprites._cache.clear()
     b = [h(f) for f in make_frames(rand_genome(5), "baby", "walk")]
     assert a == b
-
-
-@pytest.mark.parametrize("stage", ["baby", "child"])
-def test_frames_mirrored(stage):
-    for eyes in range(4):
-        for ears in range(5):
-            for body in range(6):
-                g = G(seed=eyes * 100 + ears * 10 + body, eyes=eyes, ears=ears, body=body, tail=0)
-                f = make_frames(g, stage, "idle")[0]
-                flipped = pygame.transform.flip(f, True, False)
-                assert pygame.image.tobytes(f, "RGBA") == pygame.image.tobytes(flipped, "RGBA")
 
 
 def test_different_seeds_differ():

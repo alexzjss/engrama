@@ -55,6 +55,8 @@ class Scene:
                 anim = "sleep"
             fr = sprites.frames(look, stage, anim)
             img = fr[int(now * 4) % len(fr)]
+            if snap.eyes_closed and not snap.asleep:  # user asked for closed eyes: the first sleep frame has them shut
+                img = sprites.frames(look, stage, "sleep")[0]
             moving = snap.action in ("wander", "explore") and not snap.asleep
             pos_x = int(w / 2 + (math.sin(now * 0.6) * w * 0.3 if moving else math.sin(now * 0.1) * 6))
         r = img.get_rect(midbottom=(pos_x, ground))
@@ -68,22 +70,7 @@ class Scene:
         else:
             surface.blit(img, r)
         self.creature_rect = r
-        if snap.eyes_closed and not self.is_egg:
-            self._closed_eyes(surface, r)
         if asking and int(now * 2) % 2 == 0:
             bx, by = r.midtop[0], r.y - 8
             surface.fill((250, 240, 120), (bx - 1, by - 5, 3, 5))
             surface.fill((250, 240, 120), (bx - 1, by + 1, 3, 2))
-
-    @staticmethod
-    def _closed_eyes(surface: pygame.Surface, r: pygame.Rect) -> None:
-        """Cover the eyes with the body color and draw closed lids (does not touch the sprite animations)."""
-        ey = r.y + max(2, r.h * 38 // 100)
-        w = max(3, r.w // 6)
-        try:
-            body = surface.get_at((r.centerx, r.y + r.h * 55 // 100))[:3]
-        except IndexError:
-            body = (200, 200, 200)
-        for ex in (r.x + r.w * 32 // 100, r.x + r.w * 68 // 100):
-            surface.fill(body, (ex - w // 2 - 1, ey - 2, w + 2, 5))
-            pygame.draw.line(surface, (40, 36, 50), (ex - w // 2, ey), (ex + w // 2, ey))
