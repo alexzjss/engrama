@@ -57,6 +57,8 @@ class Host:
         self.want_viz = False
         self.on_rest_change: Callable[[bool, str], None] | None = None
         self.on_event: Callable[[str, dict], None] | None = None
+        self.on_eyes_change: Callable[[bool], None] | None = None
+        self._eyes_closed = bool(getattr(cfg, "eyes_closed", False))
         self.last_error = ""
 
         self._posts: collections.deque[tuple[str, dict]] = collections.deque(maxlen=_POST_CAP)
@@ -130,6 +132,15 @@ class Host:
     def set_rest(self, on: bool) -> None:
         """Manual rest override; applied at the next tick."""
         self.rest_policy.manual = bool(on)
+
+    @property
+    def eyes_closed(self) -> bool:
+        return self._eyes_closed
+
+    def set_eyes_closed(self, on: bool) -> None:
+        """Eyes-closed (privacy) state; reaches the snapshot at the next tick."""
+        self._eyes_closed = bool(on)
+        _safe(self.on_eyes_change, self._eyes_closed)
 
     def set_time_scale(self, scale: float) -> None:
         self.clock.set_scale(float(scale))
@@ -314,7 +325,8 @@ class Host:
             shadow_proposals=tuple(ProposalView(p.action, float(p.score), p.reason, p.source) for p in shadow),
             winner=rt.last_choice, modules=views, viz=viz,
             recipe_name=rt.recipe.name, recipe_version=int(rt.recipe.version),
-            resting=self._resting, rest_reason=self._rest_reason)
+            resting=self._resting, rest_reason=self._rest_reason,
+            eyes_closed=self._eyes_closed)
 
     def _collect_viz(self, mods) -> dict[str, tuple[Viz, ...]]:
         out: dict[str, tuple[Viz, ...]] = {}

@@ -210,3 +210,10 @@ def test_egg_click_does_not_touch_chat_input():
     w.handle_event(click((r.centerx * 4, r.centery * 4)))
     assert posts.count(("click", None)) == 1
     assert w.chat.text == "oi"
+
+
+def test_window_no_longer_posts_app_focus():
+    w, posts, _ = make(snap())
+    w.handle_event(pygame.event.Event(pygame.WINDOWFOCUSLOST))
+    w.handle_event(pygame.event.Event(pygame.WINDOWFOCUSGAINED))
+    assert posts == [] and w.focused is True

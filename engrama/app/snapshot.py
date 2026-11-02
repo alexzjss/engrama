@@ -61,6 +61,7 @@ class Snapshot:
     recipe_version: int = 0
     resting: bool = False
     rest_reason: str = ""
+    eyes_closed: bool = False
 
 
 def plain(x: Any) -> Any:
