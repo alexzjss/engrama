@@ -45,8 +45,7 @@ def test_stage_index():
     assert StageMachine(stage="adult").stage_index == STAGES.index("adult")
 
 
-def test_health_stub_never_sick_and_roundtrips():
+def test_health_roundtrips():
     h = Health()
-    h.update(10**6, 100.0)
-    assert h.sick is False
+    h = Health(sick=True, kind="neglect", severity=0.5, last_medicine_t=12.0)
     assert Health.from_dict(h.to_dict()) == h
