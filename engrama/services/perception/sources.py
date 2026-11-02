@@ -17,6 +17,23 @@ class NullSources:
     def cpu_percent(self): return None
 
 
+class ScriptedSources:
+    """Deterministic fake machine (bench / smoke): rotates through a few apps, never idle, never heavy."""
+    _APPS = (("code.exe", "main.py - engrama"), ("spotify.exe", "Song - Artist"),
+             ("chrome.exe", "Docs"), ("hollow_knight.exe", "Hollow Knight"))
+
+    def __init__(self):
+        self._n = 0
+
+    def foreground(self):
+        self._n += 1
+        return self._APPS[(self._n // 3) % len(self._APPS)]
+
+    def idle_seconds(self): return 1.0
+    def is_fullscreen(self): return False
+    def cpu_percent(self): return 15.0
+
+
 _SHELL_CLASSES = {"progman", "workerw", "shell_traywnd", "shell_secondarytraywnd"}
 
 

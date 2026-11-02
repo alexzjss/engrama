@@ -176,7 +176,7 @@ class LanguageService:
         self._spawn(work)
 
     def spontaneous(self, kind: str, topic: str | None = None) -> None:
-        """Rare self-initiated remark (kind: current | opinion | past); low priority, ready + idle only."""
+        """Rare self-initiated remark (kind: current | opinion | past | activity); low priority, ready + idle only."""
         if kind in SPONTANEOUS_PROMPT["pt"]:
             self._enqueue(P_COMMENT, lambda: self._spontaneous(kind, topic))
 

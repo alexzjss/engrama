@@ -18,11 +18,18 @@ from engrama.lab.simuser import PROFILES, SimUser  # noqa: E402
 from engrama.mind.recipe import load_recipe  # noqa: E402
 
 
-def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict:
+def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5, fake_perception: bool = False) -> dict:
     """Run the whole app (`python -m engrama --no-llm`, dummy SDL) in a child process; sample its RSS/CPU."""
+    cmd = [sys.executable, "-m", "engrama", "--no-llm", "--data-dir", str(data_dir)]
+    if fake_perception:   # all sources allowed, scripted machine, short interval: worst case for the service
+        from engrama.config import Config
+        cfg = Config(data_dir=data_dir)
+        cfg.perception_asked, cfg.perception_interval_s = True, 15.0
+        cfg.permissions = {k: True for k in cfg.permissions}
+        cfg.save(data_dir / "config.json")
+        cmd.append("--fake-perception")
     env = dict(os.environ, SDL_VIDEODRIVER="dummy", SDL_AUDIODRIVER="dummy", PYTHONPATH=str(ROOT))
-    child = subprocess.Popen([sys.executable, "-m", "engrama", "--no-llm", "--data-dir", str(data_dir)],
-                             cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    child = subprocess.Popen(cmd, cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     root = psutil.Process(child.pid)
 
     def tree() -> list[psutil.Process]:   # a venv launcher stub may sit in front of the real interpreter
@@ -56,7 +63,7 @@ def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict:
         child.wait(5)
     except subprocess.TimeoutExpired:
         child.kill()
-    return {"mode": "app", "seconds": round(wall, 1), "alive": alive,
+    return {"mode": "app", "fake_perception": fake_perception, "seconds": round(wall, 1), "alive": alive,
             "peak_rss_mb": round(peak / 2**20, 1), "mean_cpu_percent": round(cpu, 2),
             "system_cpu_percent": system_load, "cpu_count": psutil.cpu_count(),
             "loaded": system_load > 50.0}
@@ -69,11 +76,12 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--profile", default="attentive", choices=sorted(PROFILES))
     ap.add_argument("--app", action="store_true", help="bench the whole app process (dummy SDL, --no-llm)")
+    ap.add_argument("--fake-perception", action="store_true", help="with --app: scripted perception sources, all allowed")
     ap.add_argument("--data-dir", type=Path, default=ROOT / ".pytest_tmp" / "bench_app")
     a = ap.parse_args(argv)
     if a.app:
         a.data_dir.mkdir(parents=True, exist_ok=True)
-        print(json.dumps(bench_app(a.seconds, a.data_dir), indent=2))
+        print(json.dumps(bench_app(a.seconds, a.data_dir, fake_perception=a.fake_perception), indent=2))
         return 0
     rt = Runtime(load_recipe(a.recipe), a.seed)
     user = SimUser(PROFILES[a.profile], np.random.default_rng([a.seed, 1]))

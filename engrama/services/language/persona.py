@@ -118,10 +118,12 @@ OPINION_PROMPT = {
 SPONTANEOUS_PROMPT = {
     "pt": {"current": "(O humano não disse nada. Puxe papo por conta própria sobre o assunto de agora: {topic}. Uma linha curta.)",
            "opinion": "(O humano não disse nada. Diga por conta própria o que você acha de {topic}, de acordo com a sua opinião. Uma linha curta.)",
-           "past": "(O humano não disse nada. Lembre por conta própria, com saudade, do assunto antigo: {topic}. Uma linha curta.)"},
+           "past": "(O humano não disse nada. Lembre por conta própria, com saudade, do assunto antigo: {topic}. Uma linha curta.)",
+           "activity": "(O humano está ocupado com isto agora: {topic}. Faça por conta própria um comentário curto e discreto sobre isso, sem dizer que está vendo a tela. Uma linha curta.)"},
     "en": {"current": "(The human said nothing. Start a chat on your own about the current subject: {topic}. One short line.)",
            "opinion": "(The human said nothing. Say on your own what you think about {topic}, following your opinion. One short line.)",
-           "past": "(The human said nothing. Fondly bring up, on your own, the old subject: {topic}. One short line.)"},
+           "past": "(The human said nothing. Fondly bring up, on your own, the old subject: {topic}. One short line.)",
+           "activity": "(The human is busy with this right now: {topic}. Make a short, discreet remark about it on your own, without saying you are watching the screen. One short line.)"},
 }
 FILE_PROMPT = {
     "pt": ("(O humano acabou de te mostrar um arquivo chamado \"{name}\", do tipo {kind}. A mensagem dele traz um "
