@@ -28,9 +28,8 @@ class WorldState:
         elif k == "fullscreen_off":
             self.fullscreen = False
         elif k == "app_focus":
-            app = str(obs.data.get("app", ""))
-            cat = str(obs.data.get("category", app))
-            self.last_app = app
+            cat = str(obs.data.get("category", ""))
+            self.last_app = cat
             if cat and cat not in self.seen_apps:
                 self.seen_apps.add(cat)
                 return True
@@ -42,4 +41,6 @@ class WorldState:
 
     @classmethod
     def from_dict(cls, d: dict) -> "WorldState":
-        return cls(bool(d["user_active"]), bool(d["fullscreen"]), d["last_app"], set(d["seen_apps"]))
+        seen = set(d["seen_apps"])
+        last = d["last_app"]
+        return cls(bool(d["user_active"]), bool(d["fullscreen"]), last if last in seen else "", seen)

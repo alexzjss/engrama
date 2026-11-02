@@ -5,6 +5,7 @@ import random
 from typing import Callable
 
 from engrama.services.memory import INITIATIVE_PER_ACTIVE_S, OPPORTUNITY_EVERY_S
+from engrama.services.perception import PRIVATE
 
 log = logging.getLogger("engrama.initiative")
 
@@ -21,6 +22,7 @@ class InitiativePolicy:
         self.memory = memory
         self._now = now_fn
         self._rng = rng or random.Random(0)
+        self._flip = False
         self._last_call: float | None = None
         self._since_check = 0.0
         self._usage = self._load("initiative_usage")
@@ -40,7 +42,7 @@ class InitiativePolicy:
         except Exception:
             log.exception("initiative persist failed")
 
-    def _pick(self, stage: str) -> tuple[str, str | None] | None:
+    def _pick(self, stage: str, activity: str | None = None) -> tuple[str, str | None] | None:
         m = self.memory
         if stage in _LATE:
             past = m.past_topics(1)
@@ -53,19 +55,24 @@ class InitiativePolicy:
                 return "opinion", best["topic"]
         if stage in _CHILD_PLUS:
             cur = m.current_topics(1)
+            if activity and activity != PRIVATE:
+                self._flip = not self._flip
+                if self._flip or not cur:
+                    return "activity", activity
             if cur:
                 return "current", cur[0]
         return None
 
     def update(self, now: float, *, stage: str, user_active: bool, llm_ready: bool,
-               resting: bool, fullscreen: bool, action: str) -> tuple[str, str | None] | None:
+               resting: bool, fullscreen: bool, action: str, activity: str | None = None,
+               eyes_closed: bool = False) -> tuple[str, str | None] | None:
         delta = 0.0 if self._last_call is None else max(0.0, now - self._last_call)
         self._last_call = now
         if user_active:
             step = min(delta, OPPORTUNITY_EVERY_S)
             self._usage += step
             self._since_check += step
-        if stage in ("egg", "baby") or not llm_ready or resting or fullscreen:
+        if eyes_closed or stage in ("egg", "baby") or not llm_ready or resting or fullscreen:
             return None
         if self._usage < INITIATIVE_PER_ACTIVE_S:
             return None
@@ -74,7 +81,7 @@ class InitiativePolicy:
         self._since_check = 0.0
         if self._rng.random() >= FIRE_PROBABILITY:
             return None
-        choice = self._pick(stage)
+        choice = self._pick(stage, activity)
         if choice is None:
             return None
         self._usage = 0.0

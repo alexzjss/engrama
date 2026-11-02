@@ -53,6 +53,17 @@ Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra núme
 - **Painel Memórias (F7):** lista fatos, assuntos, opiniões e reflexões. Apague um item (Enter ou o x) ou "esquecer tudo" (pede confirmação em etapas).
 - **Privacidade:** tudo fica local, no seu disco. Apagar é definitivo: o item sai do banco, dos episódios que o citam e da memória de curto prazo, e só volta se você mencionar de novo.
 
+### Percepção do PC (M5)
+
+- **Só com permissão:** na primeira execução uma tela pergunta, fonte por fonte, o que ela pode olhar (app em foco, título da janela, ociosidade, horário, tela cheia e carga do PC). Tudo começa desligado; "agora não" é uma resposta válida. O painel **Permissões (F8)** muda isso a qualquer momento, além do intervalo de leitura (15, 30 ou 60 s).
+- **Olhos fechados (F9 ou atalho global, padrão Ctrl+Alt+E):** pausa toda a percepção, mesmo com a janela sem foco. O estado é salvo e aparece na tela ("olhos fechados" e pálpebras). Se o atalho estiver ocupado, o painel F8 avisa.
+- **Lista de bloqueio:** apps e títulos com termos como banco, senha ou gerenciador de senhas já vêm bloqueados; você adiciona os seus no F8. Um app bloqueado chega como `privado`: nem o nome nem o título saem do serviço.
+- **O que é guardado:** só a categoria do app (jogo, música, programação...) e, quando dá, um tema curto tirado do título (por exemplo o nome do jogo), na memória com origem `percepcao`. Apagar esse assunto no F7 o silencia (e o F8 deixa desfazer).
+- **O que nunca é guardado:** título cru, caminho de arquivo, conteúdo de arquivo e nome de processo bloqueado. Nada sai do PC.
+- **Comentários de atividade:** um novo tipo de iniciativa que divide a cota do M4 (cerca de um por hora de uso ativo). Nunca em app privado, em tela cheia ou de olhos fechados.
+- **PC pesado:** CPU acima de 85% por 2 min faz a criatura descansar até aliviar.
+- **Arrastar arquivo:** solte um arquivo ou pasta na janela e ela comenta. Lê só os primeiros 8 KB de texto/código; pasta lista o primeiro nível; imagem dá só nome e tipo; arquivo bloqueado é recusado.
+
 ### Laboratório
 
 ```
@@ -84,6 +95,7 @@ Regra de dependência (verificada por `tests/test_architecture.py`): `kernel` n�
 ```
 python -m pytest -q                      # inclui testes lentos (marcador slow)
 python tools/bench.py --seconds 120      # (--profile, --seed) JSON: pico de RSS, CPU médio, mean_ms por módulo
+python tools/bench.py --app --seconds 60 --fake-perception   # o app inteiro com fontes de percepção falsas
 ```
 
 ### Onde ficam os arquivos
@@ -146,6 +158,17 @@ Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows number
 - **Memories panel (F7):** lists facts, subjects, opinions and reflections. Delete one item (Enter or the x) or "forget everything" (asks for confirmation in steps).
 - **Privacy:** everything stays local, on your disk. Deleting is final: the item leaves the database, the episodes that mention it and the short-term memory, and only returns if you mention it again.
 
+### PC perception (M5)
+
+- **Only with permission:** on first run a screen asks, source by source, what it may look at (focused app, window title, idleness, time, fullscreen and PC load). Everything starts off; "not now" is a valid answer. The **Permissions panel (F8)** changes this at any time, plus the read interval (15, 30 or 60 s).
+- **Eyes closed (F9 or the global hotkey, default Ctrl+Alt+E):** pauses all perception, even when the window is unfocused. The state is saved and shown on screen ("eyes closed" and lids). If the hotkey is taken, F8 says so.
+- **Block list:** apps and titles with terms like bank, password or a password manager are blocked from the start; you add your own in F8. A blocked app arrives as `privado`: neither its name nor its title leaves the service.
+- **What is kept:** only the app category (game, music, programming...) and, when possible, a short theme from the title (such as a game name), in memory with source `percepcao`. Deleting that subject in F7 silences it (F8 lets you undo).
+- **What is never kept:** raw titles, file paths, file contents and blocked process names. Nothing leaves the PC.
+- **Activity remarks:** a new kind of initiative sharing the M4 quota (about one per hour of active use). Never on a private app, in fullscreen or with eyes closed.
+- **Heavy PC:** CPU above 85% for 2 min makes the creature rest until it eases.
+- **Drag a file:** drop a file or folder on the window and it comments. It reads only the first 8 KB of text/code; a folder lists its first level; an image gives just name and type; a blocked file is refused.
+
 ### Lab
 
 ```
@@ -178,6 +201,7 @@ Dependency rule (enforced by `tests/test_architecture.py`): `kernel` imports non
 python -m pytest -q                      # includes slow tests (slow marker)
 python tools/bench.py --seconds 120      # JSON: peak RSS, mean CPU, per-module mean_ms
 python tools/bench.py --app --seconds 60   # the whole app (dummy SDL, --no-llm): peak RSS and mean CPU
+python tools/bench.py --app --seconds 60 --fake-perception   # same, with scripted perception sources
 ```
 
 ### Where files live

@@ -18,7 +18,7 @@ from typing import Callable
 
 from engrama.services.language.client import LLMOffline, LLMTimeout, strip_think
 from engrama.services.language.lang import detect_lang
-from engrama.services.language.persona import (OPINION_PROMPT, REFLECT_PROMPT, SPEECH, SPONTANEOUS_PROMPT,
+from engrama.services.language.persona import (OPINION_PROMPT, build_file_messages, REFLECT_PROMPT, SPEECH, SPONTANEOUS_PROMPT,
                                                PersonaState, apply_recall, babble, build_messages, clean_reply,
                                                strip_emoji, valence)
 from engrama.services.memory import CONVERSATION_GAP_S
@@ -40,6 +40,8 @@ FACTS_PROMPT = {
            "facts: facts about the user (confidence 0..1); topics: subjects mentioned (delta -1..1); "
            "valence: mood of the message. Empty lists if nothing applies."),
 }
+CLASSIFY_PROMPT = ("Classify the program by its process name only. Answer with exactly one word "
+                   "from this list and nothing else: {cats}.")
 
 
 @dataclass(frozen=True)
@@ -132,11 +134,24 @@ class LanguageService:
         t_msg = self._now()
         self._enqueue(P_CHAT, lambda: self._chat(text, t_msg))
 
+    def share_file(self, glimpse) -> None:
+        """The user dropped a file: comment on it (chat priority). Content lives in memory only."""
+        self._enqueue(P_CHAT, lambda: self._share(glimpse))
+
     def comment(self, text: str) -> None:
         """Low-priority spontaneous remark about `text`; runs only when ready and idle."""
         text = (text or "").strip()[:MAX_INPUT]
         if text:
             self._enqueue(P_COMMENT, lambda: self._comment(text))
+
+    def classify_app(self, process: str) -> None:
+        """Low-priority: ask the LLM for a category of `process` (name only). Never raises."""
+        try:
+            process = (process or "").strip().lower()[:80]
+            if process:
+                self._enqueue(P_FACTS, lambda: self._classify_app(process))
+        except Exception:
+            log.exception("classify_app enqueue failed")
 
     def submit_job(self, priority: int, fn: Callable[[], None]) -> None:
         """Generic background job (priority 1-3); runs only when ready and idle."""
@@ -161,7 +176,7 @@ class LanguageService:
         self._spawn(work)
 
     def spontaneous(self, kind: str, topic: str | None = None) -> None:
-        """Rare self-initiated remark (kind: current | opinion | past); low priority, ready + idle only."""
+        """Rare self-initiated remark (kind: current | opinion | past | activity); low priority, ready + idle only."""
         if kind in SPONTANEOUS_PROMPT["pt"]:
             self._enqueue(P_COMMENT, lambda: self._spontaneous(kind, topic))
 
@@ -320,8 +335,11 @@ class LanguageService:
             self._mark_llm_reply()
             self._enqueue(P_FACTS, lambda: self._extract(text, lang, t_msg, eid))
 
-    def _ask(self, state, history: list[dict], text: str, lang: str, max_words: int) -> str | None:
-        msgs = build_messages(state, history, text, lang, self.food_name)
+    def _ask(self, state, history: list[dict], text: str, lang: str, max_words: int, file_ctx=None) -> str | None:
+        if file_ctx is not None:
+            msgs = build_file_messages(state, lang, file_ctx[0], file_ctx[1], text, self.food_name)
+        else:
+            msgs = build_messages(state, history, text, lang, self.food_name)
         num_predict = 20 + 3 * max_words
         out = None
         self._chatting += 1
@@ -341,21 +359,58 @@ class LanguageService:
     def _answer_pending(self, pending) -> None:
         if self._pending is not pending:     # superseded by a newer message, or already answered
             return
-        text, lang, history, t_msg, eid = pending
+        text, lang, history, t_msg, eid, *extra = pending
+        file_ctx = extra[0] if extra else None
         self._pending = None
         state = self.get_state()
         max_words = SPEECH.get(state.stage, SPEECH["baby"])[0]
         if max_words <= 0 or self.status != "ready":
             return
-        state = apply_recall(state, recall(self.memory, text, state.stage, lang))
+        if file_ctx is None:
+            state = apply_recall(state, recall(self.memory, text, state.stage, lang))
         self._last_activity = self._now()
-        out = self._ask(state, history, text, lang, max_words)
+        out = self._ask(state, history, text, lang, max_words, file_ctx)
         if not out:
             return
         self.working.add("assistant", out)
         self.replies.put(Reply(out, lang, "llm"))
         self._mark_llm_reply()
-        self._enqueue(P_FACTS, lambda: self._extract(text, lang, t_msg, eid))
+        if file_ctx is None:
+            self._enqueue(P_FACTS, lambda: self._extract(text, lang, t_msg, eid))
+
+    def _share(self, g) -> None:
+        lang = self._last_lang
+        state = self.get_state()
+        max_words = SPEECH.get(state.stage, SPEECH["baby"])[0]
+        kind = re.sub(r"[^a-z]", "", str(g.kind).lower()) or "arquivo"
+        try:
+            self.memory.add_episode("arquivo", f"mostrou um arquivo de {kind}", importance=0.5)
+        except Exception:
+            log.exception("could not store file episode")
+        now = self._now()
+        if max_words > 0 and self.status == "offline" and now >= self._down_until:
+            self.warm()
+        st = self.status
+        excerpt = g.text if g.text else ", ".join(g.entries) if g.entries else g.name
+        excerpt = excerpt.strip()[:MAX_INPUT] or g.name
+        ctx = (g.name, kind)
+        reply: Reply | None = None
+        if max_words > 0 and st == "ready":
+            self._last_activity = now
+            out = self._ask(state, [], excerpt, lang, max_words, ctx)
+            if out:
+                reply = Reply(out, lang, "llm")
+                self._pending = None
+                self.working.add("assistant", out)
+        if reply is None:
+            reply = self._babble("", state.stage, lang, hint=max_words > 0 and st == "loading")
+            if max_words > 0 and st == "loading":
+                pending = self._pending = (excerpt, lang, [], now, None, ctx)
+                if self._state == "ready":
+                    self._enqueue(P_CHAT, lambda: self._answer_pending(pending))
+        self.replies.put(reply)
+        if reply.source == "llm":
+            self._mark_llm_reply()
 
     def _mark_llm_reply(self) -> None:
         self._last_llm_reply = self._now()
@@ -399,6 +454,23 @@ class LanguageService:
             return
         if out:
             self.replies.put(Reply(out, lang, "llm"))
+
+    def _classify_app(self, process: str) -> None:
+        try:
+            from engrama.services.perception.categories import CATEGORIES
+            allowed = set(CATEGORIES) | {"programa"}
+            if self.memory.app_category(process) is not None:
+                return
+            msgs = [{"role": "system", "content": CLASSIFY_PROMPT.format(cats=", ".join(sorted(allowed)))},
+                    {"role": "user", "content": process}]
+            out = self.client.chat(self.cfg.model, msgs, 8, 0.0)
+            ans = plain_text(strip_think(out or "")).strip().strip(".,!\"' ")
+            if ans in allowed:
+                self.memory.set_app_category(process, ans, "llm")
+        except LLMOffline:
+            self._state, self._down_until = "offline", self._now() + OFFLINE_COOLDOWN
+        except Exception:
+            log.exception("classify_app failed")
 
     def _extract(self, text: str, lang: str, t_msg: float | None = None, eid: int | None = None) -> None:
         t_msg = self._now() if t_msg is None else t_msg

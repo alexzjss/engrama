@@ -1,4 +1,4 @@
-"""Automatic rest triggers: fullscreen app, low free RAM, long user idleness, or a manual override."""
+"""Automatic rest triggers: fullscreen app, a heavy PC, low free RAM, long user idleness, or a manual override."""
 from __future__ import annotations
 import math
 from typing import Callable
@@ -19,12 +19,14 @@ class RestPolicy:
         self._ram = ram_free_mb_fn
         self.manual = False
 
-    def update(self, fullscreen: bool, last_input_wall: float) -> str | None:
+    def update(self, fullscreen: bool, last_input_wall: float, heavy_pc: bool = False) -> str | None:
         """Reason the creature should rest right now, or None. Manual wins; rest ends when triggers clear."""
         if self.manual:
             return "manual"
         if fullscreen:
             return "fullscreen"
+        if heavy_pc:
+            return "heavy_pc"
         try:
             ram = float(self._ram())
         except Exception:

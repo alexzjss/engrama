@@ -101,3 +101,15 @@ def test_kind_by_stage(tmp_path):
     assert first("adult") == ("opinion", "musica")
     assert first("perfect") == ("past", "jardim")
     s.close()
+
+
+def test_activity_alternates_with_current_and_obeys_blocks(tmp_path):
+    s, clock = make(tmp_path, opinion=False)
+    p = InitiativePolicy(s, lambda: clock["t"], rng=random.Random(1))
+    kinds = {k for k, _ in run(p, 10, start=clock["t"], stage="child", activity="jogo")}
+    assert kinds == {"activity", "current"}
+    p = InitiativePolicy(s, lambda: clock["t"], rng=random.Random(1))
+    assert run(p, 10, start=clock["t"], stage="child", activity="jogo", eyes_closed=True) == []
+    p = InitiativePolicy(s, lambda: clock["t"], rng=random.Random(1))
+    assert "activity" not in {k for k, _ in run(p, 10, start=clock["t"], stage="child", activity="privado")}
+    s.close()

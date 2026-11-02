@@ -333,3 +333,17 @@ def test_rest_survives_save(tmp_path, hosts):
     h.stop()
     h2 = hosts(tmp_path, ft)
     assert h2.runtime.scheduler.resting
+
+
+def test_eyes_closed_in_snapshot(tmp_path, hosts):
+    ft = FakeTime(); h = hosts(tmp_path, ft)
+    seen = []
+    h.on_eyes_change = seen.append
+    assert h.eyes_closed is False and h.snapshot().eyes_closed is False
+    h.set_eyes_closed(True)
+    assert h.eyes_closed is True and seen == [True]
+    run(h, ft, 1)
+    assert h.snapshot().eyes_closed is True
+    h.set_eyes_closed(False)
+    run(h, ft, 1)
+    assert h.snapshot().eyes_closed is False

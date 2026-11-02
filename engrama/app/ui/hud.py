@@ -9,6 +9,8 @@ NEED_THRESHOLD = 0.6
 MAX_NEED_ICONS = 3
 _fonts: dict[int, pygame.font.Font] = {}
 _hooks: list[Callable[[str], None]] = []
+_rendered: dict[tuple, pygame.Surface] = {}
+MAX_RENDERED = 256
 
 
 def add_text_hook(fn: Callable[[str], None]) -> None:
@@ -36,7 +38,12 @@ def draw_text(surface: pygame.Surface, text: str, pos: tuple[int, int], color=(2
             h(text)
         except Exception:
             pass
-    img = font(size).render(text, True, color)
+    key = (text, tuple(color), size)
+    img = _rendered.get(key)
+    if img is None:   # antialiased rendering is the costliest part of a frame; most strings repeat every frame
+        if len(_rendered) >= MAX_RENDERED:
+            _rendered.clear()
+        img = _rendered[key] = font(size).render(text, True, color)
     r = img.get_rect(**{anchor: pos})
     surface.blit(img, r)
     return r

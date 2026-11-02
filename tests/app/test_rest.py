@@ -49,6 +49,13 @@ def test_rest_exit_when_trigger_clears():
     assert p.update(False, st["now"]) is None
 
 
+def test_heavy_pc_triggers_rest_after_fullscreen_before_ram():
+    p, st = make(ram=B.REST_RAM_FREE_MB - 1)
+    assert p.update(False, st["now"], heavy_pc=True) == "heavy_pc"
+    assert p.update(True, st["now"], heavy_pc=True) == "fullscreen"
+    assert p.update(False, st["now"], heavy_pc=False) == "low_ram"
+
+
 def test_broken_ram_probe_is_ignored():
     def boom():
         raise OSError("x")

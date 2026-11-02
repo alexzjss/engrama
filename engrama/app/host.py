@@ -57,6 +57,9 @@ class Host:
         self.want_viz = False
         self.on_rest_change: Callable[[bool, str], None] | None = None
         self.on_event: Callable[[str, dict], None] | None = None
+        self.on_eyes_change: Callable[[bool], None] | None = None
+        self._eyes_closed = bool(getattr(cfg, "eyes_closed", False))
+        self._heavy_pc = False
         self.last_error = ""
 
         self._posts: collections.deque[tuple[str, dict]] = collections.deque(maxlen=_POST_CAP)
@@ -130,6 +133,19 @@ class Host:
     def set_rest(self, on: bool) -> None:
         """Manual rest override; applied at the next tick."""
         self.rest_policy.manual = bool(on)
+
+    @property
+    def eyes_closed(self) -> bool:
+        return self._eyes_closed
+
+    def set_eyes_closed(self, on: bool) -> None:
+        """Eyes-closed (privacy) state; reaches the snapshot at the next tick."""
+        self._eyes_closed = bool(on)
+        _safe(self.on_eyes_change, self._eyes_closed)
+
+    def set_heavy_pc(self, on: bool) -> None:
+        """Thread-safe flag from the perception service: a sustained heavy PC makes the creature rest."""
+        self._heavy_pc = bool(on)
 
     def set_time_scale(self, scale: float) -> None:
         self.clock.set_scale(float(scale))
@@ -266,7 +282,7 @@ class Host:
 
     def _update_rest(self, wall: float) -> None:
         k = self._rt.kernel
-        reason = self.rest_policy.update(k.world.fullscreen, self._last_input_wall)
+        reason = self.rest_policy.update(k.world.fullscreen, self._last_input_wall, self._heavy_pc)
         resting = reason is not None
         if resting != self._resting or (resting and reason != self._rest_reason):
             changed = resting != self._resting
@@ -314,7 +330,8 @@ class Host:
             shadow_proposals=tuple(ProposalView(p.action, float(p.score), p.reason, p.source) for p in shadow),
             winner=rt.last_choice, modules=views, viz=viz,
             recipe_name=rt.recipe.name, recipe_version=int(rt.recipe.version),
-            resting=self._resting, rest_reason=self._rest_reason)
+            resting=self._resting, rest_reason=self._rest_reason,
+            eyes_closed=self._eyes_closed)
 
     def _collect_viz(self, mods) -> dict[str, tuple[Viz, ...]]:
         out: dict[str, tuple[Viz, ...]] = {}
@@ -395,12 +412,61 @@ class _MemoryProvider:
     def delete_topic(self, name: str) -> None:
         from engrama.services.memory.topics import SYNONYMS, normalize_topic
         key = normalize_topic(name)
+        try:
+            perceived = any(r["name"] == key and r.get("source") == "percepcao" for r in self.memory.topic_rows())
+        except Exception:
+            perceived = False
         self.memory.delete_topic(name)
+        if perceived:   # a deleted screen-derived theme stays silenced (and is listed in F8 to undo)
+            self.memory.silence_theme(name)
         self._drop_working([key] + [k for k, v in SYNONYMS.items() if v == key])
 
     def forget_all(self) -> None:
         self.memory.forget_all_about_user()
         self.working.clear()
+
+
+class _PerceptionProvider:
+    """Adapter the Permissions panel (F8) talks to."""
+
+    def __init__(self, memory, hotkey_error: Callable[[], str]) -> None:
+        self.memory, self._hk = memory, hotkey_error
+
+    def silenced_themes(self) -> list[str]: return self.memory.silenced_themes()
+    def unsilence_theme(self, name: str) -> None: self.memory.unsilence_theme(name)
+    def clear_app_categories(self) -> None: self.memory.clear_app_categories()
+    def hotkey_error(self) -> str: return self._hk() or ""
+
+
+class _Activity:
+    """Last allowed thing the user is doing (a theme, else a category), kept in memory only.
+
+    Never holds a title or process: the service only emits categories/themes. A private app yields None."""
+
+    def __init__(self, post: Callable[[str, dict | None], None], theme_sink: Callable[[str, str, str], None]) -> None:
+        self._post, self._sink = post, theme_sink
+        self._category: str | None = None
+        self._theme: str | None = None
+
+    def post(self, kind: str, data: dict | None = None) -> None:
+        if kind == "app_focus":
+            cat = (data or {}).get("category")
+            if cat != self._category:
+                self._category, self._theme = cat, None
+        self._post(kind, data)
+
+    def on_theme(self, process: str, title: str, category: str) -> None:
+        from engrama.services.perception.themes import extract_theme
+        self._sink(process, title, category)
+        theme = extract_theme(process, title, category)
+        if theme:
+            self._theme = theme
+
+    def current(self) -> str | None:
+        from engrama.services.perception import PRIVATE
+        if self._category is None or self._category == PRIVATE:
+            return None
+        return self._theme or self._category
 
 
 def _memory_provider(memory, working) -> _MemoryProvider:
@@ -435,6 +501,13 @@ def main(argv: list[str] | None = None) -> int:
     from engrama.services.memory import ACTIVE_WINDOW_S
     from engrama.services.memory.opinions import innate_lean
     from engrama.services.memory.store import MemoryStore, WorkingMemory
+    from engrama.services.perception.blocklist import Blocklist
+    from engrama.services.perception.categories import Categorizer
+    from engrama.services.perception.files import read_dropped
+    from engrama.services.perception.hotkey import GlobalHotkey
+    from engrama.services.perception.service import PerceptionService
+    from engrama.services.perception.sources import ScriptedSources, make_sources
+    from engrama.services.perception.themes import make_theme_sink
 
     ap =argparse.ArgumentParser(prog="engrama", description="Engrama: a local virtual companion.")
     ap.add_argument("--data-dir", type=Path, default=None)
@@ -445,6 +518,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--no-llm", action="store_true", help="never start or contact Ollama (babble only)")
     ap.add_argument("--frames", type=int, default=None, help="exit after N frames (smoke test; unthrottled)")
     ap.add_argument("--seconds", type=float, default=None, help="exit after S wall seconds (bench)")
+    ap.add_argument("--fake-perception", action="store_true", help="bench: scripted machine instead of the real one")
     a = ap.parse_args(argv)
 
     data_dir = Path(a.data_dir) if a.data_dir else default_data_dir()
@@ -469,6 +543,8 @@ def main(argv: list[str] | None = None) -> int:
     language = None
     window = None
     start_thread = None
+    perception = None
+    hotkey = None
     try:
         def food_name(food_id: str, lang: str) -> str:
             return i18n._table(lang if lang in ("pt", "en") else "en").get(f"food.{food_id}", food_id)
@@ -497,6 +573,39 @@ def main(argv: list[str] | None = None) -> int:
         window.memory_provider = _memory_provider(memory, working)
         window.save_config = lambda: cfg.save(cfg_path)
         window.dev = bool(a.dev or cfg.dev_mode)
+
+        eyes_lock = threading.Lock()
+
+        def set_eyes(on: bool) -> None:
+            """Persist + apply the eyes-closed state; called from the UI (F9) and the hotkey thread."""
+            with eyes_lock:
+                cfg.eyes_closed = bool(on)
+                try:
+                    cfg.save(cfg_path)
+                except Exception:
+                    logging.getLogger("engrama.app").exception("config save failed")
+                host.set_eyes_closed(cfg.eyes_closed)
+
+        def toggle_eyes() -> None:
+            set_eyes(not cfg.eyes_closed)
+
+        activity = _Activity(host.post, make_theme_sink(memory, time.time))
+        perception = PerceptionService(
+            activity.post, ScriptedSources() if a.fake_perception else make_sources(), lambda: cfg,
+            lambda: cfg.eyes_closed, on_theme=activity.on_theme, on_heavy=host.set_heavy_pc,
+            categorize=Categorizer(memory, language))
+        hotkey = GlobalHotkey(cfg.eyes_hotkey, toggle_eyes)
+
+        def on_file_drop(path: str) -> bool:
+            glimpse = read_dropped(path, Blocklist(list(cfg.perception_blocklist)))
+            if glimpse is None:
+                return False
+            language.share_file(glimpse)
+            return True
+
+        window.set_eyes_closed = set_eyes
+        window.on_file_drop = on_file_drop
+        window.perception_provider = _PerceptionProvider(memory, lambda: hotkey.error)
         window.panels["models"] = lambda w: ModelsPanel(w)
         window.panels["settings"] = lambda w: SettingsPanel(w)
 
@@ -506,6 +615,9 @@ def main(argv: list[str] | None = None) -> int:
         host.on_event = window.on_host_event
         host.on_rest_change = on_rest
         host.start()
+        perception.start()
+        if not a.fake_perception:
+            hotkey.start()
 
         clock = pygame.time.Clock()
         n, t0 = 0, time.monotonic()
@@ -532,7 +644,9 @@ def main(argv: list[str] | None = None) -> int:
                     res = policy.update(
                         now_w, stage=snap.stage, user_active=now_w - last_input < ACTIVE_WINDOW_S,
                         llm_ready=language.status == "ready", resting=snap.resting,
-                        fullscreen=snap.rest_reason == "fullscreen", action=snap.action)
+                        fullscreen=snap.rest_reason == "fullscreen", action=snap.action,
+                        activity=activity.current() if cfg.permissions.get("process") else None,
+                        eyes_closed=cfg.eyes_closed)
                     if res:
                         language.spontaneous(res[0], res[1])
                 except Exception:
@@ -548,6 +662,10 @@ def main(argv: list[str] | None = None) -> int:
                 pygame.display.quit()
             except Exception:
                 pass
+        if perception is not None:
+            perception.stop()
+        if hotkey is not None:
+            hotkey.stop()
         host.stop()
         if language is not None:
             language.shutdown()
