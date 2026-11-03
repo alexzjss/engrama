@@ -362,7 +362,7 @@ Afetada pelas decisões "indexar as memórias que já existem" e "troca de model
   - Troca de modelo (`set_embed_model` com nome diferente, ou `embedder.dim_changed`): `memory.set_vector_model(novo)` (apaga os vetores), `embedder.unload()` do antigo, estado `cold`; o índice recomeça no próximo `warm`. Um lote do modelo antigo em voo não grava porque `put_vectors` confere o modelo.
   - Novos itens (episódio de chat, fatos, tópicos, reflexão) não são indexados na hora: entram pelo próximo job de índice.
 
-- [ ] **Passo 1:** escreva os testes (`sync=True`, `ScriptedClient` do M4, `FakeEmbedder`, relógio falso):
+- [x] **Passo 1:** escreva os testes (`sync=True`, `ScriptedClient` do M4, `FakeEmbedder`, relógio falso):
   - `test_chat_uses_meaning_when_ready` (o prompt de sistema enviado ao cliente traz o fato do cachorro para "meu bichinho anda doente");
   - `test_degraded_paths_match_m8_golden` (parametrizado: sem embedder, `off`, `missing`, `cold`, `failed`, `fail=True`, `delay > EMBED_QUERY_TIMEOUT_S` com um embedder que respeita o tempo limite): mensagens enviadas ao cliente == gabarito da T0;
   - `test_no_embedder_calls_when_llm_not_ready` (`offline` e `loading`: zero chamadas em `calls`, inclusive com `tick` e `pump`);
@@ -373,10 +373,10 @@ Afetada pelas decisões "indexar as memórias que já existem" e "troca de model
   - `test_model_switch_drops_and_reindexes`, `test_dim_change_treated_as_switch`, `test_semantic_off_drops_vectors`;
   - `test_embedder_threads_are_language_threads` (`sync=False`: os nomes de thread em `calls` são só `language-service`/`language-io`);
   - `test_chat_priority_still_first` (com jobs de índice na fila, uma mensagem nova é respondida antes deles).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/services tests/test_m4_acceptance.py tests/test_m6_acceptance.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m9): semantic recall in the language service and background indexing`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/services tests/test_m4_acceptance.py tests/test_m6_acceptance.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m9): semantic recall in the language service and background indexing`.
 
 ---
 

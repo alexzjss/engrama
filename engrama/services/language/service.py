@@ -1,6 +1,6 @@
 """LanguageService: prioritized background LLM jobs with a babble fallback.
 
-Priorities: chat 0 > comment 1 > reflection 2 > facts 3. Jobs with priority >= 1 run
+Priorities: chat 0 > comment 1 > reflection 2 > facts 3 > index 4. Jobs with priority >= 1 run
 only when the LLM is `ready` and the injected `idle()` is true. The LLM never picks
 actions; it only produces speech. Nothing here raises into the caller's thread.
 """
@@ -21,7 +21,7 @@ from engrama.services.language.lang import detect_lang
 from engrama.services.language.persona import (build_farewell_messages, farewell_babble, OPINION_PROMPT, build_file_messages, REFLECT_PROMPT, SPEECH, SPONTANEOUS_PROMPT,
                                                PersonaState, apply_recall, babble, build_messages, clean_reply,
                                                strip_emoji, valence)
-from engrama.services.memory import CONVERSATION_GAP_S
+from engrama.services.memory import CONVERSATION_GAP_S, EMBED_BATCH, INDEX_EVERY_S
 from engrama.services.memory.opinions import stance_word
 from engrama.services.memory.recall import recall
 from engrama.services.memory.topics import normalize_topic, plain_text
@@ -29,7 +29,7 @@ from engrama.services.memory.topics import normalize_topic, plain_text
 log = logging.getLogger(__name__)
 MAX_INPUT = 500
 OFFLINE_COOLDOWN = 30.0
-P_CHAT, P_COMMENT, P_REFLECT, P_FACTS = 0, 1, 2, 3
+P_CHAT, P_COMMENT, P_REFLECT, P_FACTS, P_INDEX = 0, 1, 2, 3, 4
 FACTS_PROMPT = {
     "pt": ("Extraia da mensagem do usuário, em JSON puro e nada mais: "
            '{"facts":[[chave,valor,confianca]],"topics":[[assunto,delta]],"valence":-1..1}. '
@@ -75,9 +75,13 @@ class LanguageService:
     def __init__(self, client, server, cfg, memory, working, get_state: Callable[[], PersonaState],
                  food_name: Callable[[str, str], str], idle: Callable[[], bool] = lambda: True,
                  now_fn: Callable[[], float] = time.time, rng: random.Random | None = None,
-                 sync: bool = False, lean_fn: Callable[[str], float] | None = None) -> None:
+                 sync: bool = False, lean_fn: Callable[[str], float] | None = None, embedder=None) -> None:
         self.client, self.server, self.cfg = client, server, cfg
         self.memory, self.working = memory, working
+        self.embedder = embedder                # None = no recall by meaning (M8 behaviour)
+        self._index_more = True                 # there may be memories without a vector
+        self._index_queued = False
+        self._next_index = 0.0
         self.get_state, self.food_name, self.idle = get_state, food_name, idle
         self._now = now_fn
         self._rng = rng or random.Random()
@@ -119,6 +123,106 @@ class LanguageService:
     def busy(self) -> bool:
         """True while a chat answer is being produced (LLM call in flight or waiting on warm-up)."""
         return self._chatting > 0 or (self._pending is not None and self._state == "loading")
+
+    @property
+    def embed_status(self) -> str:
+        if self.embedder is None:
+            return "off"
+        try:
+            return self.embedder.status
+        except Exception:
+            return "failed"
+
+    def embed_counts(self) -> dict:
+        try:
+            return dict(self.memory.vector_counts())
+        except Exception:
+            return {}
+
+    def set_embed_model(self, name: str) -> None:
+        """Choose the embedding model. A different name drops every vector; indexing restarts on the next warm."""
+        name = (name or "").strip()
+        old = (self.cfg.embed_model or "").strip()
+        self.cfg.embed_model = name
+        if self.embedder is None or old == name:
+            return
+        self._switch_model(old)
+
+    def set_semantic_recall(self, on: bool) -> None:
+        """Off: drop every vector and unload the embedding model. On: it is checked on the next warm-up."""
+        old = (self.cfg.embed_model or "").strip()
+        self.cfg.semantic_recall = bool(on)
+        if self.embedder is None:
+            return
+        if on:
+            self._index_more = True
+            return
+        self._switch_model(old)
+
+    def _embed_model(self) -> str:
+        try:
+            return self.embedder.model if self.embedder is not None else ""
+        except Exception:
+            return ""
+
+    def _switch_model(self, old: str) -> None:
+        """Vectors of the old model are useless: drop them, unload it, go cold."""
+        try:
+            self.memory.drop_vectors()
+            new = self._embed_model()
+            if new:
+                self.memory.set_vector_model(new)
+        except Exception:
+            log.exception("could not drop vectors")
+        self._index_more = True
+        self._spawn(lambda: self._unload_embedder(old))
+
+    def _unload_embedder(self, old: str = "") -> None:
+        emb = self.embedder
+        if emb is None:
+            return
+        try:
+            client = getattr(emb, "client", None)
+            if old and client is not None and getattr(client, "unload_embed", None) and old != self._embed_model():
+                client.unload_embed(old)
+        except Exception:
+            pass
+        try:
+            emb.unload()
+        except Exception:
+            pass
+
+    def _qvec(self, text: str):
+        """Query embedding, only when the chat model and the embedder are both ready; else None."""
+        emb = self.embedder
+        if emb is None or not (text or "").strip():
+            return None
+        try:
+            if self.status != "ready" or emb.status != "ready":
+                return None
+            vec = emb.query(text)
+            if self._dim_changed():
+                return None
+            return vec
+        except Exception:
+            return None
+
+    def _dim_changed(self) -> bool:
+        """The embedder reported another dimension: same as a model switch (caller's flag is cleared here)."""
+        emb = self.embedder
+        if emb is None or not getattr(emb, "dim_changed", False):
+            return False
+        emb.dim_changed = False
+        old = self._embed_model()
+        try:
+            self.memory.drop_vectors()
+            if old:
+                self.memory.set_vector_model(old)
+        except Exception:
+            log.exception("could not drop vectors")
+        self._index_more = True
+        self._unload_embedder("")
+        return True
 
     def installed_models(self) -> set[str] | None:
         try:
@@ -173,6 +277,11 @@ class LanguageService:
                 self.client.unload(self.cfg.model)
             except Exception:
                 pass
+            self._unload_embedder("")
+            try:
+                self.memory.release_vectors()
+            except Exception:
+                pass
         self._spawn(work)
 
     def spontaneous(self, kind: str, topic: str | None = None) -> None:
@@ -224,6 +333,15 @@ class LanguageService:
         if (self._state == "ready" and self._last_activity is not None
                 and now - self._last_activity > self.cfg.keep_alive_s):
             self.unload()
+        emb = self.embedder
+        if (emb is not None and self._index_more and not self._index_queued and self._state == "ready"
+                and now >= self._next_index):
+            try:
+                if emb.status == "ready":
+                    self._index_queued = True
+                    self._enqueue(P_INDEX, self._index)
+            except Exception:
+                log.exception("index scheduling failed")
 
     def pull(self, name: str, on_progress: Callable[[int, str], None]) -> None:
         """Non-blocking download. on_progress(pct, status); on failure on_progress(-1, "error: ...")."""
@@ -325,12 +443,53 @@ class LanguageService:
                 pending = self._pending
                 if pending is not None:
                     self._enqueue(P_CHAT, lambda: self._answer_pending(pending))
+                self._warm_embedder(gen)
         except Exception as e:
             if gen == self._gen:
                 self._state = "offline"
                 self._pending = None
                 if not isinstance(e, LLMTimeout):
                     self._down_until = self._now() + OFFLINE_COOLDOWN
+
+    def _warm_embedder(self, gen: int) -> None:
+        """Embedding model warms with the chat model. Its failure never touches the LLM state."""
+        emb = self.embedder
+        if emb is None:
+            return
+        try:
+            st = emb.refresh()
+            if st == "cold":
+                emb.warm()
+                st = emb.status
+            if st == "ready" and gen == self._gen:
+                self.memory.set_vector_model(emb.model)
+                self._dim_changed()
+                self._index_more = True
+        except Exception:
+            log.exception("embedder warm-up failed")
+
+    def _index(self) -> None:
+        """One batch of unindexed memories -> vectors. Never loads a model; writes only for the same model."""
+        self._index_queued = False
+        emb = self.embedder
+        if emb is None or emb.status != "ready":
+            return
+        model = emb.model
+        if not model:
+            return
+        mem = self.memory
+        self._next_index = self._now() + INDEX_EVERY_S
+        mem.set_vector_model(model)
+        items = mem.unindexed(EMBED_BATCH)
+        if not items:
+            self._index_more = False
+            return
+        vecs = emb.documents([t for _, _, t, _ in items])
+        if self._dim_changed() or vecs is None or len(vecs) != len(items):
+            return
+        wrote = mem.put_vectors(model, [(k, r, h, v) for (k, r, _t, h), v in zip(items, vecs)])
+        if len(items) < EMBED_BATCH and wrote == len(items):
+            self._index_more = False
 
     def _babble(self, text: str, stage: str, lang: str, hint: bool = False) -> Reply:
         out = babble(text, stage, lang, self._rng)
@@ -346,7 +505,7 @@ class LanguageService:
         now = self._now()
         t_msg = now if t_msg is None else t_msg
         if max_words > 0:
-            state = apply_recall(state, recall(self.memory, text, state.stage, lang))
+            state = apply_recall(state, recall(self.memory, text, state.stage, lang, qvec=self._qvec(text)))
         if max_words > 0 and self.status == "offline" and now >= self._down_until:
             self.warm()
         st = self.status
@@ -402,7 +561,7 @@ class LanguageService:
         if max_words <= 0 or self.status != "ready":
             return
         if file_ctx is None:
-            state = apply_recall(state, recall(self.memory, text, state.stage, lang))
+            state = apply_recall(state, recall(self.memory, text, state.stage, lang, qvec=self._qvec(text)))
         self._last_activity = self._now()
         out = self._ask(state, history, text, lang, max_words, file_ctx)
         if not out:
@@ -418,6 +577,7 @@ class LanguageService:
         state = self.get_state()
         max_words = SPEECH.get(state.stage, SPEECH["baby"])[0]
         kind = re.sub(r"[^a-z]", "", str(g.kind).lower()) or "arquivo"
+        self._index_more = True
         try:
             self.memory.add_episode("arquivo", f"mostrou um arquivo de {kind}", importance=0.5)
         except Exception:
@@ -463,6 +623,7 @@ class LanguageService:
         return out
 
     def _record(self, text: str, reply: Reply, lang: str) -> int | None:
+        self._index_more = True
         self.working.add("user", text)
         self.working.add("assistant", reply.text)
         try:
@@ -517,6 +678,7 @@ class LanguageService:
         if d is None:
             return
         mem = self.memory
+        self._index_more = True
         topics, facts = [], []
         try:
             for k, v, c in d["facts"]:
@@ -562,6 +724,7 @@ class LanguageService:
         if not summary:
             return
         mem = self.memory
+        self._index_more = True
         try:
             if topic == "null" or (topic and mem.is_blocked("topic", topic)):
                 topic = ""
@@ -590,7 +753,7 @@ class LanguageService:
             return
         lang = self._last_lang
         topic = re.sub(r"\d+", "", topic or "").strip()
-        state = apply_recall(state, recall(self.memory, topic, state.stage, lang))
+        state = apply_recall(state, recall(self.memory, topic, state.stage, lang, qvec=self._qvec(topic)))
         if kind == "ancestral":
             state.ancestral = [topic] if topic else []
         if topic and kind == "current":
