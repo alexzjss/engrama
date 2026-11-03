@@ -22,12 +22,12 @@ No Windows nada muda.
 
 | Tema | Decisão |
 |---|---|
-| Sessões suportadas | **[pendente — recomendação: X11 completo (qualquer gerenciador EWMH); Wayland parcial: ociosidade por `ext-idle-notify` (Hyprland, Sway, KDE 6 e outros) e por DBus (GNOME, KDE); app em foco, título e tela cheia só em Hyprland e Sway (IPC deles); GNOME e KDE no Wayland ficam sem app em foco e sem tela cheia]** |
-| Overlay no Wayland | **[pendente — recomendação: não objetivo no M8. O overlay funciona em sessão X11; no Wayland o F11 mostra "overlay ainda não funciona no Wayland" e fica no terrário]** |
-| Atalho dos olhos no Wayland | **[pendente — recomendação: no X11, atalho global de verdade (`XGrabKey`); no Wayland, o comando `engrama --eyes toggle`, que o usuário liga a um atalho do compositor (o painel de permissões explica como). O Engrama nunca mexe na configuração do compositor. Portal `GlobalShortcuts` fica para depois]** |
-| Pasta de dados | **[pendente — recomendação: manter `data/` na raiz do repositório em todas as plataformas (sem XDG, sem migração); `--data-dir` continua valendo]** |
-| Ollama no Linux | **[pendente — recomendação: usar o Ollama do sistema (o do `PATH`, normalmente um serviço systemd), sem sobrescrever `HOME` nem `OLLAMA_MODELS`. Se não estiver rodando e o binário existir, o Engrama inicia `ollama serve` do usuário, como no Windows]** |
-| Orçamento de CPU | **[pendente — recomendação: manter ≤2% em todas as plataformas, sem tolerância por sistema. O M8 conserta o custo por quadro e passa a medir o estado estável (tela de primeiro uso já respondida; overlay sem foco, que é como ele vive). Se o builder não chegar a 2% nesta máquina, para e pergunta antes de afrouxar]** |
+| Sessões suportadas | **[usuário]** X11 completo (qualquer gerenciador EWMH); Wayland parcial: ociosidade por `ext-idle-notify` (Hyprland, Sway, KDE 6 e outros) e por DBus (GNOME, KDE); app em foco, título e tela cheia só em Hyprland e Sway (IPC deles); GNOME e KDE no Wayland ficam sem app em foco e sem tela cheia |
+| Overlay no Wayland | **[usuário]** não objetivo no M8. O overlay funciona em sessão X11; no Wayland o F11 mostra "overlay ainda não funciona no Wayland" e fica no terrário |
+| Atalho dos olhos no Wayland | **[usuário]** no X11, atalho global de verdade (`XGrabKey`); no Wayland, o comando `engrama --eyes toggle`, que o usuário liga a um atalho do compositor (o painel de permissões explica como). O Engrama nunca mexe na configuração do compositor. Portal `GlobalShortcuts` fica para depois |
+| Pasta de dados | **[usuário]** manter `data/` na raiz do repositório em todas as plataformas (sem XDG, sem migração); `--data-dir` continua valendo |
+| Ollama no Linux | **[usuário]** usar o Ollama do sistema (o do `PATH`, normalmente um serviço systemd), sem sobrescrever `HOME` nem `OLLAMA_MODELS`. Se não estiver rodando e o binário existir, o Engrama inicia `ollama serve` do usuário, como no Windows |
+| Orçamento de CPU | **[usuário]** manter ≤2% em todas as plataformas, sem tolerância por sistema. O M8 conserta o custo por quadro e passa a medir o estado estável (tela de primeiro uso já respondida; overlay sem foco, que é como ele vive). Se o builder não chegar a 2% nesta máquina, para e pergunta antes de afrouxar |
 
 Continuam valendo, por decisão do usuário em marcos anteriores:
 - permissões por fonte e tela de primeiro uso (M5);

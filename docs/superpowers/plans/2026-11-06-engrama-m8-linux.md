@@ -49,7 +49,7 @@
   | `FPS_OVERLAY_MOVING` | balance | 10 |
 
   Os quatro valores de FPS que já existem como literais em `Window.target_fps` passam a vir do `balance` com o mesmo valor; só `FPS_STILL` é novo.
-- **Orçamento:** ≤150 MB RSS e ≤2% de CPU médio em `test_core_budget` e em `test_overlay_bench_within_budget`, **sem mudar os limites dos testes**. Se não fechar, parar e reportar ao controlador (decisão pendente do usuário, spec §2).
+- **Orçamento:** ≤150 MB RSS e ≤2% de CPU médio em `test_core_budget` e em `test_overlay_bench_within_budget`, **sem mudar os limites dos testes**. Se não fechar, parar e reportar ao controlador (decisão do usuário de 2026-11-03, spec §2).
 - PT/EN em todo texto novo (`engrama/app/i18n/{pt,en}.json`); sem dígitos no modo normal.
 - Commits sem `Co-Authored-By` e sem atribuição a IA. Mensagem exata dada em cada tarefa. Não fazer push.
 - Python: `.venv/bin/python` do worktree (no Windows, `.venv\Scripts\python.exe`). Testes com `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`. Os testes gravam em `.pytest_tmp`. **Nunca rode dois pytest ao mesmo tempo.**
