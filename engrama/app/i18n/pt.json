@@ -148,5 +148,21 @@
   "branch.lendario": "Lendário",
   "branch.mestre": "Mestre",
   "branch.eco": "Eco",
-  "branch.sombra": "Sombra"
+  "branch.sombra": "Sombra",
+  "digital.ram": "RAM fresquinha",
+  "digital.defrag": "Desfragmentar",
+  "digital.update": "Instalar atualização",
+  "digital.cache": "Limpar cache",
+  "digital.cooler": "Soprar o cooler",
+  "digital.ask.ram": "tô precisando de uma RAM fresquinha...",
+  "digital.ask.defrag": "minha memória tá toda bagunçada, dá pra desfragmentar?",
+  "digital.ask.update": "acho que tô ficando pra trás, bora instalar uma atualização?",
+  "digital.ask.cache": "tô com cache demais, dá pra limpar?",
+  "digital.ask.cooler": "tô esquentando... dá pra soprar o cooler?",
+  "digital.thanks": "valeu! era disso que eu precisava!",
+  "ui.menu.digital": "Mundo digital",
+  "ui.menu.overlay": "Modo sobreposição",
+  "ui.overlay.unavailable": "Modo sobreposição indisponível neste sistema; ficando no terrário.",
+  "ui.overlay.back": "Voltar ao terrário",
+  "ui.overlay.talk": "Conversar"
 }

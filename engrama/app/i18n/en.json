@@ -148,5 +148,21 @@
   "branch.lendario": "Legendary",
   "branch.mestre": "Master",
   "branch.eco": "Echo",
-  "branch.sombra": "Shadow"
+  "branch.sombra": "Shadow",
+  "digital.ram": "Fresh RAM",
+  "digital.defrag": "Defragment",
+  "digital.update": "Install update",
+  "digital.cache": "Clear cache",
+  "digital.cooler": "Blow the cooler",
+  "digital.ask.ram": "I really need some fresh RAM...",
+  "digital.ask.defrag": "my memory is all scrambled, can you defragment it?",
+  "digital.ask.update": "I think I'm falling behind, shall we install an update?",
+  "digital.ask.cache": "I'm holding way too much cache, can you clear it?",
+  "digital.ask.cooler": "I'm getting all warm... can you blow the cooler?",
+  "digital.thanks": "thanks! that is just what I needed!",
+  "ui.menu.digital": "Digital world",
+  "ui.menu.overlay": "Overlay mode",
+  "ui.overlay.unavailable": "Overlay mode isn't available on this system; staying in the terrarium.",
+  "ui.overlay.back": "Back to the terrarium",
+  "ui.overlay.talk": "Talk"
 }

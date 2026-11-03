@@ -73,6 +73,9 @@ class Snapshot:
     dead: bool = False
     death_cause: str = ""
     evolved_at: float = float("-inf")   # host wall time of the last evolution
+    fullscreen: bool = False
+    theme: str = ""                     # tema percebido atual (M5)
+    digital_request: str = ""           # id de pedido digital aberto; "" = nenhum
 
 
 def plain(x: Any) -> Any:

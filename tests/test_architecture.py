@@ -49,7 +49,7 @@ def check(root: Path) -> list[tuple[str, str]]:
                 if any(_under(m, b) for b in banned):
                     bad.append((f.relative_to(root).as_posix(), m))
     app = root / "app"
-    files = [app / "snapshot.py"] if (app / "snapshot.py").exists() else []
+    files = [app / n for n in ("snapshot.py", "desktop.py", "digital.py") if (app / n).exists()]
     for sub in APP_PRESENTATION:
         files += sorted((app / sub).rglob("*.py")) if (app / sub).exists() else []
     for f in files:
@@ -132,6 +132,17 @@ def test_app_ui_cannot_import_kernel(tmp_path):
     assert ("app/i18n/c.py", "engrama.app.host.Host") in bad
     assert ("app/snapshot.py", "engrama.lab.runtime") in bad
     assert not [b for b in bad if b[0] == "app/audio/ok.py"]
+
+
+def test_app_desktop_and_digital_are_checked(tmp_path):
+    root = _tree(tmp_path, {
+        "app/desktop.py": "import ctypes\nfrom engrama.kernel import kernel\n",
+        "app/digital.py": "import random\nfrom engrama import balance, vocab\nfrom engrama.app.host import Host\n",
+    })
+    bad = check(root)
+    assert ("app/desktop.py", "engrama.kernel.kernel") in bad
+    assert ("app/digital.py", "engrama.app.host.Host") in bad
+    assert len(bad) == 2
 
 
 def test_services_cannot_import_mind(tmp_path):

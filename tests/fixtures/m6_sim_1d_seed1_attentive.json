@@ -1,0 +1,48 @@
+{
+  "wellbeing": 0.7102869139258223,
+  "ask_count": 58,
+  "ignored_rate": 0.4827586206896552,
+  "answered_rate": 0.41379310344827586,
+  "behavior_entropy": 2.63554349672171,
+  "action_share": {
+    "idle": 0.1834607366226546,
+    "wander": 0.22585128561501042,
+    "play_alone": 0.15427380125086865,
+    "sleep": 0.17720639332870047,
+    "ask_attention": 0.05350938151494093,
+    "explore": 0.1646977067407922,
+    "hide": 0.04100069492703266
+  },
+  "pad_mean": [
+    0.3843961874596201,
+    0.5685543157518483,
+    -0.01257446903701538
+  ],
+  "pad_std": [
+    0.34972505146953964,
+    0.28035002575123247,
+    0.03743545713522358
+  ],
+  "shadow_agreement": {},
+  "days_simulated": 0.9993055555555556,
+  "ticks": 1439,
+  "lives": {
+    "per_generation": [
+      {
+        "generation": 1,
+        "lineage": [],
+        "days": 1.0,
+        "sick_hours": 0.0,
+        "colds": 0,
+        "cause": "",
+        "final_day": null
+      }
+    ],
+    "generations_finished": 0,
+    "life_days_mean": 0.0,
+    "sick_hours_total": 0.0,
+    "colds_total": 0,
+    "deaths_by_cause": {}
+  },
+  "surprise_mean": 0.03879994126663615
+}

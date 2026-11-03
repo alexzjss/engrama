@@ -25,3 +25,7 @@ INTEREST_GROUPS = {   # app category (perception PT or sim-user EN) -> interest
     "escritorio": "trabalho", "office": "trabalho",
 }
 DEATH_CAUSES = ("old_age", "neglect")
+# M7
+DIGITAL_IDS = ("ram", "defrag", "update", "cache", "cooler")
+VARIANTS = ("jump", "dance", "yawn", "nap_clock", "chase", "look_cursor", "peek", "dig", "found")
+DISPLAY_MODES = ("terrarium", "overlay")
