@@ -22,7 +22,8 @@ Python 3.13 ou mais novo.
 
 ```
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate            # Windows
+source .venv/bin/activate          # Linux (bash/zsh); no fish: source .venv/bin/activate.fish
 pip install -e .[dev]   # pygame-ce, numpy e psutil
 ```
 
@@ -35,7 +36,7 @@ python -m engrama --dev --time-scale 60 --seed 1
 python -m engrama --no-llm --frames 600     # sem Ollama; encerra após 600 quadros (smoke test)
 ```
 
-Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra números e escala de tempo), `--no-llm`, `--frames N`, `--seconds S`.
+Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra números e escala de tempo), `--no-llm`, `--frames N`, `--seconds S`, `--eyes toggle` (alterna os olhos da instância aberta e sai).
 
 - **Pré-requisito da conversa:** Ollama em `E:\Ollama` (`ollama.exe`, `home`, `models`; os caminhos vêm de `Config`). O Engrama inicia o `ollama serve` sozinho, em segundo plano, com tudo apontado para o E:, e o encerra ao sair se foi ele quem o iniciou. O modelo padrão é `qwen3:1.7b`; baixe pelo menu de modelos (F5). O modelo só fica carregado durante e logo após a conversa (`keep_alive` de 600 s).
 - **Teclas:** F2 Visão da Mente, F3 descanso manual, F4 comidas, F5 modelos, F6 configurações, F7 Memórias, F12 modo dev (números, `PgUp`/`PgDn` mudam a escala de tempo), Esc fecha o painel. Enter envia a mensagem.
@@ -80,6 +81,28 @@ Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra núme
 - **Variantes:** a mesma ação ganha jeitos diferentes (pular, dançar, bocejar, cavar e achar algo, tirar um cochilo olhando o relógio) conforme humor e personalidade.
 - **Privacidade do cursor:** só a posição do cursor, só no modo sobreposição, lida poucas vezes por segundo e nunca guardada nem registrada. A criatura pode virar para o cursor ou persegui-lo. A janela ativa só é consultada (para espiar a borda dela) se a permissão "Título da janela" do F8 estiver ligada.
 
+### Linux (M8)
+
+O Engrama roda no Linux com o que cada sessão permite; o que a sessão não oferece fica inerte, sem erro. No Windows nada mudou.
+
+| Sessão | App em foco, título, tela cheia | Ociosidade | Atalho dos olhos | Overlay (F11) |
+|---|---|---|---|---|
+| X11 (qualquer gerenciador EWMH) | sim | sim (XScreenSaver) | sim, global (`ctrl+alt+e`) | sim |
+| Wayland: Hyprland | sim (IPC do Hyprland) | sim (`ext-idle-notify`) | comando `engrama --eyes toggle` | não (aviso no F11) |
+| Wayland: Sway | sim (IPC do Sway) | sim (`ext-idle-notify`) | comando `engrama --eyes toggle` | não (aviso no F11) |
+| Wayland: KDE (Plasma 6) | não | sim (`ext-idle-notify` ou DBus) | comando `engrama --eyes toggle` | não (aviso no F11) |
+| Wayland: GNOME | não | sim (DBus do Mutter) | comando `engrama --eyes toggle` | não (aviso no F11) |
+
+- **Ollama do sistema:** usa o `ollama` do `PATH` (em geral o serviço systemd); não mexe em `HOME` nem em `OLLAMA_MODELS`. Se não estiver rodando e o binário existir, o Engrama inicia `ollama serve` e o encerra ao sair. Os caminhos `E:\` de um `config.json` vindo do Windows são ignorados no Linux.
+- **Sessão Wayland nunca usa X11:** mesmo com `DISPLAY` presente (XWayland), a percepção e o overlay não consultam o X.
+- **Olhos por comando:** `engrama --eyes toggle` abre ou fecha os olhos da instância aberta (sai com 1 e avisa se não houver nenhuma). O Engrama nunca mexe na configuração do compositor; você liga o comando a um atalho dele. Como o app costuma rodar do ambiente virtual, use o caminho completo (ou `python -m engrama --eyes toggle` a partir da pasta do repositório; sem `--data-dir`, os dois usam o `data/` do repositório):
+  - Hyprland (`~/.config/hypr/hyprland.conf`): `bind = CTRL ALT, E, exec, /caminho/do/engrama/.venv/bin/engrama --eyes toggle`
+  - Sway (`~/.config/sway/config`): `bindsym ctrl+alt+e exec /caminho/do/engrama/.venv/bin/engrama --eyes toggle`
+  - KDE: Configurações do Sistema > Atalhos > Adicionar comando, com o mesmo comando.
+  - GNOME: Configurações > Teclado > Atalhos personalizados, com o mesmo comando.
+- **Overlay só no X11.** Em sessão Wayland o F11 mostra "o overlay ainda não funciona no Wayland" e fica no terrário.
+- **Privacidade igual à do Windows (M5):** nada de `/dev/input`, teclado, tela ou área de transferência; título e nome de processo nunca saem do serviço de percepção.
+
 ### Laboratório
 
 ```
@@ -112,11 +135,16 @@ Regra de dependência (verificada por `tests/test_architecture.py`): `kernel` n�
 python -m pytest -q                      # inclui testes lentos (marcador slow)
 python tools/bench.py --seconds 120      # (--profile, --seed) JSON: pico de RSS, CPU médio, mean_ms por módulo
 python tools/bench.py --app --seconds 60 --fake-perception   # o app inteiro com fontes de percepção falsas
+python tools/bench.py --app --seconds 60 --threads           # CPU por thread (Linux, via /proc)
+python tools/bench.py --app --seconds 60 --first-use         # mede a tela de primeiro uso, à parte
+python tools/bench.py --overlay --seconds 30                 # overlay com desktop e cursor falsos
 ```
+
+O bench mede o estado estável por padrão (primeiro uso já respondido, todas as permissões desligadas); o limite é de 150 MB e 2% de CPU médio, em qualquer plataforma.
 
 ### Onde ficam os arquivos
 
-A CLI do laboratório usa os caminhos explícitos `--log` e `--save` (não lê `Config`); o padrão sugerido nos exemplos é `data/`, ignorado pelo git. `Config.data_dir` (padrão: `data/` na raiz do repositório) é o diretório de dados do app. Com o repositório no drive E:, nada vai para o C:.
+A CLI do laboratório usa os caminhos explícitos `--log` e `--save` (não lê `Config`); o padrão sugerido nos exemplos é `data/`, ignorado pelo git. `Config.data_dir` (padrão: `data/` na raiz do repositório) é o diretório de dados do app. Com o repositório no drive E:, nada vai para o C:. No Linux a pasta de dados é a mesma, `data/` na raiz do repositório (sem XDG, sem migração); `--data-dir` continua valendo.
 
 ---
 
@@ -143,7 +171,8 @@ Python 3.13 or newer.
 
 ```
 python -m venv .venv
-.venv\Scripts\activate
+.venv\Scripts\activate            # Windows
+source .venv/bin/activate          # Linux (bash/zsh); on fish: source .venv/bin/activate.fish
 pip install -e .[dev]   # pygame-ce, numpy and psutil
 ```
 
@@ -156,7 +185,7 @@ python -m engrama --dev --time-scale 60 --seed 1
 python -m engrama --no-llm --frames 600     # no Ollama; exits after 600 frames (smoke test)
 ```
 
-Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows numbers and the time scale), `--no-llm`, `--frames N`, `--seconds S`.
+Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows numbers and the time scale), `--no-llm`, `--frames N`, `--seconds S`, `--eyes toggle` (toggles the running instance's eyes and exits).
 
 - **Chat prerequisite:** Ollama in `E:\Ollama` (`ollama.exe`, `home`, `models`; paths come from `Config`). Engrama starts `ollama serve` itself, in the background, with everything pointed at E:, and stops it on exit if it started it. The default model is `qwen3:1.7b`; download it from the models menu (F5). The model stays loaded only during and shortly after a conversation (`keep_alive` 600 s).
 - **Keys:** F2 Mind View, F3 manual rest, F4 foods, F5 models, F6 settings, F7 Memories, F12 dev mode (numbers; `PgUp`/`PgDn` change the time scale), Esc closes the panel. Enter sends the message.
@@ -201,6 +230,28 @@ Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows number
 - **Variants:** the same action looks different (jump, dance, yawn, dig and find something, nap while watching the clock) depending on mood and personality.
 - **Cursor privacy:** only the cursor position, only in overlay mode, read a few times per second and never stored or logged. The creature may turn toward the cursor or chase it. The active window is queried (to peek at its edge) only if the F8 "Window title" permission is on.
 
+### Linux (M8)
+
+Engrama runs on Linux with whatever each session allows; anything the session does not offer stays inert, without errors. Nothing changed on Windows.
+
+| Session | Focused app, title, fullscreen | Idle | Eyes hotkey | Overlay (F11) |
+|---|---|---|---|---|
+| X11 (any EWMH window manager) | yes | yes (XScreenSaver) | yes, global (`ctrl+alt+e`) | yes |
+| Wayland: Hyprland | yes (Hyprland IPC) | yes (`ext-idle-notify`) | `engrama --eyes toggle` command | no (notice on F11) |
+| Wayland: Sway | yes (Sway IPC) | yes (`ext-idle-notify`) | `engrama --eyes toggle` command | no (notice on F11) |
+| Wayland: KDE (Plasma 6) | no | yes (`ext-idle-notify` or DBus) | `engrama --eyes toggle` command | no (notice on F11) |
+| Wayland: GNOME | no | yes (Mutter DBus) | `engrama --eyes toggle` command | no (notice on F11) |
+
+- **System Ollama:** uses the `ollama` on your `PATH` (usually the systemd service); it does not touch `HOME` or `OLLAMA_MODELS`. If it is not running and the binary exists, Engrama starts `ollama serve` and stops it on exit. `E:\` paths in a `config.json` carried over from Windows are ignored on Linux.
+- **A Wayland session never uses X11:** even with `DISPLAY` set (XWayland), perception and the overlay do not query X.
+- **Eyes by command:** `engrama --eyes toggle` opens or closes the running instance's eyes (exit code 1 with a message if none is running). Engrama never edits your compositor config; you bind the command to a key there. Since the app usually runs from the virtual environment, use the full path (or `python -m engrama --eyes toggle` from the repo folder; without `--data-dir` both use the repo's `data/`):
+  - Hyprland (`~/.config/hypr/hyprland.conf`): `bind = CTRL ALT, E, exec, /path/to/engrama/.venv/bin/engrama --eyes toggle`
+  - Sway (`~/.config/sway/config`): `bindsym ctrl+alt+e exec /path/to/engrama/.venv/bin/engrama --eyes toggle`
+  - KDE: System Settings > Shortcuts > Add command, with the same command.
+  - GNOME: Settings > Keyboard > Custom shortcuts, with the same command.
+- **Overlay on X11 only.** On a Wayland session F11 shows "the overlay does not work on Wayland yet" and stays in the terrarium.
+- **Same privacy as Windows (M5):** no `/dev/input`, keyboard, screen or clipboard; titles and process names never leave the perception service.
+
 ### Lab
 
 ```
@@ -234,8 +285,13 @@ python -m pytest -q                      # includes slow tests (slow marker)
 python tools/bench.py --seconds 120      # JSON: peak RSS, mean CPU, per-module mean_ms
 python tools/bench.py --app --seconds 60   # the whole app (dummy SDL, --no-llm): peak RSS and mean CPU
 python tools/bench.py --app --seconds 60 --fake-perception   # same, with scripted perception sources
+python tools/bench.py --app --seconds 60 --threads           # per-thread CPU (Linux, via /proc)
+python tools/bench.py --app --seconds 60 --first-use         # measures the first-use screen separately
+python tools/bench.py --overlay --seconds 30                 # overlay with a fake desktop and cursor
 ```
+
+The bench measures the steady state by default (first use answered, all permissions off); the limit is 150 MB and 2% mean CPU on every platform.
 
 ### Where files live
 
-The lab CLI takes explicit `--log` and `--save` paths (it does not read `Config`); the examples use `data/`, which is git-ignored. `Config.data_dir` (default: `data/` at the repo root) is the app's data directory. With the repo on drive E:, nothing goes to C:.
+The lab CLI takes explicit `--log` and `--save` paths (it does not read `Config`); the examples use `data/`, which is git-ignored. `Config.data_dir` (default: `data/` at the repo root) is the app's data directory. With the repo on drive E:, nothing goes to C:. On Linux the data directory is the same, `data/` at the repo root (no XDG, no migration); `--data-dir` still applies.

@@ -472,7 +472,7 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - `main()`: `make_sources()` já escolhe por sessão (sem mudança de chamada); `GlobalHotkey` sem `api` escolhe por sessão; `hotkey.start()` também no Linux; `_PerceptionProvider.hotkey_error` devolve o código cru (`"wayland"`, `"unsupported"` ou a mensagem); `get_desktop()` depois da janela existir; encerramento igual ao M7 (percepção → atalho → host → linguagem → servidor), fechando as conexões `osapi`.
   - Um log de uma linha no início (`logging`, nunca na UI) com `Session.kind`, `compositor` e os backends escolhidos, sem título nem processo.
 
-- [ ] **Passo 1:** escreva `tests/test_m8_acceptance.py`, cobrindo os critérios da spec §7 com o `Host` real, relógio falso, backends falsos e `--no-llm`:
+- [x] **Passo 1:** escreva `tests/test_m8_acceptance.py`, cobrindo os critérios da spec §7 com o `Host` real, relógio falso, backends falsos e `--no-llm`:
   - `test_windows_choices_unchanged` (critério 2: `sys.platform` simulado `win32` em `Config`, `OllamaServer`, `make_sources`, `get_desktop`, `GlobalHotkey`);
   - `test_linux_config_and_ollama` (critério 3);
   - `test_hyprland_perception_end_to_end` (critérios 5 e 10: servidor IPC falso + `IdleWatcher` falso + `PerceptionService` + `Host`; `app_focus {category}` chega ao host; título cru ausente de `memory.sqlite`, `explog.sqlite`, saves e `repr(snapshot)`);
@@ -483,16 +483,16 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - `test_lab_identical_to_m7` (critério 15: mesma fixture de métricas do M7);
   - `test_vocab_frozen` (tuplas iguais às do M7);
   - `test_smoke_frames` (`python -m engrama --frames 120 --no-llm --data-dir <tmp>` sai com 0).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente o resto da ligação.
-- [ ] **Passo 4:** rode `-m pytest -q tests/test_m8_acceptance.py` e depois `-m pytest -q`, a suíte inteira. Esperado: tudo PASS, incluindo os dois testes de orçamento.
-- [ ] **Passo 5:** rode `tools/bench.py --app --seconds 60 --threads`, `--app --seconds 60 --fake-perception` e `--overlay --seconds 30`. Esperado: ≤150 MB e ≤2%. Anote no PR.
-- [ ] **Passo 6:** atualize o README em PT e EN:
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente o resto da ligação.
+- [x] **Passo 4:** rode `-m pytest -q tests/test_m8_acceptance.py` e depois `-m pytest -q`, a suíte inteira. Esperado: tudo PASS, incluindo os dois testes de orçamento.
+- [x] **Passo 5:** rode `tools/bench.py --app --seconds 60 --threads`, `--app --seconds 60 --fake-perception` e `--overlay --seconds 30`. Esperado: ≤150 MB e ≤2%. Anote no PR.
+- [x] **Passo 6:** atualize o README em PT e EN:
   - "Instalar" com os comandos do Linux (`python -m venv .venv`, `source .venv/bin/activate` ou `.venv/bin/activate.fish`, `pip install -e .[dev]`) ao lado dos do Windows;
   - seção nova "Linux (M8)" / "Linux (M8)": tabela do que funciona por sessão (X11; Hyprland; Sway; KDE Wayland; GNOME Wayland), Ollama do sistema, `engrama --eyes toggle` com exemplos de atalho (Hyprland `bind = CTRL ALT, E, exec, ...`, Sway `bindsym`, KDE e GNOME pelas configurações de atalhos personalizados), overlay só no X11;
   - "Testes e bench": `--threads`, `--first-use` e estado estável;
   - "Onde ficam os arquivos": a pasta de dados conforme a decisão do usuário (spec §2).
-- [ ] **Passo 7:** commit `feat(m8): Linux wiring, M8 acceptance and README`.
+- [x] **Passo 7:** commit `feat(m8): Linux wiring, M8 acceptance and README`.
 - [ ] **Passo 8:** o controlador pede ao usuário o smoke manual na máquina de referência (Hyprland), e, se houver, numa sessão X11:
   - `python -m engrama` abre; a tela de primeiro uso aparece;
   - com as permissões ligadas, a criatura nota o app em foco (trocar entre terminal e navegador) e se esconde num app em tela cheia;

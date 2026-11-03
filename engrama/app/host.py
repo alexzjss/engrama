@@ -816,8 +816,17 @@ def _main(argv: list[str] | None, held: list) -> int:
 
         host.on_digital_ask = lambda did: say(f"digital.ask.{did}")
         host.on_digital_thanks = lambda did: say("digital.thanks")
+        sources = ScriptedSources() if a.fake_perception else make_sources()
+        try:
+            from engrama.osapi.session import detect as _detect_session
+            _s = _detect_session()
+            logging.getLogger("engrama.app").info(
+                "session platform=%s kind=%s compositor=%s sources=%s", _s.platform, _s.kind,
+                _s.compositor or "-", getattr(sources, "backends", "") or type(sources).__name__)
+        except Exception:
+            pass
         perception = PerceptionService(
-            activity.post, ScriptedSources() if a.fake_perception else make_sources(), lambda: cfg,
+            activity.post, sources, lambda: cfg,
             lambda: cfg.eyes_closed, on_theme=activity.on_theme, on_heavy=host.set_heavy_pc,
             categorize=Categorizer(memory, language))
         hotkey = GlobalHotkey(cfg.eyes_hotkey, toggle_eyes)
@@ -842,7 +851,7 @@ def _main(argv: list[str] | None, held: list) -> int:
         host.on_rest_change = on_rest
         host.start()
         perception.start()
-        if not a.fake_perception:
+        if not a.fake_perception:   # Windows RegisterHotKey, X11 XGrabKey; inert (error code) elsewhere
             hotkey.start()
         open_in_display_mode(window, cfg)
 
@@ -895,6 +904,9 @@ def _main(argv: list[str] | None, held: list) -> int:
                 pass
         if perception is not None:
             perception.stop()
+            closer = getattr(getattr(perception, "_src", None), "close", None)
+            if callable(closer):
+                closer()
         if hotkey is not None:
             hotkey.stop()
         host.stop()

@@ -142,8 +142,11 @@ class LinuxSources:
     """Sources over the Linux backends. Every call is guarded; a failing idle backend rests BACKEND_RETRY_S."""
 
     def __init__(self, window: Callable[[], ActiveWindow | None] | None,
-                 idle: Sequence[Callable[[], float | None]], now=time.monotonic) -> None:
+                 idle: Sequence[Callable[[], float | None]], now=time.monotonic,
+                 closers: Sequence[Callable[[], None]] = (), backends: str = "") -> None:
         self._window = window
+        self._closers = list(closers)
+        self.backends = backends
         self._idle = list(idle)
         self._now = now
         self._off_until = [float("-inf")] * len(self._idle)
@@ -155,6 +158,13 @@ class LinuxSources:
             return self._window()
         except Exception:
             return None
+
+    def close(self) -> None:
+        for fn in self._closers:
+            try:
+                fn()
+            except Exception:
+                pass
 
     def foreground(self):
         try:
@@ -226,29 +236,44 @@ def _wayland_idle(env) -> Callable[[], float | None]:
             w.close()
             state["w"] = None
         return v
+
+    def close():
+        w, state["w"] = state["w"], None
+        if w is not None:
+            w.close()
+    call.close = close  # type: ignore[attr-defined]
     return call
 
 
 def build_linux_sources(session: Session) -> Sources:
     window = None
     idle: list[Callable[[], float | None]] = []
+    closers: list[Callable[[], None]] = []
+    names: list[str] = []
     if session.kind == "wayland":
         env = session.env
         if session.compositor == "hyprland":
             window = lambda: hyprland.active_window(env)  # noqa: E731
         elif session.compositor == "sway":
             window = lambda: sway.active_window(env)  # noqa: E731
-        idle.append(_wayland_idle(env))
+        names.append(session.compositor if window is not None else "no-window")
+        wi = _wayland_idle(env)
+        idle.append(wi)
+        closers.append(wi.close)
+        names += ["wayland-idle", "dbus-idle"]
         idle.append(_ms_to_s(lambda: dbus_idle.idle_ms()))
     elif session.kind == "x11":
         x = X11.open()
         if x is not None:
             window = x.active
             idle.append(_ms_to_s(x.idle_ms))
+            closers.append(lambda: x.close())
+            names += ["x11", "x11-idle"]
         idle.append(_ms_to_s(lambda: dbus_idle.idle_ms()))
+        names.append("dbus-idle")
     else:
         return NullSources()
-    return LinuxSources(window, idle)
+    return LinuxSources(window, idle, closers=closers, backends=",".join(names))
 
 
 def make_sources(env=None, platform: str | None = None) -> Sources:
