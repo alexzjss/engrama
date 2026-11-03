@@ -158,7 +158,7 @@ Exemplo com uma mente experimental: `python -m engrama --recipe curious-v1 --dat
 
 ### Descanso e desempenho
 
-- **Descanso:** manual (F3) ou automático (app em tela cheia, pouca RAM livre ou 30 min sem uso). Em descanso a janela cai para 2 FPS, a mente roda em ritmo reduzido e o LLM é descarregado. Sem foco: 5 FPS; com foco: 20 FPS.
+- **Descanso:** manual (F3) ou automático (app em tela cheia, pouca RAM livre ou 30 min sem uso). Em descanso a janela cai para 2 FPS, a mente roda em ritmo reduzido e o LLM é descarregado. Sem foco: 5 FPS; com foco: 20 FPS quando algo se mexe e 10 FPS com a criatura parada.
 - **PC pesado:** CPU acima de 85% por 2 min faz a criatura descansar até aliviar.
 - **Orçamento:** o app mira no máximo 150 MB de RAM e 2% de CPU médio (medido pelo bench).
 
@@ -488,7 +488,7 @@ Example with an experimental mind: `python -m engrama --recipe curious-v1 --data
 
 ### Rest and performance
 
-- **Rest:** manual (F3) or automatic (fullscreen app, low free RAM or 30 min without use). While resting the window drops to 2 FPS, the mind runs at a reduced rate and the LLM is unloaded. Unfocused: 5 FPS; focused: 20 FPS.
+- **Rest:** manual (F3) or automatic (fullscreen app, low free RAM or 30 min without use). While resting the window drops to 2 FPS, the mind runs at a reduced rate and the LLM is unloaded. Unfocused: 5 FPS; focused: 20 FPS while something moves and 10 FPS when the creature is still.
 - **Heavy PC:** CPU above 85% for 2 min makes the creature rest until it eases.
 - **Budget:** the app aims for at most 150 MB of RAM and 2% average CPU (measured by the bench).
 
