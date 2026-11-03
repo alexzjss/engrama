@@ -7,6 +7,7 @@ import pygame
 from engrama import vocab
 from engrama.app import i18n
 from engrama.app.audio.growl import Growler
+from engrama.app.art import digital_fx
 from engrama.app.art.sprites import Look
 from engrama.app.snapshot import Snapshot
 from engrama.app.ui import menus
@@ -17,7 +18,7 @@ from engrama.app.ui.scene import FAREWELL_BUBBLE_AT, Scene
 SCALE = 4
 EAT_SECONDS = 2.0
 TIME_SCALES = (1.0, 10.0, 60.0, 600.0)
-KEY_PANELS = {pygame.K_F2: "mind", pygame.K_F4: "food", pygame.K_F5: "models", pygame.K_F6: "settings",
+KEY_PANELS = {pygame.K_F1: "digital", pygame.K_F2: "mind", pygame.K_F4: "food", pygame.K_F5: "models", pygame.K_F6: "settings",
               pygame.K_F7: "memories", pygame.K_F8: "permissions", pygame.K_F10: "generations"}
 
 # Panel registry: name -> factory(window) -> panel (draw(surface, snap), handle_event(event) -> bool,
@@ -43,6 +44,7 @@ def _mind_factory(win: "Window"):
 
 register_panel("mind", _mind_factory)
 register_panel("food", lambda w: menus.FoodMenu(w.give_food))
+register_panel("digital", lambda w: menus.DigitalMenu(w.give_digital))
 register_panel("models", lambda w: menus.PlaceholderPanel("ui.menu.models"))
 register_panel("settings", lambda w: menus.PlaceholderPanel("ui.menu.settings"))
 register_panel("memories", lambda w: menus.PlaceholderPanel("ui.memories.title"))
@@ -95,6 +97,8 @@ class Window:
         self.rest_manual = False
         self.running = True
         self.eat_until = 0.0
+        self.on_digital: Callable[[str], object] | None = None
+        self.digital_fx: tuple[str, float] | None = None
         self._scale_i = 0
         self._last_active = 0.0
         self._events: queue.SimpleQueue = queue.SimpleQueue()
@@ -126,6 +130,33 @@ class Window:
         if food_id != vocab.MEDICINE_ID:
             self.eat_until = time.monotonic() + EAT_SECONDS
         self.close_panel()
+
+    def give_digital(self, digital_id: str) -> None:
+        self.post("pet", {"digital": digital_id})
+        if callable(self.on_digital):
+            try:
+                self.on_digital(digital_id)
+            except Exception:
+                pass
+        self.digital_fx = (digital_id, time.monotonic())
+        self.close_panel()
+
+    def _draw_digital(self, snap) -> None:
+        r = self.scene.creature_rect
+        rect = pygame.Rect(r.x * SCALE, r.y * SCALE, r.w * SCALE, r.h * SCALE)
+        if self.digital_fx is not None:
+            did, t0 = self.digital_fx
+            if not digital_fx.draw_effect(self.screen, did, time.monotonic() - t0, rect):
+                self.digital_fx = None
+        req = getattr(snap, "digital_request", "")
+        if req and not snap.dead and r.w > 0:
+            ic = pygame.transform.scale(digital_fx.icon(req), (30, 30))
+            box = pygame.Rect(0, 0, 40, 40)
+            box.midbottom = (rect.centerx, rect.top - 4)
+            pygame.draw.rect(self.screen, (250, 250, 245), box, border_radius=8)
+            pygame.draw.polygon(self.screen, (250, 250, 245), [(box.centerx - 5, box.bottom), (box.centerx + 5, box.bottom),
+                                                               (box.centerx, box.bottom + 7)])
+            self.screen.blit(ic, ic.get_rect(center=box.center))
 
     def on_host_event(self, name: str, data: dict) -> None:
         """Thread-safe: called from the simulation thread; consumed in frame()."""
@@ -255,6 +286,7 @@ class Window:
             self._draw_farewell_bubble()
         else:
             self.chat.draw(self.screen, self.scene.creature_rect, now)
+        self._draw_digital(snap)
         if snap.eyes_closed and not snap.dead:
             draw_text(self.screen, i18n.t("ui.eyes.closed"), (self.size[0] // 2, 20), (170, 180, 240), 20, "midtop")
         if self._notice[0] and time.monotonic() < self._notice[1]:
