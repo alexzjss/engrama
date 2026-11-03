@@ -5,7 +5,9 @@ Callbacks (`on_event`, `on_rest_change`) run on the simulation thread; keep them
 """
 from __future__ import annotations
 import collections
+import dataclasses
 import json
+import logging
 import os
 import random
 import shutil
@@ -17,6 +19,7 @@ from typing import Any, Callable
 
 from engrama import balance as B
 from engrama.app import i18n
+from engrama.app.digital import DigitalRequests
 from engrama.app.rest import RestPolicy, system_ram_free_mb
 from engrama.app.snapshot import ModuleView, ProposalView, Snapshot, Viz, plain, to_viz
 from engrama.clock import SimClock
@@ -76,6 +79,10 @@ class Host:
         self.on_rest_change: Callable[[bool, str], None] | None = None
         self.on_event: Callable[[str, dict], None] | None = None
         self.on_eyes_change: Callable[[bool], None] | None = None
+        self.on_digital_ask: Callable[[str], None] | None = None     # a request just opened (sim thread)
+        self.on_digital_thanks: Callable[[str], None] | None = None  # the open request was fulfilled (UI thread)
+        self.theme_fn: Callable[[], str] | None = None               # current perceived theme ("" = none)
+        self._digital_lock = threading.Lock()
         self._eyes_closed = bool(getattr(cfg, "eyes_closed", False))
         self._heavy_pc = False
         self.last_error = ""
@@ -108,6 +115,7 @@ class Host:
 
         self._save_dir = self.data_dir / "save"
         self._host_json = self.data_dir / "host.json"
+        self._digital: DigitalRequests | None = None
         self._rt, self._types = self._load_or_create(seed)
         self._prev_stage = self._rt.kernel.stage
         self._startup_dead = bool(self._rt.kernel.dead)
@@ -138,11 +146,20 @@ class Host:
             rt = Runtime(recipe, int(seed))
             self._write_host_json(rt.seed)
         types = {s.name: s.type for s in rt.recipe.modules}
+        self._digital = DigitalRequests(rt.seed)
+        try:
+            self._digital.load_state_dict(meta.get("digital") if isinstance(meta.get("digital"), dict) else {})
+        except Exception:   # a corrupt block must not stop start-up: defaults
+            self._digital = DigitalRequests(rt.seed)
         return rt, types
 
     def _write_host_json(self, seed: int) -> None:
         tmp = self._host_json.with_name(self._host_json.name + ".tmp")
-        tmp.write_text(json.dumps({"wall": self._wall(), "seed": seed, "born": self._born_wall}), encoding="utf-8")
+        data: dict = {"wall": self._wall(), "seed": seed, "born": self._born_wall}
+        if self._digital is not None:
+            with self._digital_lock:
+                data["digital"] = self._digital.state_dict()
+        tmp.write_text(json.dumps(data), encoding="utf-8")
         os.replace(tmp, self._host_json)
 
     # ---- public API ---------------------------------------------------------------------------------
@@ -159,6 +176,21 @@ class Host:
         self._posts.append((kind, dict(data or {})))
         if kind in _INPUT_KINDS:
             self._last_input_wall = self._wall()
+
+    def fulfill_digital(self, digital_id: str) -> bool:
+        """UI thread: the user gave a digital item. True (and a happy reaction) if it was the open request.
+        The body already got the `pet` event from the Window; this only closes the request and cheers."""
+        try:
+            with self._digital_lock:
+                ok = self._digital.fulfill(str(digital_id), float(self._rt.kernel.t))
+                if ok:
+                    self._snap = dataclasses.replace(self._snap, digital_request=self._digital.open)
+            if ok:
+                _safe(self.on_digital_thanks, str(digital_id))
+            return bool(ok)
+        except Exception as e:
+            self.last_error = f"digital: {e!r}"
+            return False
 
     def set_rest(self, on: bool) -> None:
         """Manual rest override; applied at the next tick."""
@@ -323,6 +355,11 @@ class Host:
                 _safe(self.on_event, "hatch", {"stage": stage})
             else:
                 _safe(self.on_event, "evolve", {"from": old, "to": stage})
+        with self._digital_lock:
+            self._digital.tick(float(k.t))
+            opened = self._digital.on_action_start(action, float(k.t)) if action != self._prev_action else ""
+        if opened:
+            _safe(self.on_digital_ask, opened)
         if action != self._prev_action:
             old, self._prev_action = self._prev_action, action
             if old:
@@ -452,7 +489,17 @@ class Host:
             lineage=tuple(k.lineage), generation=int(k.generation),
             sick=bool(k.health.sick), sick_kind=str(k.health.kind), grave=bool(k.health.grave),
             old=bool(k.lifecycle.old), dead=bool(k.dead), death_cause=str(k.death_cause),
-            evolved_at=float(self._evolved_at))
+            evolved_at=float(self._evolved_at), fullscreen=bool(k.world.fullscreen),
+            theme=self._current_theme(), digital_request=self._digital.open)
+
+    def _current_theme(self) -> str:
+        fn = self.theme_fn
+        if fn is None:
+            return ""
+        try:
+            return str(fn() or "")
+        except Exception:
+            return ""
 
     def _collect_viz(self, mods) -> dict[str, tuple[Viz, ...]]:
         out: dict[str, tuple[Viz, ...]] = {}
@@ -604,6 +651,17 @@ class _NullServer:
     def stop(self) -> None: pass
 
 
+def open_in_display_mode(window, cfg) -> bool:
+    """Reopen in the saved display mode; if the overlay is unavailable the window stays in the terrarium."""
+    if getattr(cfg, "display_mode", "terrarium") != "overlay":
+        return False
+    try:
+        return bool(window.set_mode("overlay"))
+    except Exception:
+        logging.getLogger("engrama.app").exception("overlay start failed")
+        return False
+
+
 def main(argv: list[str] | None = None) -> int:
     import argparse
     import sys
@@ -616,7 +674,6 @@ def main(argv: list[str] | None = None) -> int:
     from engrama.services.language.persona import valence
     from engrama.services.language.server import OllamaServer
     from engrama.services.language.service import LanguageService
-    import logging
     from engrama.services.language.initiative import InitiativePolicy
     from engrama.services.memory import ACTIVE_WINDOW_S
     from engrama.services.memory.opinions import innate_lean
@@ -696,6 +753,9 @@ def main(argv: list[str] | None = None) -> int:
         window.memory_provider = _memory_provider(memory, working)
         window.save_config = lambda: cfg.save(cfg_path)
         window.dev = bool(a.dev or cfg.dev_mode)
+        from engrama.app.desktop import get_desktop
+        window.desktop = get_desktop()
+        window.on_digital = host.fulfill_digital
 
         eyes_lock = threading.Lock()
 
@@ -713,6 +773,18 @@ def main(argv: list[str] | None = None) -> int:
             set_eyes(not cfg.eyes_closed)
 
         activity = _Activity(host.post, make_theme_sink(memory, time.time))
+        host.theme_fn = lambda: (activity.current() or "") if cfg.permissions.get("process") else ""
+
+        def say(key: str) -> None:   # a short creature line through the same queue the language service feeds
+            try:
+                from engrama.services.language.service import Reply
+                lang = i18n.get_lang()
+                language.replies.put(Reply(i18n.t(key), lang, "babble"))
+            except Exception:
+                logging.getLogger("engrama.app").exception("digital line failed")
+
+        host.on_digital_ask = lambda did: say(f"digital.ask.{did}")
+        host.on_digital_thanks = lambda did: say("digital.thanks")
         perception = PerceptionService(
             activity.post, ScriptedSources() if a.fake_perception else make_sources(), lambda: cfg,
             lambda: cfg.eyes_closed, on_theme=activity.on_theme, on_heavy=host.set_heavy_pc,
@@ -741,6 +813,7 @@ def main(argv: list[str] | None = None) -> int:
         perception.start()
         if not a.fake_perception:
             hotkey.start()
+        open_in_display_mode(window, cfg)
 
         clock = pygame.time.Clock()
         n, t0 = 0, time.monotonic()

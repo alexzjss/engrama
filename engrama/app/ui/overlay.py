@@ -248,7 +248,7 @@ class OverlayController:
         if target is None and not hiding and not strip.x0 <= self.x <= strip.x1:
             target = _clamp(self.x, strip.x0, strip.x1)   # came back from hiding: walk into the strip
         if target is not None:
-            step = balance.OVERLAY_WALK_PX_S * SCALE * max(0.0, dt)
+            step = balance.OVERLAY_WALK_PX_S * max(0.0, dt)
             d = target - self.x
             if abs(d) <= step:
                 self.x = target

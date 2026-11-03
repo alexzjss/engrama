@@ -370,7 +370,7 @@ def test_wander_walks_inside_strip_and_faces_direction():
         assert ov.strip.x0 <= ov.x <= ov.strip.x1
     assert max(xs) - min(xs) > 100
     step = max(abs(b - a) for a, b in zip(xs, xs[1:]))
-    assert step <= balance.OVERLAY_WALK_PX_S * SCALE * 0.1 + 1e-6
+    assert step <= balance.OVERLAY_WALK_PX_S * 0.1 + 1e-6
 
 
 def test_idle_stays_put():
