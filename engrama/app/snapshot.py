@@ -62,6 +62,17 @@ class Snapshot:
     resting: bool = False
     rest_reason: str = ""
     eyes_closed: bool = False
+    branch: str = "base"
+    branch_name: str = ""
+    lineage: tuple = ()
+    generation: int = 1
+    sick: bool = False
+    sick_kind: str = ""
+    grave: bool = False
+    old: bool = False
+    dead: bool = False
+    death_cause: str = ""
+    evolved_at: float = float("-inf")   # host wall time of the last evolution
 
 
 def plain(x: Any) -> Any:

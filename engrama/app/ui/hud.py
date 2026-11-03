@@ -85,6 +85,16 @@ class Hud:
             x += 28
         if snap.resting:
             draw_text(surface, "z z  " + i18n.t("ui.rest.on"), (w - 10, 12), (170, 180, 240), 20, "topright")
+        if snap.stage != "egg" and not snap.dead:
+            name = snap.branch_name or i18n.t(f"branch.{snap.branch or 'base'}")
+            draw_text(surface, name, (w - 10, 32), (200, 200, 215), 18, "topright")
+            y = 44
+            if snap.grave:   # urgent: the creature asks for help
+                draw_text(surface, i18n.t("ui.life.grave"), (w // 2, y), (250, 120, 110), 22, "midtop")
+            elif snap.sick:
+                draw_text(surface, i18n.t("ui.life.sick"), (w // 2, y), (170, 220, 120), 20, "midtop")
+            if snap.old:
+                draw_text(surface, i18n.t("ui.life.old"), (w // 2, y + 22), (190, 190, 205), 18, "midtop")
         if snap.stage == "egg":
             draw_text(surface, i18n.t("ui.egg.hint"), (w // 2, 44), (225, 225, 235), 20, "midtop")
         if dev:

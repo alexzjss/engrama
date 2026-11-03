@@ -8,6 +8,7 @@ import collections
 import json
 import os
 import random
+import shutil
 import threading
 import time
 import uuid
@@ -15,14 +16,18 @@ from pathlib import Path
 from typing import Any, Callable
 
 from engrama import balance as B
+from engrama.app import i18n
 from engrama.app.rest import RestPolicy, system_ram_free_mb
 from engrama.app.snapshot import ModuleView, ProposalView, Snapshot, Viz, plain, to_viz
 from engrama.clock import SimClock
+from engrama.kernel.branches import branch_name
 from engrama.kernel.sensors import Obs
 from engrama.lab.explog import ExperienceLog
 from engrama.lab.runtime import Runtime
 from engrama.mind.recipe import load_recipe
 from engrama.modules.affect.pad import pad_label
+from engrama.services.generations import (GenerationRecord, append_generation, delete_generation_archive,
+                                          load_generations)
 from engrama.vocab import EVENT_KINDS, FOOD_IDS, NEED_KEYS, TRAIT_KEYS
 
 __all__ = ["Host", "RestPolicy", "Snapshot", "Viz", "to_viz", "main"]
@@ -40,6 +45,19 @@ def _safe(cb: Callable | None, *args) -> None:
         cb(*args)
     except Exception:   # a UI callback must never kill the simulation
         pass
+
+
+class _GenerationsProvider:
+    """Adapter the Generations panel (F10) talks to: the registry file plus per-generation archive folders."""
+
+    def __init__(self, data_dir: Path) -> None:
+        self.data_dir = Path(data_dir)
+
+    def records(self) -> list[GenerationRecord]:
+        return load_generations(self.data_dir / "generations.json")
+
+    def delete_archive(self, n: int) -> None:
+        delete_generation_archive(self.data_dir, n)
 
 
 class Host:
@@ -77,11 +95,22 @@ class Host:
         self._resting, self._rest_reason = False, ""
         self._prev_stage = ""
         self._prev_action = ""
+        self._evolved_at = float("-inf")
+        self.memory = None            # MemoryStore, attached by attach_services()
+        self.working = None           # WorkingMemory
+        self.language = None          # LanguageService (farewell only)
+        self.generations_provider = _GenerationsProvider(self.data_dir)
+        self._farewell_text = ""
+        self._farewell_requested = False
+        self._dead_wall = 0.0
+        self._skip_farewell = False
+        self._startup_dead = False
 
         self._save_dir = self.data_dir / "save"
         self._host_json = self.data_dir / "host.json"
         self._rt, self._types = self._load_or_create(seed)
         self._prev_stage = self._rt.kernel.stage
+        self._startup_dead = bool(self._rt.kernel.dead)
         self._snap: Snapshot = self._build_snapshot()
 
     # ---- construction -------------------------------------------------------------------------------
@@ -96,6 +125,7 @@ class Host:
     def _load_or_create(self, seed: int | None) -> tuple[Runtime, dict[str, str]]:
         recipe = load_recipe(self._recipe_path)
         meta = self._read_host_json()
+        self._born_wall = float(meta["born"]) if isinstance(meta.get("born"), (int, float)) else self._wall()
         rt: Runtime | None = None
         if (self._save_dir / "meta.json").exists():
             rt = Runtime.load(self._save_dir, None)
@@ -112,7 +142,7 @@ class Host:
 
     def _write_host_json(self, seed: int) -> None:
         tmp = self._host_json.with_name(self._host_json.name + ".tmp")
-        tmp.write_text(json.dumps({"wall": self._wall(), "seed": seed}), encoding="utf-8")
+        tmp.write_text(json.dumps({"wall": self._wall(), "seed": seed, "born": self._born_wall}), encoding="utf-8")
         os.replace(tmp, self._host_json)
 
     # ---- public API ---------------------------------------------------------------------------------
@@ -146,6 +176,18 @@ class Host:
     def set_heavy_pc(self, on: bool) -> None:
         """Thread-safe flag from the perception service: a sustained heavy PC makes the creature rest."""
         self._heavy_pc = bool(on)
+
+    def attach_services(self, memory=None, working=None, language=None) -> None:
+        """Wire the services death and rebirth touch (all optional: a bare Host still dies and is reborn)."""
+        self.memory, self.working, self.language = memory, working, language
+
+    @property
+    def farewell_text(self) -> str:
+        return self._farewell_text
+
+    def skip_farewell(self) -> None:
+        """Thread-safe: the user moved past the farewell scene; rebirth happens at the next tick."""
+        self._skip_farewell = True
 
     def set_time_scale(self, scale: float) -> None:
         self.clock.set_scale(float(scale))
@@ -250,6 +292,10 @@ class Host:
     def _tick_inner(self) -> None:
         rt = self._rt
         wall = self._wall()
+        if self._startup_dead:   # a save that was already dead: reborn at once, no farewell scene
+            self._startup_dead = False
+            self._rebirth(wall)
+            rt = self._rt
         dt = self.clock.advance()   # capped at 5 s x time_scale per call
         if dt <= 0.0:
             return
@@ -260,16 +306,18 @@ class Host:
             kind, data = self._posts.popleft()
             events.append(Obs(k.t, kind, data))
         rt.tick(dt, events)
-        self._emit_changes()
+        self._emit_changes(wall)
         self._update_rest(wall)
+        self._handle_death(wall)
         if wall - self._last_save_wall >= B.AUTOSAVE_S:
             self._save()
         self._snap = self._build_snapshot()
 
-    def _emit_changes(self) -> None:
+    def _emit_changes(self, wall: float) -> None:
         k = self._rt.kernel
         stage, action = k.stage, k.action or "idle"
         if stage != self._prev_stage:
+            self._evolved_at = wall
             old, self._prev_stage = self._prev_stage, stage
             if old == "egg":
                 _safe(self.on_event, "hatch", {"stage": stage})
@@ -279,6 +327,74 @@ class Host:
             old, self._prev_action = self._prev_action, action
             if old:
                 _safe(self.on_event, "action_change", {"from": old, "to": action})
+
+    # ---- death, farewell, rebirth -------------------------------------------------------------------
+
+    def _handle_death(self, wall: float) -> None:
+        k = self._rt.kernel
+        if not k.dead:
+            return
+        if not self._farewell_requested:
+            self._farewell_requested, self._dead_wall = True, wall
+            self._request_farewell(k.generation, k.death_cause)
+        if k.world.fullscreen:
+            return
+        if self._skip_farewell or wall - self._dead_wall >= B.FAREWELL_S:
+            self._rebirth(wall)
+
+    def _request_farewell(self, generation: int, cause: str) -> None:
+        def on_text(text: str) -> None:   # worker thread; drop a stale text that arrives after the rebirth
+            if self._rt.kernel.generation == generation and self._rt.kernel.dead:
+                self._farewell_text = str(text or "")
+        lang = self.language
+        if lang is None:
+            return
+        try:
+            lang.farewell(cause, on_text)
+        except Exception as e:
+            self.last_error = f"farewell: {e!r}"
+
+    def _rebirth(self, wall: float) -> None:
+        """Archive the finished life (memory, save, registry record), start the next one, save. Sim thread only."""
+        with self._save_lock:
+            rt = self._rt
+            gen = rt.kernel.generation
+            gen_dir = self.data_dir / "generations" / str(gen)
+            ancestral: list[str] = []
+            if self.memory is not None:
+                try:
+                    ancestral = list(self.memory.ancestral_candidates(B.ANCESTRAL_MAX))
+                    self.memory.archive_to(gen_dir / "memory.sqlite")
+                except Exception as e:
+                    self.last_error = f"archive memory: {e!r}"
+            try:
+                self._commit_log()
+                rt.save(self._save_dir)
+                shutil.rmtree(gen_dir / "save", ignore_errors=True)
+                shutil.copytree(self._save_dir, gen_dir / "save")
+            except Exception as e:
+                self.last_error = f"archive save: {e!r}"
+            summary = rt.life_summary()
+            try:
+                append_generation(self.data_dir / "generations.json", GenerationRecord(
+                    n=gen, lineage=tuple(summary["lineage"]), seed=int(summary["seed"]),
+                    born_wall=float(self._born_wall), died_wall=float(wall), days=float(summary["days"]),
+                    cause=str(summary["cause"]), ancestral=tuple(ancestral)))
+            except Exception as e:
+                self.last_error = f"generations.json: {e!r}"
+            rt.rebirth()
+            if self.memory is not None:
+                try:
+                    self.memory.new_generation(ancestral)
+                except Exception as e:
+                    self.last_error = f"new generation: {e!r}"
+            if self.working is not None:
+                self.working.clear()
+            self._born_wall = float(wall)
+            self._farewell_text, self._farewell_requested, self._skip_farewell = "", False, False
+            self._prev_stage = rt.kernel.stage
+            self._prev_action = ""
+            self._save()
 
     def _update_rest(self, wall: float) -> None:
         k = self._rt.kernel
@@ -331,7 +447,12 @@ class Host:
             winner=rt.last_choice, modules=views, viz=viz,
             recipe_name=rt.recipe.name, recipe_version=int(rt.recipe.version),
             resting=self._resting, rest_reason=self._rest_reason,
-            eyes_closed=self._eyes_closed)
+            eyes_closed=self._eyes_closed,
+            branch=k.genome.branch, branch_name=branch_name(k.genome.branch, i18n.get_lang()),
+            lineage=tuple(k.lineage), generation=int(k.generation),
+            sick=bool(k.health.sick), sick_kind=str(k.health.kind), grave=bool(k.health.grave),
+            old=bool(k.lifecycle.old), dead=bool(k.dead), death_cause=str(k.death_cause),
+            evolved_at=float(self._evolved_at))
 
     def _collect_viz(self, mods) -> dict[str, tuple[Viz, ...]]:
         out: dict[str, tuple[Viz, ...]] = {}
@@ -487,7 +608,6 @@ def main(argv: list[str] | None = None) -> int:
     import argparse
     import sys
     import pygame
-    from engrama.app import i18n
     from engrama.app.ui.menus import ModelsPanel, SettingsPanel
     from engrama.app.ui.window import Window
     from engrama.config import Config, default_data_dir
@@ -570,6 +690,9 @@ def main(argv: list[str] | None = None) -> int:
                         set_time_scale=host.set_time_scale,
                         valence_fn=lambda text: valence(text, detect_lang(text, "pt")))
         window.config = cfg
+        host.attach_services(memory, working, language)
+        window.generations_provider = host.generations_provider
+        window.on_farewell_skip = host.skip_farewell
         window.memory_provider = _memory_provider(memory, working)
         window.save_config = lambda: cfg.save(cfg_path)
         window.dev = bool(a.dev or cfg.dev_mode)
@@ -629,6 +752,7 @@ def main(argv: list[str] | None = None) -> int:
             if not window.running:
                 break
             host.want_viz = window.panel_name == "mind"
+            window.farewell_text = host.farewell_text
             now_w = time.time()
             language.tick(now_w)
             if now_w >= next_forget:   # at startup, then every 6 h of wall time

@@ -64,6 +64,14 @@ Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra núme
 - **PC pesado:** CPU acima de 85% por 2 min faz a criatura descansar até aliviar.
 - **Arrastar arquivo:** solte um arquivo ou pasta na janela e ela comenta. Lê só os primeiros 8 KB de texto/código; pasta lista o primeiro nível; imagem dá só nome e tipo; arquivo bloqueado é recusado.
 
+### Vida longa (M6)
+
+- **Ramos:** ao evoluir (criança, jovem), a criatura escolhe um ramo conforme o cuidado recebido, a personalidade e os interesses; o nome do ramo aparece na tela. A linhagem de ramos fica registrada.
+- **Doença e remédio:** descuido prolongado ou um resfriado ocasional deixam a criatura doente (sinal visível na tela). O remédio cura; doença grave sem tratamento leva à morte. Nada disso corre enquanto o app está fechado.
+- **Velhice:** no fim do ciclo a criatura fica velha. Velhice só acaba em morte com o app aberto e a criatura calma (acordada, sem tela cheia, sem conversa recente).
+- **Morte e herança:** a criatura se despede (texto do LLM, ou balbucio se estiver offline; clique para pular). Depois de 10 s, e nunca em tela cheia, a memória da vida é arquivada em `data/generations/<n>/` (com cópia do save), a vida vira um registro em `data/generations.json` e nasce um ovo novo. O ovo herda parte da personalidade e até 3 lembranças ancestrais (sem números e sem nada bloqueado); fatos, assuntos e opiniões do usuário não passam. Configurações, permissões e lista de bloqueio continuam.
+- **Gerações (F10):** lista as vidas passadas (ramo, duração, causa) e deixa apagar o arquivo de uma geração; o registro permanece.
+
 ### Laboratório
 
 ```
@@ -168,6 +176,14 @@ Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows number
 - **Activity remarks:** a new kind of initiative sharing the M4 quota (about one per hour of active use). Never on a private app, in fullscreen or with eyes closed.
 - **Heavy PC:** CPU above 85% for 2 min makes the creature rest until it eases.
 - **Drag a file:** drop a file or folder on the window and it comments. It reads only the first 8 KB of text/code; a folder lists its first level; an image gives just name and type; a blocked file is refused.
+
+### Long life (M6)
+
+- **Branches:** on evolving (child, young), the creature picks a branch from the care it received, its personality and its interests; the branch name shows on screen. The branch lineage is recorded.
+- **Illness and medicine:** prolonged neglect or an occasional cold makes the creature sick (a visible sign on screen). Medicine cures it; severe untreated illness leads to death. None of this runs while the app is closed.
+- **Old age:** at the end of the cycle the creature turns old. Old age only ends in death while the app is open and the creature is calm (awake, not in fullscreen, no recent chat).
+- **Death and inheritance:** the creature says goodbye (LLM text, or babble when offline; click to skip). After 10 s, and never in fullscreen, the life's memory is archived in `data/generations/<n>/` (with a save copy), the life becomes a record in `data/generations.json` and a new egg is born. The egg inherits part of the personality and up to 3 ancestral memories (no digits, nothing blocked); the user's facts, topics and opinions do not carry over. Settings, permissions and the block list stay.
+- **Generations (F10):** lists past lives (branch, length, cause) and lets you delete a generation's archive; the record stays.
 
 ### Lab
 

@@ -1,14 +1,17 @@
-"""Procedural pixel sprites: eggs, babies and children drawn into numpy index grids from a genome.
+"""Procedural pixel sprites: the egg (index grids) and the original V-Pet style creatures (engrama.app.art.vpet).
 
-Cell indices: 0 clear, 1 outline, 2 main, 3 shade, 4 accent, 5 eye white, 6 pupil/line, 7 mouth, 8 tear.
-Everything but the tail is left/right mirrored. adult/perfect/final reuse the child art (real art is M4).
+Creatures are 14 archetypes x 4 poses with signature genes, drawn per (look, stage, lineage) and animated by
+whole-sprite transforms plus eye templates. All drawing is cached (bounded LRU), never per frame.
 """
+import colorsys
 import random
+from collections import OrderedDict
 from dataclasses import dataclass
 
 import numpy as np
 import pygame
 
+from engrama.app.art import vpet
 
 
 @dataclass(frozen=True)
@@ -22,6 +25,8 @@ class Look:
     pattern: int = 0
     palette: tuple = ((40, 30, 60), (240, 140, 120), (190, 90, 100), (250, 220, 120))
     voice_pitch: float = 300.0
+    branch: str = "base"
+    lineage: tuple = ()
 
     @classmethod
     def from_dict(cls, d: dict | None) -> "Look":
@@ -42,60 +47,29 @@ class Look:
                     pal[i] = base.palette[i]
         except (TypeError, ValueError):
             pal = list(base.palette)
-        return cls(seed=num("seed", 0, int), body=num("body", 0, int), eyes=num("eyes", 0, int),
+        br = d.get("branch")
+        lin = d.get("lineage")
+        try:
+            lineage = tuple(str(x) for x in lin) if isinstance(lin, (list, tuple)) else ()
+        except (TypeError, ValueError):
+            lineage = ()
+        return cls(branch=br if isinstance(br, str) and br else "base", lineage=lineage,
+                   seed=num("seed", 0, int), body=num("body", 0, int), eyes=num("eyes", 0, int),
                    ears=num("ears", 0, int), tail=num("tail", 0, int), pattern=num("pattern", 0, int),
                    palette=tuple(pal), voice_pitch=num("voice_pitch", 300.0, float))
 
+ANIMS = ("idle", "walk", "eat", "sleep", "happy", "sad", "sick", "evolve", "old", "dead")
 
-ANIMS = ("idle", "walk", "eat", "sleep", "happy", "sad", "sick")
-SIZES = {"egg": 16, "baby": 16, "child": 24, "adult": 24, "perfect": 24, "final": 24}
+SIZES = {"egg": 16, "baby": 24, "child": 32, "adult": 40, "perfect": 44, "final": 48}
 
-# --- shape tables -----------------------------------------------------------------------------------------
-# baby body: (rx, ry, exponent, pear) -- pear > 0 widens the bottom
-BABY_BODY = [(5.2, 4.8, 2.0, 0.0), (5.4, 4.2, 2.0, 0.0), (4.4, 5.0, 2.0, 0.0),
-             (4.6, 4.8, 2.0, 0.3), (5.2, 4.6, 3.2, 0.0), (4.0, 4.2, 2.0, 0.0)]
-# child: head (rx, ry, exponent) and torso (rx, ry)
-CHILD_HEAD = [(7.6, 6.0, 2.0), (8.2, 5.4, 2.0), (6.6, 6.6, 2.0), (7.0, 6.0, 2.0), (7.6, 5.8, 3.2), (6.4, 5.6, 2.0)]
-CHILD_TORSO = [(4.4, 3.8), (5.0, 3.4), (4.0, 4.2), (5.2, 3.8), (4.6, 3.8), (3.8, 3.4)]
-
-# ears/horns: (k columns left of centre, height above the head, colour index); mirrored to the right
-EARS = {
-    "baby": {1: [(3, 1, 2), (4, 1, 2)],
-             2: [(2, 1, 2), (3, 2, 2), (4, 3, 2)],
-             3: [(2, 3, 2), (3, 3, 2)],
-             4: [(0, 3, 4), (1, 1, 4)]},
-    "child": {1: [(3, 1, 2), (4, 2, 2), (5, 2, 2)],
-              2: [(3, 2, 2), (4, 3, 2), (5, 4, 2), (6, 4, 2)],
-              3: [(2, 4, 2), (3, 4, 4), (4, 4, 2)],
-              4: [(0, 5, 4), (1, 4, 4), (2, 2, 4)]},
+# egg-only effects for the evolve/dead anims (creatures use vpet.anim)
+EGG_FX = {
+    "evolve": [{"bright": b} for b in (0.2, 0.45, 0.7, 0.92)],
+    "dead": [{"gray": 0.3, "fade": 0.85}, {"gray": 0.4, "fade": 0.5}],
 }
 
-# tails (right side only): offsets from the anchor on the body's right edge; (dx, dy, colour)
-TAILS = {
-    "baby": {1: [(1, 0, 2), (2, 0, 2)],
-             2: [(1, 0, 2), (2, 0, 2), (2, -1, 2), (2, -2, 2)],
-             3: [(1, 0, 2), (2, 0, 4), (2, -1, 4), (1, -1, 4)]},
-    "child": {1: [(1, 0, 2), (2, 0, 2), (3, 0, 2), (1, 1, 2), (2, 1, 2), (3, 1, 2)],
-              2: [(1, 0, 2), (2, 0, 2), (3, 0, 2), (3, -1, 2), (4, -1, 2), (4, -2, 2), (4, -3, 2), (4, -4, 2),
-                  (1, 1, 2), (2, 1, 2), (3, 1, 2), (5, -4, 2)],
-              3: [(1, 0, 2), (2, 0, 2), (2, -1, 4), (3, -1, 4), (4, -1, 4), (2, -2, 4), (3, -2, 4), (4, -2, 4),
-                  (3, 0, 4), (4, 0, 4), (3, -3, 4)]},
-}
-
-# --- animation frame parameters ---------------------------------------------------------------------------
-# dy: vertical hop, tall: squash/stretch, eyes: face mode, mouth, lift: raised foot, arms: arm pose, tint: sick
-ANIM_FRAMES = {
-    "idle": [{}, {"dy": -1}, {"eyes": "closed"}],
-    "walk": [{"lift": "l"}, {"dy": -1}, {"lift": "r"}, {"dy": -1}],
-    "eat": [{"mouth": "line"}, {"mouth": "open"}, {"mouth": "chew"}],
-    "sleep": [{"eyes": "closed", "mouth": "none"}, {"eyes": "closed", "mouth": "none", "tall": 0.7, "z": True}],
-    "happy": [{"eyes": "happy", "mouth": "smile", "arms": "up"},
-              {"eyes": "happy", "mouth": "smile", "arms": "up", "dy": -1}],
-    "sad": [{"eyes": "sad", "mouth": "frown", "tear": 0}, {"eyes": "sad", "mouth": "frown", "tear": 1}],
-    "sick": [{"eyes": "x", "mouth": "wavy", "tint": True}, {"eyes": "x", "mouth": "wavy", "tint": True, "tall": 0.5}],
-}
-
-_cache: dict[tuple, list[pygame.Surface]] = {}
+_CACHE_MAX = 400
+_cache: "OrderedDict[tuple, list[pygame.Surface]]" = OrderedDict()
 
 
 class _Grid:
@@ -153,15 +127,24 @@ def _rgb(c) -> tuple[int, int, int]:
     return int(c[0]), int(c[1]), int(c[2])
 
 
-def _to_surface(grid: _Grid, palette, tint: bool = False) -> pygame.Surface:
-    lut = np.zeros((9, 4), dtype=np.uint8)
+def _to_surface(grid: _Grid, palette, tint: bool = False, extra=None, bright: float = 0.0,
+                gray: float = 0.0, fade: float = 1.0) -> pygame.Surface:
+    """extra: {9: rgb, 10: rgb, 11: rgb|rgba} branch accessory colours; bright/gray/fade are animation effects."""
+    lut = np.zeros((15, 4), dtype=np.uint8)
     cols = {1: palette[0], 2: palette[1], 3: palette[2], 4: palette[3],
             5: (250, 250, 250), 6: palette[0], 7: palette[0], 8: (120, 190, 255)}
+    for i, c in (extra or {}).items():
+        cols[i] = c
     for i, c in cols.items():
+        alpha = int(c[3]) if len(c) > 3 else 255
         c = _rgb(c)
         if tint and i in (2, 3, 4):
             c = tuple(int(v * 0.55 + g * 0.45) for v, g in zip(c, (130, 190, 100)))
-        lut[i] = (*c, 255)
+        if gray:
+            c = tuple(int(v * (1 - gray) + 140 * gray) for v in c)
+        if bright:
+            c = tuple(int(v + (255 - v) * bright) for v in c)
+        lut[i] = (*c, int(alpha * fade))
     rgba = lut[grid.a]  # (h, w, 4)
     surf = pygame.Surface((grid.n, grid.n), pygame.SRCALPHA)
     rgb = pygame.surfarray.pixels3d(surf)
@@ -213,209 +196,44 @@ def make_egg_crack(genome, level: int) -> pygame.Surface:
     return _to_surface(_egg_grid(genome, 0, level), genome.palette)
 
 
-# --- creatures --------------------------------------------------------------------------------------------
-def _eye_geom(stage: str):
-    # w: eye width, left x0, row ey, mouth row my, mirrored centre column
-    return (2, 4, 8, 11, 7) if stage == "baby" else (3, 6, 8, 13, 11)
+
+def _surface(arr: np.ndarray) -> pygame.Surface:
+    n = arr.shape[0]
+    return pygame.image.frombuffer(np.ascontiguousarray(arr).tobytes(), (n, n), "RGBA")
 
 
-def _draw_eye(g: _Grid, stage: str, mode: str, style: int, tear: int | None) -> None:
-    w, x0, ey, _, _ = _eye_geom(stage)
-    big = stage == "child"
-    if mode == "closed":
-        for i in range(w):
-            g.setm(x0 + i, ey + 1, 6)
-    elif mode == "happy":
-        span = 5 if big else 3
-        for i in range(span):
-            g.setm(x0 + i, ey + 1 - min(i, span - 1 - i), 6)
-    elif mode == "x":
-        for i in range(w):
-            g.setm(x0 + i, ey + i, 6)
-            g.setm(x0 + w - 1 - i, ey + i, 6)
-    elif mode == "sad":
-        for i in range(w):
-            g.setm(x0 + i, ey + 1, 5)
-            g.setm(x0 + i, ey + 2, 6)
-        g.setm(x0 + w - 1, ey, 6)  # drooping lid on the inner side
-        if tear is not None:
-            g.setm(x0, ey + 3 + tear, 8)
-    elif style == 0:  # beady
-        for i in range(w):
-            for j in range(2):
-                g.setm(x0 + i, ey + j, 6)
-    elif style == 1:  # big shiny
-        h = 4 if big else 3
-        pw = 2 if big else 1
-        for i in range(w):
-            for j in range(h):
-                g.setm(x0 + i, ey + j, 6 if i >= w - pw and j >= 1 else 5)
-    elif style == 2:  # sleepy half-lids
-        g.setm(x0, ey, 6)
-        for i in range(w):
-            g.setm(x0 + i, ey, 6)
-            g.setm(x0 + i, ey + 1, 5 if i < w - 1 else 6)
-            if big:
-                g.setm(x0 + i, ey + 2, 6)
-    else:  # fierce: slanted brow, inner end lower
-        for i in range(w):
-            g.setm(x0 + i, ey - 1 if i < w - 1 else ey, 6)
-            if i < w - 1:
-                g.setm(x0 + i, ey, 5)
-            for j in range(1, w):
-                g.setm(x0 + i, ey + j, 6)
-
-
-def _draw_mouth(g: _Grid, stage: str, mode: str) -> None:
-    _, _, _, my, c = _eye_geom(stage)
-    if mode == "none":
-        return
-    if mode == "smile":
-        g.setm(c - 1, my, 7)
-        g.setm(c, my + 1, 7)
-    elif mode == "frown":
-        g.setm(c - 1, my + 1, 7)
-        g.setm(c, my, 7)
-    elif mode == "wavy":
-        g.setm(c - 2, my, 7)
-        g.setm(c - 1, my + 1, 7)
-        g.setm(c, my, 7)
-    elif mode == "open":
-        for j in range(2):
-            g.setm(c, my + j, 7)
-            g.setm(c - 1, my + j, 7)
-    elif mode == "chew":
-        g.setm(c, my, 7)
-        g.setm(c - 1, my, 7)
-        if stage == "child":
-            g.setm(c, my + 1, 7)
-    else:  # line
-        g.setm(c, my, 7)
-
-
-def _pattern(g: _Grid, genome, stage: str) -> None:
-    rng = random.Random(f"pat:{genome.seed}")
-    ey = _eye_geom(stage)[2]
-    ys, xs = np.nonzero(g.a == 2)
-    if genome.pattern == 1:  # belly patch
-        by, cx = np.nonzero(g.part == 2)
-        if len(by):
-            cyb, rxb, ryb = by.mean() + (0.5 if stage == "baby" else 0.8), (2.6 if stage == "baby" else 3.0), 2.2
-            if stage == "child":
-                cyb = by.max() - 2.0
-            for y in range(g.n):
-                for x in range(g.n):
-                    if g.part[y, x] == 2 and g.a[y, x] == 2 and ((x - (g.n - 1) / 2) / rxb) ** 2 + ((y - cyb) / ryb) ** 2 <= 1:
-                        g.a[y, x] = 4
-    elif genome.pattern == 2:  # spots
-        cells = [(x, y) for x, y in zip(xs, ys) if x <= g.n // 2 - 1 and not (ey - 1 <= y <= ey + 5)]
-        rng.shuffle(cells)
-        for x, y in cells[: 3 if stage == "baby" else 5]:
-            g.setm(int(x), int(y), 4)
-    elif genome.pattern == 3:  # stripes
-        top = int(ys.min()) if len(ys) else 0
-        for y in range(top + 2, ey - 1, 2):
-            for x in range(g.n):
-                if g.a[y, x] == 2 and g.part[y, x] in (1, 2):
-                    g.a[y, x] = 3
-
-
-def _draw_creature(genome, stage: str, p: dict) -> _Grid:
-    child = stage != "baby"
-    n = 24 if child else 16
-    g = _Grid(n)
-    dy = p.get("dy", 0)
-    tall = p.get("tall", 0.0)
-    cxl = n // 2 - 1
-    c = (n - 1) / 2
-    body = genome.body % 6
-    lift = p.get("lift")
-    if not child:
-        rx, ry, ex, pear = BABY_BODY[body]
-        cy = 8.8 + dy - tall
-        g.ellipse(c, cy, rx, ry + tall, ex, pear, 2)
-        for x, side in ((cxl - 2, "l"), (n - 1 - (cxl - 2), "r")):  # tiny feet
-            b = g.bottom(x)
-            if b is not None and lift != side:
-                g.set(x, b + 1, 3, 3)
-        ay_row = int(cy + 2)
-    else:
-        hrx, hry, hex_ = CHILD_HEAD[body]
-        trx, try_ = CHILD_TORSO[body]
-        hcy = 10.3 + dy - tall
-        tcy = 17.0 + dy * 0.0
-        # legs, then torso over them
-        leg_top = int(tcy + try_) - 1
-        for side, xs in (("l", (8, 9, 10)), ("r", (13, 14, 15))):
-            for x in xs:
-                for y in range(leg_top, 23 - (1 if lift == side else 0)):
-                    g.set(x, y, 3, 3)
-        # arms
-        arm_dy = {"up": -2}.get(p.get("arms"), 0)
-        for side in ("l", "r"):
-            swing = 1 if lift == side else 0
-            for dx in (0, 1):
-                xl = int(c - trx - 2.5) + dx  # left arm column; the right arm mirrors it
-                x = xl if side == "l" else n - 1 - xl
-                for y in range(int(tcy) - 2 + arm_dy + swing, int(tcy) + 1 + arm_dy + swing):
-                    g.set(x, y, 3, 3)
-        g.ellipse(c, tcy, trx, try_, 2.0, 0.0, 2)
-        g.ellipse(c, hcy, hrx, hry + tall, hex_, 0.0, 1)
-        ay_row = int(tcy + 1)
-    # ears / horns
-    for k, h, col in EARS[stage if stage == "baby" else "child"].get(genome.ears, []):
-        for x in (cxl - k, n - 1 - (cxl - k)):
-            t = g.top(x)
-            if t is not None:
-                for y in range(t - h, t):
-                    g.set(x, y, col, 3)
-    # tail on the right edge
-    tail = TAILS[stage if stage == "baby" else "child"].get(genome.tail)
-    if tail:
-        ext = g.row_extent(ay_row)
-        if ext:
-            for ox, oy, col in tail:
-                g.set(ext[1] + ox, ay_row + oy, col, 3)
-    _pattern(g, genome, stage)
-    g.shade_bottoms()
-    g.outline()
-    # face
-    style = genome.eyes % 4
-    _draw_eye(g, stage, p.get("eyes", "open"), style, p.get("tear"))
-    _draw_mouth(g, stage, p.get("mouth", "line"))
-    if p.get("z"):
-        zx = 12 if not child else 19
-        for i in range(3):
-            g.set(zx + i, 1, 4, 0)
-        g.set(zx + 1, 2, 4, 0)
-        g.set(zx, 3, 4, 0)
-        g.set(zx + 1, 3, 4, 0)
-        g.set(zx + 2, 3, 4, 0)
-    return g
-
-
-def _key(genome, stage: str, anim: str) -> tuple:
-    return (genome.seed, genome.body, genome.eyes, genome.ears, genome.tail, genome.pattern,
-            tuple(map(tuple, genome.palette)), stage, anim)
+def _key(look, stage: str, anim: str, bid: str, lineage: tuple) -> tuple:
+    return (look.seed, look.body, look.eyes, look.ears, look.tail, look.pattern, tuple(look.palette[1]),
+            stage, anim, bid, lineage)
 
 
 def frames(look, stage: str, anim: str) -> list[pygame.Surface]:
-    """2-4 transparent frames for (look, stage, anim). Cached; callers must not mutate the surfaces."""
+    """2-4 transparent frames for (look, stage, anim). Cached (bounded LRU); callers must not mutate the surfaces.
+
+    The branch that applies is the one of look.branch / look.lineage that belongs to `stage`; unknown ids draw as base."""
     if anim not in ANIMS:
         raise ValueError(f"unknown anim {anim!r}")
     if stage not in SIZES:
         raise ValueError(f"unknown stage {stage!r}")
-    key = _key(look, stage, anim)
-    if key in _cache:
-        return _cache[key]
+    branch = getattr(look, "branch", "base") or "base"
+    lineage = vpet.known_lineage(getattr(look, "lineage", ()) or ())
+    bid = vpet.branch_at(stage, branch, lineage)
+    key = _key(look, stage, anim, bid, lineage)
+    hit = _cache.get(key)
+    if hit is not None:
+        _cache.move_to_end(key)
+        return hit
     if stage == "egg":
-        wobble = [0, 1, 0, -1] if anim == "idle" else [0, 1]
-        out = [_to_surface(_egg_grid(look, dx), look.palette) for dx in wobble]
+        if anim in EGG_FX:
+            out = [_to_surface(_egg_grid(look, 0), look.palette, **p) for p in EGG_FX[anim]]
+        else:
+            wobble = [0, 1, 0, -1] if anim == "idle" else [0, 1]
+            out = [_to_surface(_egg_grid(look, dx), look.palette) for dx in wobble]
     else:
-        st = "baby" if stage == "baby" else "child"
-        out = [_to_surface(_draw_creature(look, st, p), look.palette, p.get("tint", False))
-               for p in ANIM_FRAMES[anim]]
+        out = [_surface(a) for a in vpet.creature_frames(look, stage, anim, branch, lineage)]
     _cache[key] = out
+    while len(_cache) > _CACHE_MAX:
+        _cache.popitem(last=False)
     return out
 
 
@@ -439,6 +257,7 @@ _ICONS = {
     "cache": ["..r..r..", "...r.r..", "........", ".ssssss.", "sooooooS", "soyyyyoS", "sooooooS", ".SSSSSS."],
     "byte": ["........", ".yyyyyy.", "yykkykky", "yykyykky", "yykkykky", "yyykkyyy", ".yyyyyy.", "........"],
     "ram": ["GGGGGGGG", "GkkGkkkG", "GkkGkkkG", "GGGGGGGG", "GkkGkkkG", "GkkGkkkG", "GGGGGGGG", "y.y.y.y."],
+    "remedio": ["........", "..wwww..", ".wwrrww.", "wwwrrwww", "wrrrrrrw", "wwwrrwww", ".wwrrww.", "..wwww.."],
 }
 _icon_cache: dict[str, pygame.Surface] = {}
 
@@ -454,9 +273,9 @@ def food_icon(food_id: str) -> pygame.Surface:
     return _icon_cache[food_id]
 
 
+
 # --- contact sheet ----------------------------------------------------------------------------------------
 def _demo_look(seed: int) -> Look:
-    import colorsys
     r = random.Random(seed)
     h = r.random()
 
@@ -467,17 +286,18 @@ def _demo_look(seed: int) -> Look:
                 tail=r.randrange(4), pattern=r.randrange(4), palette=pal, voice_pitch=r.uniform(180, 520))
 
 
-def contact_sheet(path: str = "data/contact_sheet.png", seeds: int = 12, scale: int = 6) -> None:
+def contact_sheet(path: str = "data/contact_sheet.png", seeds: int = 12, scale: int = 3) -> None:
     import os
-    cell = 24 * scale + 8
-    sheet = pygame.Surface((cell * 3, cell * seeds), pygame.SRCALPHA)
+    stages = ("egg", "baby", "child", "adult", "perfect", "final")
+    cell = 48 * scale + 8
+    sheet = pygame.Surface((cell * len(stages), cell * seeds), pygame.SRCALPHA)
     sheet.fill((46, 44, 62))
     for row in range(seeds):
         g = _demo_look(row + 1)
-        for col, stage in enumerate(("egg", "baby", "child")):
+        for col, stage in enumerate(stages):
             f = frames(g, stage, "idle")[0]
             big = pygame.transform.scale(f, (f.get_width() * scale, f.get_height() * scale))
-            sheet.blit(big, (col * cell + (cell - big.get_width()) // 2, row * cell + (cell - big.get_height()) // 2))
+            sheet.blit(big, (col * cell + (cell - big.get_width()) // 2, row * cell + cell - 4 - big.get_height()))
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     pygame.image.save(sheet, path)
 

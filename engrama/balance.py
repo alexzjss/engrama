@@ -94,3 +94,25 @@ AUTOSAVE_S = 300.0              # wall seconds between autosaves
 REST_RAM_FREE_MB = 1000         # free RAM below this triggers rest
 REST_IDLE_S = 1800.0            # no user input for this long triggers rest
 SURPRISE_CURIOUS = 0.5          # temporal.surprise above this makes the creature "curious"
+
+# M6
+FINAL_LIFESPAN_S = 30 * 24 * HOUR
+OLD_AGE_WARN_S = 3 * 24 * HOUR
+NEGLECT_NEED_MEAN = 70.0
+NEGLECT_SICK_AFTER_S = 6 * HOUR
+CARE_RECOVER_NEED_MEAN = 40.0
+SICK_SEVERITY_START = 0.3
+SICK_SEVERITY_UP_PER_H = 0.03
+SICK_SEVERITY_DOWN_PER_H = 0.05
+GRAVE_SEVERITY = 0.8
+GRAVE_DEATH_AFTER_S = 24 * HOUR
+COLD_PER_ONLINE_H = 1.0 / (30 * 24)
+COLD_MIN_S, COLD_MAX_S = 3 * HOUR, 8 * HOUR
+COLD_MAX_SEVERITY = 0.4
+MEDICINE_COOLDOWN_S = 6 * HOUR
+MEDICINE_NEGLECT_RELIEF = 0.5
+NEGLECT_BRANCH_CARE = 0.45
+REDEEM_CARE = 0.7
+TRAIT_INHERIT = 0.25
+ANCESTRAL_MAX = 3
+FAREWELL_S = 10.0
