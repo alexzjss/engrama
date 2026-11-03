@@ -314,7 +314,7 @@ Afetada pela decisão "pontuação" (spec §2).
     - assuntos atuais e passados: como no M4 (não dependem da mensagem).
   - `_clean` (sem dígitos) em tudo, como hoje. Qualquer exceção no caminho semântico → refaz pelo caminho do M4 (não devolve `RecallContext()` vazio por causa do significado).
 
-- [ ] **Passo 1:** escreva os testes (memória falsa com `similar` roteirizado e `FakeEmbedder`):
+- [x] **Passo 1:** escreva os testes (memória falsa com `similar` roteirizado e `FakeEmbedder`):
   - `test_qvec_none_identical_to_m4` (para cada caso do gabarito da T0 com a memória real do gabarito: `recall(..., qvec=None)` == JSON);
   - `test_memory_without_similar_is_m4`;
   - `test_fact_found_by_meaning` ("meu bichinho está doente" traz "animal de estimacao: cachorro biscoito");
@@ -325,10 +325,10 @@ Afetada pela decisão "pontuação" (spec §2).
   - `test_semantic_failure_falls_back_to_m4` (`similar` levanta → resultado do M4);
   - `test_stage_gating_unchanged_with_qvec` (bebê sem opinião; ovo vazio);
   - `test_no_digits_with_qvec`.
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/services/memory tests/test_m4_acceptance.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m9): hybrid recall by words and meaning`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/services/memory tests/test_m4_acceptance.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m9): hybrid recall by words and meaning`.
 
 ---
 
