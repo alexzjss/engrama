@@ -231,3 +231,14 @@ def test_hotkey_failed_notice():
     assert i18n.t("ui.perm.hotkey_failed") in texts(w)
     w.perception_provider = FakeProvider(err="")
     assert i18n.t("ui.perm.hotkey_failed") not in texts(w)
+
+
+def test_permissions_wayland_hint():
+    w = make(asked=True)
+    w.perception_provider = FakeProvider(err="wayland")
+    w.open_panel("permissions")
+    out = texts(w)
+    hint = i18n.t("ui.perm.hotkey_wayland")
+    assert hint in out
+    assert i18n.t("ui.perm.hotkey_failed") not in out
+    assert not any(ch.isdigit() for ch in hint)
