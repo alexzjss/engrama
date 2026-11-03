@@ -378,17 +378,17 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - `table_category(p)`: tenta a chave crua (comportamento M7) e depois `normalize_process(p)`. `APP_TABLE` ganha chaves sem sufixo para os apps do Windows que existem no Linux e nomes só do Linux, por exemplo: `firefox`, `chromium`, `google-chrome`, `brave`, `code`, `codium`, `cursor`, `nvim`, `zed`, `pycharm`, `idea`, `steam`, `lutris`, `heroic`, `minecraft-launcher`, `spotify`, `rhythmbox`, `elisa`, `strawberry`, `vlc`, `mpv`, `celluloid`, `discord`, `vesktop`, `telegram-desktop`, `slack`, `soffice.bin`, `libreoffice`, `krita`, `gimp`, `inkscape`, `blender`, `aseprite`, `kitty`, `alacritty`, `foot`, `wezterm-gui`, `konsole`, `gnome-terminal-server`, `ghostty`. O cache `app_categories` continua com a chave crua.
   - `themes._MUSIC_PLAYERS` compara `normalize_process` e ganha `spotify`, `rhythmbox`, `elisa`, `strawberry`, `audacious`, `lollypop`, `amberol`.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_foreground_pid_name` (psutil simulado), `test_foreground_sandbox_falls_back_to_class`, `test_foreground_dead_pid_class`, `test_fullscreen_passthrough`;
   - `test_idle_chain_first_wins`, `test_idle_backend_disabled_then_retried` (relógio falso: 59 s sem chamar, 61 s chama de novo), `test_backend_exceptions_harmless`;
   - `test_make_sources_windows_unchanged` (`platform="win32"` com `WinSources` substituído por um marcador), `test_make_sources_hyprland_picks_ipc`, `test_make_sources_wayland_never_x11` (env com `DISPLAY` e Wayland → backend de janela não é X11), `test_make_sources_tty_null`, `test_make_sources_darwin_null`;
   - ajuste de `test_null_sources_off_windows`: chama `make_sources(env={}, platform="linux")`;
   - `test_permission_order_with_linux_sources`: os testes de fonte desligada e de bloqueio do M5 rodando com `LinuxSources` sobre backends falsos que contam chamadas (0 sem permissão; `privado` para bloqueado);
   - categorias: `test_linux_names` (`firefox`, `code`, `kitty`, `hollow_knight.x86_64`, `HollowKnight.exe`), `test_windows_keys_unchanged` (toda chave de `APP_TABLE` do M7 dá a mesma categoria); temas: `test_spotify_linux_theme`.
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/services/perception tests/test_m5_acceptance.py tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m8): Linux perception sources and app names`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/services/perception tests/test_m5_acceptance.py tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m8): Linux perception sources and app names`.
 
 ---
 
