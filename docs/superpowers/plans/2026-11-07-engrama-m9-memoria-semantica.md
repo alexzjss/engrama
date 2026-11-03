@@ -424,7 +424,7 @@ Afetada pelas decisões "download do modelo" e "painel Memórias" (spec §2).
   - `main()`: sem `--no-llm`, `embedder = Embedder(OllamaClient(cfg), cfg)`; com `--no-llm`, `None`. `LanguageService(..., embedder=embedder)`; `_memory_provider(memory, working, language)`. Encerramento igual ao M8 (o `language.shutdown()` não chama o Ollama; o `server.stop()` só se foi o Engrama que iniciou).
   - Um log de uma linha (`logging`, nunca na UI) quando o estado do embedder muda (`off`/`missing`/`cold`/`ready`/`failed`) com o nome do modelo, sem nenhum texto de memória.
 
-- [ ] **Passo 1:** escreva `tests/test_m9_acceptance.py`, cobrindo os critérios da spec §7 com `MemoryStore` e `LanguageService` reais (`sync=True`), `ScriptedClient` do M4, `FakeEmbedder` e relógio falso; o `Host` real com `--no-llm` onde indicado:
+- [x] **Passo 1:** escreva `tests/test_m9_acceptance.py`, cobrindo os critérios da spec §7 com `MemoryStore` e `LanguageService` reais (`sync=True`), `ScriptedClient` do M4, `FakeEmbedder` e relógio falso; o `Host` real com `--no-llm` onde indicado:
   - `test_remembers_by_meaning` (critério 1: dia 1 "adotei um cachorro, o nome dele é Biscoito" com fato extraído; índice rodado; dia 5 "meu bichinho anda doente" → o prompt de sistema traz o cachorro; sem embedder, não traz);
   - `test_cross_language` (critério 2);
   - `test_no_model_is_m8` (critério 3: os casos de degradação contra o gabarito da T0, inclusive `main(["--no-llm", "--frames", "60", ...])` sem nenhuma chamada a `/api/embed` — `http_json` simulado que falha o teste se a URL terminar em `/api/embed`);
@@ -439,16 +439,16 @@ Afetada pelas decisões "download do modelo" e "painel Memórias" (spec §2).
   - `test_odd_ollama_answers_harmless` (critério 13, pelo `OllamaClient` real com `http_json` falso);
   - `test_lab_identical_to_m8` (critério 14: mesma fixture de métricas do M8) e `test_vocab_frozen`;
   - `test_smoke_frames` (`python -m engrama --frames 120 --no-llm --data-dir <tmp>` sai com 0).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente o resto da ligação.
-- [ ] **Passo 4:** rode `-m pytest -q tests/test_m9_acceptance.py` e depois `-m pytest -q`, a suíte inteira. Esperado: tudo PASS, incluindo os dois testes de orçamento (critério 12).
-- [ ] **Passo 5:** rode `tools/bench.py --app --seconds 60` e `--overlay --seconds 30`. Esperado: ≤150 MB e ≤2%, iguais ao M8 dentro do ruído. Anote no PR.
-- [ ] **Passo 6:** **só se o usuário tiver instalado o modelo de embedding** (nunca baixar por conta própria): meça na máquina de referência a latência de `/api/embed` com o modelo frio e quente (1 texto e 16 textos) e o cosseno de pares relacionados e não relacionados em PT e EN; ajuste `SEM_MIN_SIM`, `FACT_MIN_SIM`, `TOPIC_MIN_SIM`, `EMBED_QUERY_TIMEOUT_S` e `EMBED_BATCH_TIMEOUT_S` se preciso e registre a tabela no corpo do commit e no PR. Sem o modelo, registre "não medido" e mantenha os valores de partida.
-- [ ] **Passo 7:** atualize o README em PT e EN:
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente o resto da ligação.
+- [x] **Passo 4:** rode `-m pytest -q tests/test_m9_acceptance.py` e depois `-m pytest -q`, a suíte inteira. Esperado: tudo PASS, incluindo os dois testes de orçamento (critério 12).
+- [x] **Passo 5:** rode `tools/bench.py --app --seconds 60` e `--overlay --seconds 30`. Esperado: ≤150 MB e ≤2%, iguais ao M8 dentro do ruído. Anote no PR.
+- [x] **Passo 6:** **só se o usuário tiver instalado o modelo de embedding** (nunca baixar por conta própria): meça na máquina de referência a latência de `/api/embed` com o modelo frio e quente (1 texto e 16 textos) e o cosseno de pares relacionados e não relacionados em PT e EN; ajuste `SEM_MIN_SIM`, `FACT_MIN_SIM`, `TOPIC_MIN_SIM`, `EMBED_QUERY_TIMEOUT_S` e `EMBED_BATCH_TIMEOUT_S` se preciso e registre a tabela no corpo do commit e no PR. Sem o modelo, registre "não medido" e mantenha os valores de partida.
+- [x] **Passo 7:** atualize o README em PT e EN:
   - seção nova "Busca por significado (M9)" / "Recall by meaning (M9)": o que é, que é opcional, como baixar o modelo pelo F5, quanto ocupa, que sem ele tudo funciona como antes;
   - "Privacidade": os vetores ficam na `memory.sqlite`, saem só de texto que ela já guarda, e apagar uma memória apaga o vetor; o arquivo de uma geração não leva vetores;
   - "Teclas": F5 agora também tem a busca por significado.
-- [ ] **Passo 8:** commit `feat(m9): semantic memory wiring, M9 acceptance and README`.
+- [x] **Passo 8:** commit `feat(m9): semantic memory wiring, M9 acceptance and README`.
 - [ ] **Passo 9:** o controlador pede ao usuário o smoke manual na máquina de referência:
   - baixar `qwen3:1.7b` e o modelo de embedding pelo F5;
   - conversar sobre um assunto (por exemplo um animal de estimação com nome);
