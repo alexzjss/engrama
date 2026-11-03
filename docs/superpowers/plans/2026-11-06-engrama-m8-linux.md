@@ -298,17 +298,17 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - Tamanho de mensagem < 8 ou > 4096 → quebrado. Ids de objeto alocados em sequência a partir de 2.
   - Só lê o socket dentro de `idle_seconds()` e `start()`; nenhuma thread própria.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_encode_decode_roundtrip`, `test_decode_partial_message_kept`, `test_wl_string_padding`;
   - `test_idle_watcher_full_flow` (compositor falso anuncia `wl_seat` e `ext_idle_notifier_v1`, responde ao sync; depois manda `idled` → `idle_seconds() >= timeout`; depois `resumed` → `< 1`; confere que o cliente pediu `get_idle_notification` com o timeout em ms);
   - `test_no_notifier_global_returns_false`;
   - `test_display_error_breaks_watcher`, `test_closed_socket_returns_none`, `test_garbage_size_breaks_watcher`;
   - `test_no_wayland_display_false`;
   - `test_silent_compositor_times_out` (servidor que não responde → `start()` False em ≤ 1,2 s).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/osapi`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m8): minimal Wayland client for idle notifications`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/osapi`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m8): minimal Wayland client for idle notifications`.
 
 ---
 
