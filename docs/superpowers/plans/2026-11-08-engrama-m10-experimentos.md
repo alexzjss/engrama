@@ -445,7 +445,7 @@ Afetada pela decisão "forma das comparações" (spec §2).
   - `viz()`: `heatmap` de `mu` e `heatmap` de `sd`.
   - `recipes/thompson-v1.toml`: cópia de `default-v1` com `type = "policy.thompson"`, `weight = 0.6` no lugar de `policy.qlearning` (mesma posição), `name = "thompson-v1"`.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_mu_matches_qlearning` (mesmas transições → `mu == QLearningPolicy.Q`);
   - `test_sd_shrinks_with_visits_and_regrows_with_forgetting`;
   - `test_two_armed_bandit_prefers_best` (contexto fixo, `gamma = 0`, braço A recompensa 1 com p = 0,7, braço B com p = 0,3, RNG do teste; laço `propose` → argmax → `learn`, 500 passos; fração de A nos últimos 200 > 0,9);
@@ -458,10 +458,10 @@ Afetada pela decisão "forma das comparações" (spec §2).
     - `assert_state_roundtrip`;
     - `assert_no_global_rng`;
     - `mean_ms ≤ EXP_BUDGET_MS`.
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/modules/test_thompson.py tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m10): Thompson sampling policy`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/modules/test_thompson.py tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m10): Thompson sampling policy`.
 
 ---
 
