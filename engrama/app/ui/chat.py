@@ -138,6 +138,10 @@ class ChatBox:
         except Exception:
             return False
 
+    def quiet(self, now: float) -> bool:
+        """Nothing animated or being typed: no visible bubble, no text, no "thinking" dots."""
+        return not (self.bubble and now < self.bubble_until) and not self.text and not self.composing and not self.busy
+
     def status_line(self, now: float) -> str:
         key = _STATUS_KEYS.get(self.status(now))
         return i18n.t(key) if key else ""

@@ -127,3 +127,13 @@ def test_frames_alias_and_all_foods():
     for fid in FOOD_IDS:
         assert food_icon(fid).get_size() == (8, 8)
     assert make_egg_crack(Look(), 2).get_size() == (16, 16)
+
+
+def test_look_of_cached_by_identity():
+    d = {"seed": 7, "body": 2, "palette": [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]}
+    a = sprites.look_of(d)
+    assert sprites.look_of(d) is a
+    b = sprites.look_of(dict(d))
+    assert b == a and b is not a
+    assert sprites.look_of(None) == sprites.Look()
+    assert sprites.look_of(d) == a

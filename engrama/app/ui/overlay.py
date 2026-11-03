@@ -78,6 +78,9 @@ class OverlayController:
         self._dragging = False
         self._grab = 0.0
         self._menu_rects: list[tuple[str, pygame.Rect]] = []
+        self._sig: tuple | None = None
+        self._sig_at = 0.0
+        self._sig_screen: pygame.Surface | None = None
 
     # ---------------------------------------------------------------- geometry helpers
     @property
@@ -275,7 +278,27 @@ class OverlayController:
         r = self.scene.creature_rect
         return pygame.Rect(r.x * SCALE, r.y * SCALE, r.w * SCALE, r.h * SCALE)
 
-    def draw(self, screen: pygame.Surface, snap, now: float) -> None:
+    def _identical(self, screen: pygame.Surface, snap, now: float) -> bool:
+        """True when nothing visible changed since the last presented frame (same pixels, same window rect)."""
+        w = self.window
+        plain = (w.skip_identical and w.panel is None and not self.menu_open and not self.chat_open
+                 and not snap.dead and w.digital_fx is None and not getattr(snap, "digital_request", ""))
+        if plain:
+            w.chat.poll(now)
+            plain = w.chat.quiet(now)
+        if not plain:
+            self._sig = None
+            return False
+        r = self.scene.creature_rect
+        sig = (self.low.get_buffer().raw, self.size, self.rect, hud.mood_kind(snap), bool(snap.grave), bool(snap.sick),
+               (r.x, r.y, r.w, r.h))
+        if sig == self._sig and self._sig_screen is screen and 0.0 <= now - self._sig_at < 2.0:
+            return True
+        self._sig, self._sig_at, self._sig_screen = sig, now, screen
+        return False
+
+    def draw(self, screen: pygame.Surface, snap, now: float) -> bool:
+        """Paint the overlay; False when the frame was identical to the one on screen (nothing drawn, no flip needed)."""
         w = self.window
         self.low.fill(COLORKEY)
         scene_snap = dataclasses.replace(snap, action="idle") if snap.action == "hide" else snap
@@ -284,6 +307,8 @@ class OverlayController:
         self.scene.draw(self.low, scene_snap, now, eating=now_mono() < w.eat_until, variant=w.variant,
                         background=False, item=w.variant_item, flip=flip, pos_x=pos_x,
                         ground=self.low.get_height())
+        if self._identical(screen, snap, now):
+            return False
         pygame.transform.scale(self.low, self.size, screen)   # nearest neighbour: COLORKEY stays exact
         cr = self._creature_screen_rect()
         if snap.dead:
@@ -302,6 +327,7 @@ class OverlayController:
         w._draw_digital(snap, self.scene)
         if w.panel is not None:
             w.panel.draw(screen, snap)
+        return True
 
     def _signals(self, screen, snap, cr: pygame.Rect) -> None:
         """Tiny status marks beside the head: mood face and sick/grave."""
