@@ -380,7 +380,7 @@ Afetada pelas decisões "canal novo `world.error`" e "forma das comparações" (
     - `curious-v1`: cópia de `default-v1`, `policy.qlearning` trocado por `type = "policy.curious"`, `weight = 0.6`, `bonus = "surprise"` (mesma posição) e `[[module]] type = "world.model"` **no fim** da lista viva. Assim os RNGs dos módulos anteriores não mudam; o do árbitro muda, porque há um módulo vivo a mais, e isso fica anotado num comentário da receita.
     - `curious-lp-v1`: o mesmo com `bonus = "progress"`.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_world_model.py`:
     - `test_features_targets_shapes_and_missing_channels`;
     - `test_targets_need_rate_dt_invariant` (mesma taxa por hora com `dt = 60` e `dt = 1`);
@@ -401,10 +401,10 @@ Afetada pelas decisões "canal novo `world.error`" e "forma das comparações" (
     - `assert_state_roundtrip` (os dois módulos);
     - `assert_no_global_rng`;
     - `mean_ms ≤ EXP_BUDGET_MS` (os dois módulos).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/modules/test_world_model.py tests/modules/test_curious.py tests/modules/test_qlearning.py tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m10): world model and curiosity-driven Q-learning`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/modules/test_world_model.py tests/modules/test_curious.py tests/modules/test_qlearning.py tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m10): world model and curiosity-driven Q-learning`.
 
 ---
 
