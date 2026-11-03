@@ -37,13 +37,22 @@ def _thread_ticks(pids: list[int]) -> dict[tuple[int, int], tuple[str, int]]:
     return out
 
 
+def _resolve_recipe(arg: str) -> Path:
+    p = Path(arg)
+    if p.exists():
+        return p
+    return ROOT / "recipes" / (p.name if p.suffix == ".toml" else p.name + ".toml")
+
+
 def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5, fake_perception: bool = False,
-              first_use: bool = False, threads: bool = False) -> dict:
+              first_use: bool = False, threads: bool = False, recipe: str | None = None) -> dict:
     """Run the whole app (`python -m engrama --no-llm`, dummy SDL) in a child process; sample its RSS/CPU.
 
     By default the first-use screen is already answered (steady state: it is shown once in a user's life);
     `first_use=True` keeps the old behaviour (fresh data dir). `threads=True` adds per-thread CPU % (Linux)."""
     cmd = [sys.executable, "-m", "engrama", "--no-llm", "--data-dir", str(data_dir)]
+    if recipe is not None:
+        cmd += ["--recipe", recipe]
     if not fake_perception and not first_use:
         from engrama.config import Config
         cfg = Config(data_dir=data_dir)
@@ -159,7 +168,7 @@ def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--seconds", type=float, default=120.0)
-    ap.add_argument("--recipe", type=Path, default=ROOT / "recipes" / "default-v1.toml")
+    ap.add_argument("--recipe", default=None, help="recipe name or path (headless default: default-v1; with --app: passed on)")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--profile", default="attentive", choices=sorted(PROFILES))
     ap.add_argument("--app", action="store_true", help="bench the whole app process (dummy SDL, --no-llm)")
@@ -178,9 +187,11 @@ def main(argv: list[str] | None = None) -> int:
     if a.app:
         a.data_dir.mkdir(parents=True, exist_ok=True)
         print(json.dumps(bench_app(a.seconds, a.data_dir, fake_perception=a.fake_perception,
-                                     first_use=a.first_use, threads=a.threads), indent=2))
+                                     first_use=a.first_use, threads=a.threads,
+                                     recipe=a.recipe), indent=2))
         return 0
-    rt = Runtime(load_recipe(a.recipe), a.seed)
+    rec_path = _resolve_recipe(a.recipe or "default-v1")
+    rt = Runtime(load_recipe(rec_path), a.seed)
     user = SimUser(PROFILES[a.profile], np.random.default_rng([a.seed, 1]))
     proc = psutil.Process()
     cpu0, wall0 = sum(proc.cpu_times()[:2]), time.perf_counter()
@@ -196,7 +207,7 @@ def main(argv: list[str] | None = None) -> int:
     wall = time.perf_counter() - wall0
     cpu = (sum(proc.cpu_times()[:2]) - cpu0) / wall * 100.0
     print(json.dumps({
-        "recipe": a.recipe.stem, "seconds": round(wall, 1), "ticks": ticks,
+        "recipe": rec_path.stem, "seconds": round(wall, 1), "ticks": ticks,
         "peak_rss_mb": round(peak / 2**20, 1), "mean_cpu_percent": round(cpu, 2),
         "modules_mean_ms": {s.name: round(s.mean_ms, 4) for s in rt.scheduler.status()},
         "disabled": [s.name for s in rt.scheduler.status() if not s.enabled],

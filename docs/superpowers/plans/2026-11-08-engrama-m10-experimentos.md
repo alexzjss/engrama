@@ -667,7 +667,7 @@ Afetada pela decisão "como escolher um experimento no app" (spec §2).
   - `Host._load_or_create`: quando há save e o nome da receita do save difere do da receita pedida, registra uma linha de `logging` (nunca na UI) e segue com a do save, como hoje.
   - `tools/bench.py --app --recipe R`: repassa `--recipe R` ao `python -m engrama`. Sem `--recipe`, o comando é o de hoje.
 
-- [ ] **Passo 1:** escreva `tests/test_m10_acceptance.py`, cobrindo a spec §7:
+- [x] **Passo 1:** escreva `tests/test_m10_acceptance.py`, cobrindo a spec §7:
   - `test_default_untouched` (critério 1: os dois gabaritos, SHA-256 das receitas, `REGISTRY` antigo, `CHANNELS`, `Config().recipe`);
   - `test_every_new_recipe_runs_clean` (critério 2; parametrizado nas 8 receitas novas; `attentive` 3 dias e `neglectful` 5 dias `slow`);
   - `test_suite_deterministic_and_jobs_invariant` (critério 3);
@@ -687,11 +687,11 @@ Afetada pela decisão "como escolher um experimento no app" (spec §2).
   - `test_architecture_and_vocab_frozen` (critério 10);
   - `test_report_present` (critério 11: o relatório e o JSON existem; o JSON tem as 8 receitas e os 4 perfis);
   - `test_smoke_frames` (`python -m engrama --frames 120 --no-llm --data-dir <tmp>` sai com 0, receita padrão).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente a ligação (`main`, aviso, bench).
-- [ ] **Passo 4:** rode `-m pytest -q tests/test_m10_acceptance.py` e depois `-m pytest -q`, a suíte inteira. Esperado: tudo PASS, incluindo os dois testes de orçamento do M3/M7, sem mudança nos limites.
-- [ ] **Passo 5:** rode `tools/bench.py --app --seconds 60` e `--overlay --seconds 30` (receita padrão). Esperado: ≤150 MB e ≤2%, iguais ao M9 dentro do ruído. Anote no PR.
-- [ ] **Passo 6:** atualize o README em PT e EN:
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente a ligação (`main`, aviso, bench).
+- [x] **Passo 4:** rode `-m pytest -q tests/test_m10_acceptance.py` e depois `-m pytest -q`, a suíte inteira. Esperado: tudo PASS, incluindo os dois testes de orçamento do M3/M7, sem mudança nos limites.
+- [x] **Passo 5:** rode `tools/bench.py --app --seconds 60` e `--overlay --seconds 30` (receita padrão). Esperado: ≤150 MB e ≤2%, iguais ao M9 dentro do ruído. Anote no PR.
+- [x] **Passo 6:** atualize o README em PT e EN:
   - seção nova "Experimentos de ML (M10)" / "ML experiments (M10)":
     - os quatro experimentos em uma linha cada;
     - a tabela de receitas, com a troca que cada uma faz;
@@ -700,6 +700,6 @@ Afetada pela decisão "como escolher um experimento no app" (spec §2).
   - "Laboratório": o subcomando `suite` (exemplo pequeno e o `--preset m10` com o tempo medido);
   - "Receitas" e "O app": `--recipe` aceita nome; a receita só vale para uma criatura nova (pasta de dados nova), segue as gerações e é ignorada quando já há save;
   - "Escrever um módulo": o `lab_metrics()` opcional e o `version` no `state_dict`.
-- [ ] **Passo 7:** versão `0.10.0` em `pyproject.toml`.
-- [ ] **Passo 8:** commit `feat(m10): experiment recipes in the app, M10 acceptance and README`.
+- [x] **Passo 7:** versão `0.10.0` em `pyproject.toml`.
+- [x] **Passo 8:** commit `feat(m10): experiment recipes in the app, M10 acceptance and README`.
 - [ ] **Passo 9:** o controlador mostra ao usuário a tabela do relatório e as decisões abertas (a recomendação de não promover). Nenhum smoke manual é exigido, porque a UI não muda. Opcional: `python -m engrama --recipe curious-v1 --dev --time-scale 60 --data-dir <pasta nova>`, abrir a Visão da Mente (F2) e conferir que os módulos novos aparecem.

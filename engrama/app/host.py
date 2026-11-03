@@ -66,8 +66,10 @@ class _GenerationsProvider:
 class Host:
     def __init__(self, cfg, data_dir: Path, recipe_path: Path, seed: int | None = None,
                  clock: SimClock | None = None, *, wall_fn: Callable[[], float] | None = None,
-                 ram_free_mb_fn: Callable[[], float] = system_ram_free_mb) -> None:
+                 ram_free_mb_fn: Callable[[], float] = system_ram_free_mb,
+                 warn_recipe_mismatch: bool = True) -> None:
         self.cfg = cfg
+        self._warn_recipe_mismatch = warn_recipe_mismatch
         self.data_dir = Path(data_dir)
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._recipe_path = Path(recipe_path)
@@ -137,6 +139,11 @@ class Host:
         rt: Runtime | None = None
         if (self._save_dir / "meta.json").exists():
             rt = Runtime.load(self._save_dir, None)
+            if self._warn_recipe_mismatch and rt.recipe.name != recipe.name:   # the creature keeps its own recipe
+                logging.getLogger("engrama.app").warning(
+                    "A criatura salva usa a receita '%s'; --recipe '%s' vale só para uma pasta de dados nova. / "
+                    "The saved creature uses recipe '%s'; --recipe '%s' only applies to a new data dir.",
+                    rt.recipe.name, recipe.name, rt.recipe.name, recipe.name)
             gap = self._wall() - float(meta.get("wall", self._wall()))
             if gap > 0:
                 rt.kernel.offline_catchup(gap)
@@ -712,6 +719,15 @@ def open_in_display_mode(window, cfg) -> bool:
         return False
 
 
+def resolve_recipe_arg(arg: str | Path) -> Path | None:
+    """`--recipe X`: an existing path, else `recipes/X.toml` (with or without the extension); None if neither."""
+    p = Path(arg)
+    if p.exists():
+        return p
+    q = Path(__file__).resolve().parents[2] / "recipes" / (p.name if p.suffix == ".toml" else p.name + ".toml")
+    return q if q.exists() else None
+
+
 def main(argv: list[str] | None = None) -> int:
     held: list = []
     try:
@@ -749,7 +765,8 @@ def _main(argv: list[str] | None, held: list) -> int:
 
     ap =argparse.ArgumentParser(prog="engrama", description="Engrama: a local virtual companion.")
     ap.add_argument("--data-dir", type=Path, default=None)
-    ap.add_argument("--recipe", type=Path, default=None)
+    ap.add_argument("--recipe", type=str, default=None,
+                    help="recipe name (recipes/NAME.toml) or path; only for a new data dir (a saved creature keeps its own)")
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--time-scale", type=float, default=None)
     ap.add_argument("--dev", action="store_true")
@@ -761,6 +778,13 @@ def _main(argv: list[str] | None, held: list) -> int:
     ap.add_argument("--fake-perception", action="store_true", help="bench: scripted machine instead of the real one")
     a = ap.parse_args(argv)
 
+    requested = None
+    if a.recipe is not None:
+        requested = resolve_recipe_arg(a.recipe)
+        if requested is None:
+            print(f"Receita não encontrada: {a.recipe} (use um nome de recipes/ ou um caminho). / "
+                  f"Recipe not found: {a.recipe} (use a name from recipes/ or a path).", file=sys.stderr)
+            return 2
     data_dir = Path(a.data_dir) if a.data_dir else default_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
     from engrama.app.instance import InstanceLock, send_eyes_toggle
@@ -786,9 +810,9 @@ def _main(argv: list[str] | None, held: list) -> int:
         cfg.time_scale = a.time_scale
     if cfg.ui_lang in ("pt", "en"):
         i18n.set_lang(cfg.ui_lang)
-    recipe = a.recipe or Path(__file__).resolve().parents[2] / "recipes" / f"{cfg.recipe}.toml"
+    recipe = requested or Path(__file__).resolve().parents[2] / "recipes" / f"{cfg.recipe}.toml"
 
-    host = Host(cfg, data_dir, recipe, seed=a.seed)
+    host = Host(cfg, data_dir, recipe, seed=a.seed, warn_recipe_mismatch=requested is not None)
     memory = MemoryStore(data_dir / "memory.sqlite")
     working = WorkingMemory()
     server = _NullServer() if a.no_llm else OllamaServer(cfg)
