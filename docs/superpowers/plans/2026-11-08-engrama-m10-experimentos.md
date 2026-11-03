@@ -639,16 +639,16 @@ Afetada pelas decisões "forma das comparações" e "promover um experimento a p
     7. **O que não se conclui:** 3 sementes, usuário simulado ≠ real, IPS não vale para o Thompson, recomendação sobre promoção (spec §2).
   - Regra de escrita: só se diz que um experimento "melhora" ou "piora" uma métrica com o mesmo sinal nas 3 sementes. Senão, "sem efeito consistente".
 
-- [ ] **Passo 1:** crie as duas receitas e confira `assert_same_live_actions(default-v1, lab-shadow-all-v1)` e `run_clean(aif-solo-v1, 3)` à mão (os testes entram na T7).
-- [ ] **Passo 2:** rode `python -m engrama.lab suite --preset m10 --jobs 4 --out docs/superpowers/reports/2026-11-08-m10-experimentos.json --md <tmp>/tabela.md` e anote o tempo de parede.
-- [ ] **Passo 3:** calibração, só se um experimento ficar degenerado no `attentive`:
+- [x] **Passo 1:** crie as duas receitas e confira `assert_same_live_actions(default-v1, lab-shadow-all-v1)` e `run_clean(aif-solo-v1, 3)` à mão (os testes entram na T7).
+- [x] **Passo 2:** rode `python -m engrama.lab suite --preset m10 --jobs 4 --out docs/superpowers/reports/2026-11-08-m10-experimentos.json --md <tmp>/tabela.md` e anote o tempo de parede.
+- [x] **Passo 3:** calibração, só se um experimento ficar degenerado no `attentive`:
   - degenerado = módulo desabilitado, uma ação com mais de 60% do tempo, ou `wellbeing` abaixo de metade do padrão;
   - ajuste só dentro das faixas, rode a suíte de novo e registre antes/depois;
   - nunca mexa em constantes ou módulos do padrão.
-- [ ] **Passo 4:** rode `tools/bench.py --recipe recipes/<r>.toml --seconds 30` para cada receita nova e para a `lab-shadow-all-v1`. Esperado: ≤150 MB, ≤2% e `modules_mean_ms` de cada módulo novo ≤ `EXP_BUDGET_MS`.
-- [ ] **Passo 5:** escreva o relatório.
-- [ ] **Passo 6:** rode `-m pytest -q tests/test_m10_guard.py tests/modules tests/lab`. Esperado: PASS (a calibração não quebra os testes da Onda A).
-- [ ] **Passo 7:** commit `docs(m10): lab comparison report of the ML experiments`.
+- [x] **Passo 4:** rode `tools/bench.py --recipe recipes/<r>.toml --seconds 30` para cada receita nova e para a `lab-shadow-all-v1`. Esperado: ≤150 MB, ≤2% e `modules_mean_ms` de cada módulo novo ≤ `EXP_BUDGET_MS`.
+- [x] **Passo 5:** escreva o relatório.
+- [x] **Passo 6:** rode `-m pytest -q tests/test_m10_guard.py tests/modules tests/lab`. Esperado: PASS (a calibração não quebra os testes da Onda A).
+- [x] **Passo 7:** commit `docs(m10): lab comparison report of the ML experiments`.
 
 ---
 
