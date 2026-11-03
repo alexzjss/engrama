@@ -663,6 +663,15 @@ def open_in_display_mode(window, cfg) -> bool:
 
 
 def main(argv: list[str] | None = None) -> int:
+    held: list = []
+    try:
+        return _main(argv, held)
+    finally:
+        for lk in held:
+            lk.release()
+
+
+def _main(argv: list[str] | None, held: list) -> int:
     import argparse
     import sys
     import pygame
@@ -700,6 +709,13 @@ def main(argv: list[str] | None = None) -> int:
 
     data_dir = Path(a.data_dir) if a.data_dir else default_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
+    from engrama.app.instance import InstanceLock
+    lock = InstanceLock(data_dir)
+    if not lock.acquire():
+        print("O Engrama já está aberto nesta pasta de dados. / "
+              "Engrama is already running for this data dir.", file=sys.stderr)
+        return 1
+    held.append(lock)
     cfg_path = data_dir / "config.json"
     if cfg_path.exists():
         cfg = Config.load(cfg_path)
