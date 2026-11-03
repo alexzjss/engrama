@@ -511,7 +511,7 @@ Afetada pelas decisões "forma das comparações" e pela §9 da spec (inferênci
   - `viz()`: `bars` de `−G` por ação na última decisão e `table` com `pragmatic` e `novelty` por ação.
   - `recipes/aif-v1.toml`: cópia de `default-v1` com `type = "policy.aif"`, `weight = 0.6` no lugar de `policy.qlearning` (mesma posição), `name = "aif-v1"`. O peso pode ser calibrado na T6.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_outcome_vector` (`need_pain` > 0 → 1; `msg_valence` negativo → 0);
   - `test_log_pref_normalized_and_signed` (`exp` das duas colunas soma 1; `need_relief` prefere 1; `need_pain` e `ignored` preferem 0; a preferência por resposta cresce com a sociabilidade);
   - `test_preferred_outcome_action_has_lowest_G`;
@@ -527,10 +527,10 @@ Afetada pelas decisões "forma das comparações" e pela §9 da spec (inferênci
     - `assert_state_roundtrip`;
     - `assert_no_global_rng`;
     - `mean_ms ≤ EXP_BUDGET_MS`.
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/modules/test_aif.py tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m10): active inference policy`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/modules/test_aif.py tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m10): active inference policy`.
 
 ---
 
