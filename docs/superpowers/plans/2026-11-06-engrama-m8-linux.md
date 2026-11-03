@@ -261,15 +261,15 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - Todo método público captura qualquer exceção e devolve o valor inerte.
   - Funções puras testáveis sem X: `_parse_wm_class(bytes) -> str`, `_decode_utf8(bytes) -> str`, `_workarea_from(cards, current_desktop) -> Rect | None`.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_keysym_for` (letras, dígitos, F1/F12/F24, inválidos → None);
   - `test_open_without_display_is_none` (env sem `DISPLAY`) e `test_open_without_lib_is_none` (`loader` devolvendo None);
   - `test_parse_wm_class`, `test_workarea_from` (lista de 4×N cards e desktop atual);
   - `test_real_x11_smoke` (`skipif` se `XDG_SESSION_TYPE != "x11"` ou sem `DISPLAY`): `open()`, `active()`, `idle_ms()`, `pointer()` não lançam.
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente com `argtypes`/`restype` declarados em todas as funções usadas e `XFree` em toda propriedade lida.
-- [ ] **Passo 4:** rode `-m pytest -q tests/osapi tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m8): X11 bindings via ctypes`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente com `argtypes`/`restype` declarados em todas as funções usadas e `XFree` em toda propriedade lida.
+- [x] **Passo 4:** rode `-m pytest -q tests/osapi tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m8): X11 bindings via ctypes`.
 
 ---
 
