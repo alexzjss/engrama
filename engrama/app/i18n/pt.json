@@ -169,5 +169,13 @@
   "ui.perm.hotkey_wayland": "No Wayland, crie um atalho do sistema que rode: engrama --eyes toggle",
   "cli.eyes.not_running": "O Engrama não está rodando.",
   "cli.eyes.windows": "No Windows, use o atalho global dos olhos.",
-  "cli.eyes.toggled": "Olhos alternados."
+  "cli.eyes.toggled": "Olhos alternados.",
+  "ui.models.embed_title": "Busca por significado",
+  "ui.models.embed_hint": "Opcional: ela lembra pelo sentido, não só pela palavra",
+  "ui.models.embed_on": "ligada",
+  "ui.models.embed_off": "desligada",
+  "ui.models.embed_missing": "modelo não instalado",
+  "ui.memories.semantic_on": "lembra pelo sentido",
+  "ui.memories.semantic_off": "lembra só por palavras",
+  "ui.mind.vectors": "memórias com vetor"
 }

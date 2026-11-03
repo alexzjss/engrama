@@ -100,3 +100,26 @@ def test_null_paths_roundtrip(tmp_path):
     raw = json.loads(p.read_text(encoding="utf-8"))
     assert raw["ollama_home"] is None and raw["ollama_models"] is None
     assert Config.load(p) == cfg
+
+
+def test_config_embed_defaults_roundtrip(tmp_path):
+    cfg = Config.load(tmp_path / "new.json")
+    assert cfg.embed_model == "embeddinggemma" and cfg.semantic_recall is True
+    assert cfg.recommended_embed_models == ("embeddinggemma", "nomic-embed-text", "bge-m3")
+    p = tmp_path / "config.json"
+    cfg.embed_model = "nomic-embed-text"
+    cfg.semantic_recall = False
+    cfg.save(p)
+    back = Config.load(p)
+    assert back == cfg
+    assert back.recommended_embed_models == cfg.recommended_embed_models
+    assert isinstance(back.recommended_embed_models, tuple)
+
+
+def test_m8_config_without_embed_fields_loads_defaults(tmp_path):
+    p = tmp_path / "m8.json"
+    p.write_text(json.dumps({"display_mode": "overlay", "model": "qwen3:1.7b"}), encoding="utf-8")
+    cfg = Config.load(p)
+    assert cfg.display_mode == "overlay"
+    assert cfg.embed_model == "embeddinggemma" and cfg.semantic_recall is True
+    assert cfg.recommended_embed_models == ("embeddinggemma", "nomic-embed-text", "bge-m3")

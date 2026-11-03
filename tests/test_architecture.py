@@ -8,6 +8,7 @@ FORBIDDEN = {
     "mind": ("engrama.kernel", "engrama.modules", "engrama.app", "engrama.osapi"),
     "services": ("engrama.mind", "engrama.modules", "engrama.kernel", "engrama.lab", "engrama.app"),
     "osapi": ("engrama",),
+    "services/memory": ("engrama.services.language",),   # M9: memory never knows the LLM
 }
 OSAPI_SELF = "engrama.osapi"
 APP_PRESENTATION = ("ui", "art", "audio", "i18n")
@@ -228,3 +229,17 @@ def test_fps_constants_match_m7():
     assert balance.FPS_UNFOCUSED == 5
     assert balance.FPS_RESTING == 2
     assert balance.FPS_OVERLAY_MOVING == 10
+
+
+def test_memory_cannot_import_language(tmp_path):
+    root = _tree(tmp_path, {
+        "services/memory/a.py": "from engrama.services.language.client import OllamaClient\n",
+        "services/memory/ok.py": "import numpy\nfrom engrama.services.memory import recall\n",
+        "services/language/b.py": "from engrama.services.memory import store\n",
+    })
+    assert check(root) == [("services/memory/a.py", "engrama.services.language.client.OllamaClient")]
+
+
+def test_real_tree_memory_does_not_import_language():
+    bad = [b for b in check(ROOT) if b[0].startswith("services/memory/")]
+    assert bad == []

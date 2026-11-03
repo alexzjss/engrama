@@ -157,18 +157,18 @@ Arquivos por onda não se cruzam: em A, só a T1 toca `client.py`/`embedder.py`,
   - i18n (PT e EN, sem dígitos): `ui.models.embed_title` ("Busca por significado" / "Recall by meaning"), `ui.models.embed_hint` ("Opcional: ela lembra pelo sentido, não só pela palavra" / "Optional: she remembers by meaning, not only by word"), `ui.models.embed_on`, `ui.models.embed_off`, `ui.models.embed_missing` ("modelo não instalado" / "model not installed"), `ui.memories.semantic_on` ("lembra pelo sentido" / "remembers by meaning"), `ui.memories.semantic_off` ("lembra só por palavras" / "remembers by words only"), `ui.mind.vectors`.
   - Arquitetura: `services/memory/**` proibido de importar `engrama.services.language`.
 
-- [ ] **Passo 1:** com o código do M8 intacto, escreva `golden_recall.py` e gere `tests/fixtures/m8_recall_golden.json`.
-- [ ] **Passo 2:** escreva os testes:
+- [x] **Passo 1:** com o código do M8 intacto, escreva `golden_recall.py` e gere `tests/fixtures/m8_recall_golden.json`.
+- [x] **Passo 2:** escreva os testes:
   - `test_recall_matches_m8_golden` (gera o snapshot de novo e compara com o JSON);
   - `test_fake_embedder_concepts` (cachorro × bichinho ≥ 0,7; cachorro × dog ≥ 0,7; cachorro × trabalho ≤ 0,3; norma 1; determinístico), `test_fake_embedder_fail_delay_status`;
   - `test_config_embed_defaults_roundtrip` (padrões; salvar e carregar; config do M8 sem os campos carrega com os padrões);
   - `test_memory_cannot_import_language` (árvore falsa com `services/memory/a.py` importando `engrama.services.language.client` → 1 violação) e `test_real_tree_respects_dependency_rules` continua verde;
   - `test_m9_i18n_keys_pt_en_no_digits`;
   - `test_m9_constants` (valores da tabela).
-- [ ] **Passo 3:** rode os testes. Esperado: FAIL nos novos (o gabarito já passa).
-- [ ] **Passo 4:** implemente.
-- [ ] **Passo 5:** rode `-m pytest -q tests/services/memory tests/test_config.py tests/test_architecture.py tests/app/test_i18n.py`. Esperado: PASS.
-- [ ] **Passo 6:** commit `feat(m9): M8 recall golden, constants, config, texts and fake embedder`.
+- [x] **Passo 3:** rode os testes. Esperado: FAIL nos novos (o gabarito já passa).
+- [x] **Passo 4:** implemente.
+- [x] **Passo 5:** rode `-m pytest -q tests/services/memory tests/test_config.py tests/test_architecture.py tests/app/test_i18n.py`. Esperado: PASS.
+- [x] **Passo 6:** commit `feat(m9): M8 recall golden, constants, config, texts and fake embedder`.
 
 ---
 
