@@ -131,3 +131,34 @@ FPS_STILL = 10
 FPS_UNFOCUSED = 5
 FPS_RESTING = 2
 FPS_OVERLAY_MOVING = 10
+
+# Task M10 (experimentos de ML; lab only, default-v1 unchanged)
+M10_STATE_VERSION = 1             # versão do state_dict dos módulos novos
+EXP_BUDGET_MS = 2.0               # mean_ms máximo de um módulo novo no lab (dt = 60)
+CTRNN_HIDDEN = 64
+CTRNN_TAU_MIN_BINS = 1.0          # bins de SNN_BIN_S
+CTRNN_TAU_MAX_BINS = 1440.0       # 1 dia
+CTRNN_SUBSTEPS = 4                # passos de Euler por bin
+CTRNN_SPECTRAL_RADIUS = 0.9
+CTRNN_P_REC = 0.2
+CTRNN_W_IN = 1.0
+CTRNN_BUDGET_MS = 5.0
+WM_LR = 0.05                      # LMS normalizado do modelo de mundo
+WM_ERR_EMA = 0.99                 # média móvel do erro (visualização e lab_metrics)
+CUR_BETA = 0.3                    # peso do bônus intrínseco
+CUR_BASELINE_EMA = 0.99           # média do erro no modo "surprise"
+CUR_LP_FAST = 0.9                 # média rápida por ação no modo "progress"
+CUR_LP_SLOW = 0.99                # média lenta por ação no modo "progress"
+TS_SIGMA0 = 0.5                   # desvio inicial do Thompson
+TS_NOISE_FLOOR = 0.05             # piso do desvio do erro de TD
+TS_TD_VAR_EMA = 0.99              # média móvel da variância do erro de TD
+TS_N_HALF_LIFE_DAYS = 7.0         # esquecimento das visitas
+AIF_PRIOR = 1.0                   # contagem Beta inicial por resultado
+AIF_PREF_SCALE = 2.0              # nats por unidade de REWARD_WEIGHTS
+AIF_NOVELTY_WEIGHT = 1.0          # peso do ganho de informação
+AIF_SOCIAL_GAIN = 1.0             # sociabilidade na preferência por resposta
+AIF_COUNT_HALF_LIFE_DAYS = 7.0    # esquecimento das contagens em direção ao prior
+SUITE_DAYS = 7.0                  # dias por corrida da suíte padrão
+SUITE_ROUTINE_DAYS = 4.0          # dias do perfil routine (como no teste R21)
+SUITE_SEEDS = (1, 2, 3)
+SUITE_PROFILES = ("attentive", "absent", "neglectful", "routine")

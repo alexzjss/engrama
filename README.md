@@ -14,7 +14,7 @@ Engrama é um companheiro virtual local e offline, no estilo tamagotchi: uma cri
 
 ### Receitas
 
-Uma receita TOML em `recipes/` escolhe quais módulos formam a mente e seus pesos. `minimal-v1.toml` e `default-v1.toml` são os exemplos.
+Uma receita TOML em `recipes/` escolhe quais módulos formam a mente e seus pesos. `minimal-v1.toml` e `default-v1.toml` são os exemplos. `--recipe` aceita um nome (`--recipe thompson-v1` lê `recipes/thompson-v1.toml`) ou um caminho; um nome inexistente sai com código 2. A receita só vale para uma criatura nova (pasta de dados nova), acompanha as gerações dela e é ignorada quando a pasta já tem um save (o app registra um aviso no log; a interface não muda).
 
 ### Instalar
 
@@ -36,7 +36,7 @@ python -m engrama --dev --time-scale 60 --seed 1
 python -m engrama --no-llm --frames 600     # sem Ollama; encerra após 600 quadros (smoke test)
 ```
 
-Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra números e escala de tempo), `--no-llm`, `--frames N`, `--seconds S`, `--eyes toggle` (alterna os olhos da instância aberta e sai).
+Flags: `--data-dir`, `--recipe` (nome ou caminho; só vale em pasta de dados nova), `--seed`, `--time-scale`, `--dev` (mostra números e escala de tempo), `--no-llm`, `--frames N`, `--seconds S`, `--eyes toggle` (alterna os olhos da instância aberta e sai).
 
 - **Pré-requisito da conversa:** Ollama em `E:\Ollama` (`ollama.exe`, `home`, `models`; os caminhos vêm de `Config`). O Engrama inicia o `ollama serve` sozinho, em segundo plano, com tudo apontado para o E:, e o encerra ao sair se foi ele quem o iniciou. O modelo padrão é `qwen3:1.7b`; baixe pelo menu de modelos (F5). O modelo só fica carregado durante e logo após a conversa (`keep_alive` de 600 s).
 - **Teclas:** F2 Visão da Mente, F3 descanso manual, F4 comidas, F5 modelos e busca por significado, F6 configurações, F7 Memórias, F12 modo dev (números, `PgUp`/`PgDn` mudam a escala de tempo), Esc fecha o painel. Enter envia a mensagem.
@@ -120,9 +120,35 @@ python -m engrama.lab sim --recipe recipes/default-v1.toml --days 7 --profile ga
 python -m engrama.lab report --log data/run.db
 python -m engrama.lab compare --a recipes/minimal-v1.toml --b recipes/default-v1.toml --days 10
 python -m engrama.lab replay --log data/run.db --module temporal.snn --param readout_hidden=false
+python -m engrama.lab suite --recipes default-v1 thompson-v1 --profiles attentive --seeds 1 --days 1 --out suite.json --md suite.md
+python -m engrama.lab suite --preset m10 --jobs 4 --out suite.json --md tabela.md   # 8 receitas x 4 perfis x 3 sementes
 ```
 
+`suite` roda receitas x perfis x sementes (nomes de receita valem como em `--recipe`), grava o JSON (corridas e resumo pareado contra `--baseline`, padrão `default-v1`) e a tabela em Markdown; `--jobs N` usa N processos e não muda o resultado. O `--preset m10` leva cerca de 5 min com `--jobs 4` (medido em 8 núcleos).
+
 Perfis (`--profile`): `attentive`, `absent`, `night_owl`, `gamer`. Outras flags: `--dt` (passo em segundos simulados, padrão 60), `--save DIR` (salva o estado ao fim do `sim`), `--run ID` (escolhe a execução dentro de um log, em `report` e `replay`), `--seed` (também em `replay`), `--enforce-budgets` (rebaixa módulos lentos pelo relógio de parede; não determinístico, desligado por padrão). Cada `sim --log` cria uma execução com `run_id` único (uuid4), impresso nas métricas junto com o nome e a versão da receita; rodar de novo no mesmo log não mistura linhas.
+
+### Experimentos de ML (M10)
+
+Quatro ideias de aprendizado de máquina entram como **receitas opcionais**, para medir no laboratório e, se você quiser, rodar no app. **São opt-in e o padrão não mudou**: `default-v1` é o mesmo do M9 (mesmos gabaritos) e nenhum experimento foi promovido a padrão.
+
+- **CTRNN** (`temporal.ctrnn`): rede recorrente de tempo contínuo, com constantes de tempo de 1 min a 1 dia, que prevê o próximo evento no lugar da SNN.
+- **Modelo de mundo + curiosidade** (`world.model`, `policy.curious`): um modelo prevê as consequências das ações; o erro dele vira bônus intrínseco no Q-learning (por erro bruto ou por progresso de aprendizado).
+- **Thompson** (`policy.thompson`): Q-learning bayesiano simplificado; a incerteza de cada par estado-ação vira exploração.
+- **Inferência ativa** (`policy.aif`): escolhe a ação de menor energia livre esperada (resultado preferido mais novidade), sem sorteio próprio.
+
+| Receita | O que troca em relação a `default-v1` |
+|---|---|
+| `ctrnn-v1` | SNN temporal por CTRNN |
+| `shadow-ctrnn-v1` | CTRNN só em sombra (ações iguais às do padrão; dá o Brier próprio da CTRNN) |
+| `curious-v1` | Q-learning por Q curioso + modelo de mundo (bônus por erro) |
+| `curious-lp-v1` | o mesmo, com bônus por progresso de aprendizado |
+| `thompson-v1` | Q-learning por Thompson |
+| `aif-v1` | Q-learning somado à inferência ativa |
+| `aif-solo-v1` | inferência ativa no lugar da utilidade e do Q-learning (linha exploratória) |
+| `lab-shadow-all-v1` | padrão ao vivo, com CTRNN, Thompson, inferência ativa e modelo de mundo em sombra |
+
+Resumo do relatório (3 sementes × `attentive`/`absent`/`neglectful` × 7 dias, mais `routine` × 4 dias): nenhuma receita supera o padrão de forma consistente e relevante, e todas cabem no orçamento; a recomendação é **não promover** nenhuma. Veja o [relatório de comparação](docs/superpowers/reports/2026-11-08-m10-experimentos.md). Para rodar um experimento no app, use uma pasta de dados **nova**: `python -m engrama --recipe curious-v1 --data-dir ~/engrama-curious`.
 
 ### O que a SNN comprova (e o que não)
 
@@ -133,9 +159,10 @@ Perfis (`--profile`): `attentive`, `absent`, `night_owl`, `gamer`. Outras flags:
 
 ### Escrever um módulo
 
-1. Subclasse `engrama.mind.contracts.Module`: declare `reads`, `writes`, `rate_hz`; implemente `step(bb, dt)`, `propose(bb)`, `learn(exp)`, `state_dict`/`load_state_dict`.
+1. Subclasse `engrama.mind.contracts.Module`: declare `reads`, `writes`, `rate_hz`; implemente `step(bb, dt)`, `propose(bb)`, `learn(exp)`, `state_dict`/`load_state_dict` (o `state_dict` leva um `version` inteiro; `load_state_dict({})` volta ao estado inicial e versão maior levanta `ValueError`).
 2. Registre em `engrama/mind/registry.py` (`REGISTRY["familia.nome"] = "pacote.arquivo:Classe"`).
 3. Adicione a uma receita como `[[module]]` (vivo, com `weight`) ou `[[shadow]]` (roda e é registrado, mas não decide; útil para comparar).
+4. Opcional: `lab_metrics()` devolve um dict de números do módulo; a suíte do laboratório os agrega por corrida.
 
 Regra de dependência (verificada por `tests/test_architecture.py`): `kernel` não importa `mind`, `modules`, `lab` nem `services`; `mind` não importa `kernel` nem `modules`; um módulo só importa `engrama.mind`, `engrama.vocab`, `engrama.balance`, a própria família, numpy e a stdlib.
 
@@ -173,7 +200,7 @@ Engrama is a local, offline virtual companion in the tamagotchi tradition: a cre
 
 ### Recipes
 
-A TOML recipe in `recipes/` chooses which modules make up a mind and their weights. See `minimal-v1.toml` and `default-v1.toml`.
+A TOML recipe in `recipes/` chooses which modules make up a mind and their weights. See `minimal-v1.toml` and `default-v1.toml`. `--recipe` takes a name (`--recipe thompson-v1` reads `recipes/thompson-v1.toml`) or a path; an unknown name exits with code 2. The recipe only applies to a new creature (a fresh data dir), follows its generations and is ignored when the dir already has a save (the app logs a warning; the UI does not change).
 
 ### Install
 
@@ -195,7 +222,7 @@ python -m engrama --dev --time-scale 60 --seed 1
 python -m engrama --no-llm --frames 600     # no Ollama; exits after 600 frames (smoke test)
 ```
 
-Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows numbers and the time scale), `--no-llm`, `--frames N`, `--seconds S`, `--eyes toggle` (toggles the running instance's eyes and exits).
+Flags: `--data-dir`, `--recipe` (name or path; only applies to a fresh data dir), `--seed`, `--time-scale`, `--dev` (shows numbers and the time scale), `--no-llm`, `--frames N`, `--seconds S`, `--eyes toggle` (toggles the running instance's eyes and exits).
 
 - **Chat prerequisite:** Ollama in `E:\Ollama` (`ollama.exe`, `home`, `models`; paths come from `Config`). Engrama starts `ollama serve` itself, in the background, with everything pointed at E:, and stops it on exit if it started it. The default model is `qwen3:1.7b`; download it from the models menu (F5). The model stays loaded only during and shortly after a conversation (`keep_alive` 600 s).
 - **Keys:** F2 Mind View, F3 manual rest, F4 foods, F5 models and recall by meaning, F6 settings, F7 Memories, F12 dev mode (numbers; `PgUp`/`PgDn` change the time scale), Esc closes the panel. Enter sends the message.
@@ -279,9 +306,35 @@ python -m engrama.lab sim --recipe recipes/default-v1.toml --days 7 --profile ga
 python -m engrama.lab report --log data/run.db
 python -m engrama.lab compare --a recipes/minimal-v1.toml --b recipes/default-v1.toml --days 10
 python -m engrama.lab replay --log data/run.db --module temporal.snn --param readout_hidden=false
+python -m engrama.lab suite --recipes default-v1 thompson-v1 --profiles attentive --seeds 1 --days 1 --out suite.json --md suite.md
+python -m engrama.lab suite --preset m10 --jobs 4 --out suite.json --md table.md   # 8 recipes x 4 profiles x 3 seeds
 ```
 
+`suite` runs recipes x profiles x seeds (recipe names work as in `--recipe`), writes the JSON (runs and a paired summary against `--baseline`, default `default-v1`) and the Markdown table; `--jobs N` uses N processes and does not change the result. `--preset m10` takes about 5 min with `--jobs 4` (measured on 8 cores).
+
 Profiles (`--profile`): `attentive`, `absent`, `night_owl`, `gamer`. Other flags: `--dt` (step in simulated seconds, default 60), `--save DIR` (save state at the end of `sim`), `--run ID` (pick a run inside a log, for `report` and `replay`), `--seed` (also on `replay`), `--enforce-budgets` (demote slow modules by wall-clock time; not deterministic, off by default). Every `sim --log` creates a run with a unique `run_id` (uuid4), printed with the metrics together with the recipe name and version; rerunning into the same log does not mix rows.
+
+### ML experiments (M10)
+
+Four machine-learning ideas ship as **optional recipes**, to measure in the lab and, if you want, run in the app. **They are opt-in and the default did not change**: `default-v1` is the M9 one (same fixtures) and no experiment was promoted to default.
+
+- **CTRNN** (`temporal.ctrnn`): a continuous-time recurrent network, with time constants from 1 min to 1 day, that predicts the next event in place of the SNN.
+- **World model + curiosity** (`world.model`, `policy.curious`): a model predicts what actions lead to; its error becomes an intrinsic bonus in Q-learning (raw error or learning progress).
+- **Thompson** (`policy.thompson`): a simplified Bayesian Q-learning; the uncertainty of each state-action pair drives exploration.
+- **Active inference** (`policy.aif`): picks the action with the lowest expected free energy (preferred outcome plus novelty), with no RNG of its own.
+
+| Recipe | What it swaps relative to `default-v1` |
+|---|---|
+| `ctrnn-v1` | temporal SNN replaced by the CTRNN |
+| `shadow-ctrnn-v1` | CTRNN in shadow only (same actions as the default; gives the CTRNN's own Brier) |
+| `curious-v1` | Q-learning replaced by curious Q + world model (error bonus) |
+| `curious-lp-v1` | the same, with a learning-progress bonus |
+| `thompson-v1` | Q-learning replaced by Thompson |
+| `aif-v1` | Q-learning plus active inference |
+| `aif-solo-v1` | active inference in place of utility and Q-learning (exploratory row) |
+| `lab-shadow-all-v1` | the default live, with CTRNN, Thompson, active inference and the world model in shadow |
+
+Report summary (3 seeds x `attentive`/`absent`/`neglectful` x 7 days, plus `routine` x 4 days): no recipe beats the default consistently and meaningfully, and all fit the budget; the recommendation is **not to promote** any. See the [comparison report](docs/superpowers/reports/2026-11-08-m10-experimentos.md) (in Portuguese). To try one in the app, use a **fresh** data dir: `python -m engrama --recipe curious-v1 --data-dir ~/engrama-curious`.
 
 ### What the SNN does and does not show
 
@@ -292,9 +345,10 @@ Profiles (`--profile`): `attentive`, `absent`, `night_owl`, `gamer`. Other flags
 
 ### Writing a module
 
-1. Subclass `engrama.mind.contracts.Module`: declare `reads`, `writes`, `rate_hz`; implement `step(bb, dt)`, `propose(bb)`, `learn(exp)`, `state_dict`/`load_state_dict`.
+1. Subclass `engrama.mind.contracts.Module`: declare `reads`, `writes`, `rate_hz`; implement `step(bb, dt)`, `propose(bb)`, `learn(exp)`, `state_dict`/`load_state_dict` (`state_dict` carries an integer `version`; `load_state_dict({})` returns to the initial state and a newer version raises `ValueError`).
 2. Register it in `engrama/mind/registry.py` (`REGISTRY["family.name"] = "package.file:Class"`).
 3. Add it to a recipe as `[[module]]` (live, with `weight`) or `[[shadow]]` (runs and is logged but does not decide; useful for comparisons).
+4. Optional: `lab_metrics()` returns a dict of numbers for the module; the lab suite aggregates them per run.
 
 Dependency rule (enforced by `tests/test_architecture.py`): `kernel` imports none of `mind`, `modules`, `lab`, `services`; `mind` imports neither `kernel` nor `modules`; a module may import only `engrama.mind`, `engrama.vocab`, `engrama.balance`, its own family, numpy and the stdlib.
 

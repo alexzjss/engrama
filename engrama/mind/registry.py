@@ -16,6 +16,11 @@ REGISTRY: dict[str, str] = {
     "prefs.food": "engrama.modules.prefs.food:FoodPrefs",
     "traits.drift": "engrama.modules.traits.drift:TraitDrift",
     "temporal.snn": "engrama.modules.temporal.snn:TemporalSNN",
+    "temporal.ctrnn": "engrama.modules.temporal.ctrnn:TemporalCTRNN",
+    "world.model": "engrama.modules.world.model:WorldModel",
+    "policy.curious": "engrama.modules.policy.curious:CuriousQPolicy",
+    "policy.thompson": "engrama.modules.policy.thompson:ThompsonPolicy",
+    "policy.aif": "engrama.modules.policy.aif:ActiveInferencePolicy",
 }
 
 def register(type_name: str, dotted: str) -> None:

@@ -1,0 +1,35 @@
+[recipe]
+name = "curious-v1"
+version = 1
+
+[arbiter]
+temperature = 0.5
+
+[[module]]
+type = "drives.needs"
+
+[[module]]
+type = "temporal.snn"
+
+[[module]]
+type = "affect.pad"
+
+[[module]]
+type = "traits.drift"
+
+[[module]]
+type = "prefs.food"
+
+[[module]]
+type = "policy.utility"
+weight = 1.0
+
+[[module]]
+type = "policy.curious"
+weight = 0.6
+bonus = "surprise"
+
+# World model goes last in the live list so earlier modules keep their RNG streams.
+# The arbiter RNG still changes (one more live module), so action streams differ from default-v1.
+[[module]]
+type = "world.model"

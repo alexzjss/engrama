@@ -1,0 +1,26 @@
+[recipe]
+name = "aif-solo-v1"
+version = 1
+
+[arbiter]
+temperature = 0.5
+
+[[module]]
+type = "drives.needs"
+
+[[module]]
+type = "temporal.snn"
+
+[[module]]
+type = "affect.pad"
+
+[[module]]
+type = "traits.drift"
+
+[[module]]
+type = "prefs.food"
+
+# Exploratory row (spec §2): active inference alone decides, without policy.utility.
+[[module]]
+type = "policy.aif"
+weight = 1.0

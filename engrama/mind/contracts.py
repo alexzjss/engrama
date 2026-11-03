@@ -29,6 +29,7 @@ CHANNELS: dict[str, Channel] = {c.name: c for c in (
     Channel("temporal.familiarity", 1, 0, 1),
     Channel("temporal.expectation", len(EVENT_KINDS), 0, 1, "P(event kind next bin)"),
     Channel("prefs.food", len(FOOD_IDS), -1, 1),
+    Channel("world.error", 1, 0, 1, "forward-model prediction error of the last transition"),
 )}
 
 @dataclass(frozen=True)
