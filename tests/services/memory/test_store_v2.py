@@ -44,8 +44,8 @@ def test_migrates_m3_db(tmp_path):
     con.commit()
     con.close()
     s = MemoryStore(path, now_fn=Clock())
-    assert s._db.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "2"
-    assert MemoryStore.schema_version == 2
+    assert s._db.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
+    assert MemoryStore.schema_version == 3
     assert len(s.recent(10)) == 2
     assert s.facts() == [("nome", "Ana")]
     assert s.top_topics(5) == [("jogo", 0.4)]
@@ -192,7 +192,7 @@ def test_forget_all_keeps_innate_lean(tmp_path):
     assert s.facts() == [] and s.topic_rows() == [] and s.recent(10) == []
     assert s.recent_reflections() == []
     assert s.is_blocked("topic", "jogo") and s.is_blocked("fact", "nome")
-    assert s._db.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "2"
+    assert s._db.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()[0] == "3"
     s.close()
 
 
