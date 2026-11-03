@@ -2,6 +2,8 @@ import json
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
+from engrama.vocab import DISPLAY_MODES
+
 
 def default_data_dir() -> Path:
     return Path(__file__).resolve().parents[1] / "data"
@@ -31,6 +33,7 @@ class Config:
     perception_interval_s: float = 30.0
     perception_blocklist: list[str] = field(default_factory=list)
     eyes_hotkey: str = "ctrl+alt+e"
+    display_mode: str = "terrarium"   # M7: "terrarium" | "overlay"; unknown values load as "terrarium"
 
     @classmethod
     def load(cls, path: Path) -> "Config":
@@ -53,6 +56,8 @@ class Config:
                 v = {**_default_permissions(), **v}
             elif f.name == "perception_blocklist":
                 v = [str(x) for x in v]
+            elif f.name == "display_mode":
+                v = v if v in DISPLAY_MODES else "terrarium"
             kwargs[f.name] = v
         return cls(**kwargs)
 
