@@ -272,7 +272,7 @@ Afetada pelas decisões "onde guardar", "troca de modelo", "ancestrais" e "arqui
   - `retrieve(..., sims=None)` e `retrieve_ancestral(..., sims=None)`: **o código do M4 sem mudança**. Com `sims` (id → cosseno), `sim' = max(0, (sim - SEM_MIN_SIM) / (1 - SEM_MIN_SIM))`, relevância = `W_SEM·sim' + W_WORD·overlap`; episódio: `W_IMPORTANCE·importância + W_RECENCY·recência + W_RELEVANCE·relevância`; ancestral: entra se `hit > 0` ou `sim ≥ SEM_MIN_SIM`, ordenado por relevância.
   - `archive_to(path)`: depois do backup, apaga `vectors` e `vector_model` na cópia e faz `VACUUM` nela (decisão "arquivo da geração").
 
-- [ ] **Passo 1:** escreva os testes (vetores do `FakeEmbedder`):
+- [x] **Passo 1:** escreva os testes (vetores do `FakeEmbedder`):
   - `test_migrate_v2_to_v3_keeps_everything` (banco montado com o schema v2 do M8: episódios, fatos, tópicos, opiniões, ligações, bloqueios e `app_categories` iguais depois de abrir);
   - `test_secure_delete_on`;
   - `test_unindexed_order_and_texts` (ordem dos tipos; texto do fato "jogo favorito: hollow knight"; sem dígitos; nada com vetor válido volta);
@@ -284,10 +284,10 @@ Afetada pelas decisões "onde guardar", "troca de modelo", "ancestrais" e "arqui
   - `test_retrieve_ancestral_semantic`;
   - `test_archive_has_no_vectors` (a cópia não tem linhas em `vectors` nem `vector_model`; o original continua com elas);
   - `test_vector_ram_and_search_budget` (`slow`: 2.000 episódios + 300 fatos + 300 tópicos com vetores aleatórios de 768 dimensões; matriz ≤ `VECTOR_RAM_MAX_MB`; mediana de 20 chamadas de `similar` por tipo somadas ≤ `SEARCH_BUDGET_MS`).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/services/memory tests/test_m4_acceptance.py tests/test_m6_acceptance.py tests/test_architecture.py`. Esperado: PASS (os testes do M4 e do M6 sem edição).
-- [ ] **Passo 5:** commit `feat(m9): vector table, similarity search and vector-aware deletion`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/services/memory tests/test_m4_acceptance.py tests/test_m6_acceptance.py tests/test_architecture.py`. Esperado: PASS (os testes do M4 e do M6 sem edição).
+- [x] **Passo 5:** commit `feat(m9): vector table, similarity search and vector-aware deletion`.
 
 ---
 
