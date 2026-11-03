@@ -175,17 +175,17 @@ Arquivos por onda não se cruzam: em A, só a T2 toca `window.py`/`overlay.py`/`
     - `ValueError` do `popen` também conta como falha (devolve False).
   - `i18n._ui_locale_name()`: win32 igual ao M7; fora dele, primeiro valor não vazio de `LANGUAGE` (primeiro item antes de `:`), `LC_ALL`, `LC_MESSAGES`, `LANG`; depois `locale.getlocale()[0]`. `C`/`POSIX` → `""`. Recebe `env` e `platform` opcionais para teste.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_config_linux_defaults_no_drive_letter` (`Config()` com plataforma simulada linux e `shutil.which` simulado; `"E:"` fora do JSON salvo; `ollama_home is None`);
   - `test_config_windows_defaults_unchanged` (plataforma simulada win32 → os três caminhos `E:\` do M7);
   - `test_windows_config_loaded_on_linux_falls_back`;
   - `test_null_paths_roundtrip`;
   - em `test_server.py`: `test_server_env_points_to_drive_e` passa a simular win32 (`monkeypatch` de `server.sys.platform`) e continua exigindo `creationflags`; novo `test_server_linux_no_creationflags_no_home` (exige que `"creationflags"` não esteja nos kwargs e que `HOME` seja o do ambiente); `test_popen_valueerror_is_failure`;
   - `test_system_lang_linux_env` (`LANG=pt_BR.UTF-8` → pt; `LANGUAGE=en_US:pt_BR` → en; `LANG=C` → en; vazio → `locale`).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente. A seleção por plataforma lê `sys.platform` no momento da chamada (não na importação), para os testes poderem simular.
-- [ ] **Passo 4:** rode `-m pytest -q tests/test_config.py tests/services/language tests/app/test_i18n.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m8): platform-aware config, Ollama start and system language`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente. A seleção por plataforma lê `sys.platform` no momento da chamada (não na importação), para os testes poderem simular.
+- [x] **Passo 4:** rode `-m pytest -q tests/test_config.py tests/services/language tests/app/test_i18n.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m8): platform-aware config, Ollama start and system language`.
 
 ---
 

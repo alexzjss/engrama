@@ -1,5 +1,7 @@
 import json
 import locale
+import os
+import sys
 from pathlib import Path
 
 _DIR = Path(__file__).parent
@@ -8,14 +10,26 @@ _FALLBACK = "en"
 _TABLES: dict[str, dict[str, str]] = {}
 
 
-def _ui_locale_name() -> str:
-    try:
-        import ctypes
+def _ui_locale_name(env=None, platform=None) -> str:
+    plat = sys.platform if platform is None else platform
+    if plat == "win32":
+        try:
+            import ctypes
 
-        lcid = ctypes.windll.kernel32.GetUserDefaultUILanguage()
-        return locale.windows_locale.get(lcid, "")
-    except Exception:
-        return locale.getlocale()[0] or ""
+            lcid = ctypes.windll.kernel32.GetUserDefaultUILanguage()
+            return locale.windows_locale.get(lcid, "")
+        except Exception:
+            return locale.getlocale()[0] or ""
+    # M8: POSIX — first non-empty of LANGUAGE (first item), LC_ALL, LC_MESSAGES, LANG
+    env = os.environ if env is None else env
+    for var in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
+        raw = env.get(var, "")
+        if var == "LANGUAGE":
+            raw = raw.split(":")[0]
+        raw = raw.strip()
+        if raw:
+            return "" if raw.split(".")[0] in ("C", "POSIX") else raw
+    return locale.getlocale()[0] or ""
 
 
 def system_lang() -> str:

@@ -1,5 +1,6 @@
 import os
 import subprocess
+import sys
 import time
 import urllib.request
 from pathlib import Path
@@ -42,14 +43,20 @@ class OllamaServer:
             return True
         if not Path(self.cfg.ollama_exe).exists():
             return False
+        windows = sys.platform == "win32"
         env = dict(os.environ)
-        env.update(USERPROFILE=str(self.cfg.ollama_home), HOME=str(self.cfg.ollama_home),
-                   OLLAMA_MODELS=str(self.cfg.ollama_models))
+        if self.cfg.ollama_home is not None:
+            env["HOME"] = str(self.cfg.ollama_home)
+            if windows:
+                env["USERPROFILE"] = str(self.cfg.ollama_home)
+        if self.cfg.ollama_models is not None:
+            env["OLLAMA_MODELS"] = str(self.cfg.ollama_models)
+        kwargs = {"env": env, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+        if windows:
+            kwargs["creationflags"] = CREATE_NO_WINDOW
         try:
-            self._proc = self._popen([str(self.cfg.ollama_exe), "serve"], env=env,
-                                     creationflags=CREATE_NO_WINDOW,
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except OSError:
+            self._proc = self._popen([str(self.cfg.ollama_exe), "serve"], **kwargs)
+        except (OSError, ValueError):
             self._proc = None
             return False
         deadline = time.monotonic() + self._start_timeout
