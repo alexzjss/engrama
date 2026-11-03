@@ -144,3 +144,98 @@ def test_callback_exception_contained():
         assert seen.acquire(timeout=1.0)
     finally:
         hk.stop()
+
+
+# --- M8: X11 ---------------------------------------------------------------
+from engrama.osapi.session import Session  # noqa: E402
+from engrama.services.perception import hotkey as hk_mod  # noqa: E402
+
+
+class FakeKeyGrab:
+    def __init__(self, presses=1):
+        self.grabs, self.closed, self.ungrabbed = [], False, False
+        self._presses = presses
+        self._stop = threading.Event()
+
+    def grab(self, mask, keysym):
+        self.grabs.append((mask, keysym))
+        return True
+
+    def wait(self):
+        if self._presses > 0:
+            self._presses -= 1
+            return True
+        self._stop.wait(5)
+        return False
+
+    def wake(self):
+        self._stop.set()
+
+    def ungrab(self):
+        self.ungrabbed = True
+
+    def close(self):
+        self.closed = True
+
+
+def _sess(kind, platform="linux"):
+    return Session(platform=platform, kind=kind, compositor="", env={})
+
+
+def test_x11api_maps_mods_and_keysym():
+    fake = FakeKeyGrab()
+    api = hk_mod._X11Api(opener=lambda: fake)
+    mods, vk = parse_hotkey("ctrl+alt+e")
+    assert api.register(1, mods, vk) is True
+    assert fake.grabs == [(12, 0x65)]
+    api2 = hk_mod._X11Api(opener=lambda: FakeKeyGrab())
+    mods, vk = parse_hotkey("shift+win+f9")
+    api2.register(1, mods, vk)
+    assert api2._kg.grabs == [(1 | 64, 0xFFBD + 9)]
+
+
+def test_x11api_register_fails_without_connection():
+    assert hk_mod._X11Api(opener=lambda: None).register(1, 4, ord("E")) is False
+
+
+def test_x11api_loop_and_quit():
+    fake = FakeKeyGrab(presses=1)
+    hit = threading.Event()
+    hk = GlobalHotkey("ctrl+alt+e", hit.set, api=hk_mod._X11Api(opener=lambda: fake))
+    assert hk.start()
+    assert hit.wait(1.0)
+    t0 = time.monotonic()
+    hk.stop()
+    assert time.monotonic() - t0 < 0.6
+    assert fake.ungrabbed and fake.closed
+
+
+def test_start_wayland_error():
+    hk = GlobalHotkey("ctrl+alt+e", lambda: None, session=_sess("wayland"))
+    assert hk.start() is False
+    assert hk.error == "wayland"
+
+
+def test_start_unsupported():
+    hk = GlobalHotkey("ctrl+alt+e", lambda: None, session=_sess("none"))
+    assert hk.start() is False and hk.error == "unsupported"
+
+
+def test_start_windows_uses_winapi(monkeypatch):
+    api = FakeApi()
+    monkeypatch.setattr(hk_mod, "_WinApi", lambda: api)
+    hk = GlobalHotkey("ctrl+alt+e", lambda: None, session=_sess("none", "win32"))
+    try:
+        assert hk.start() and api.registered
+    finally:
+        hk.stop()
+
+
+def test_start_x11_uses_x11api(monkeypatch):
+    api = FakeApi()
+    monkeypatch.setattr(hk_mod, "_X11Api", lambda: api)
+    hk = GlobalHotkey("ctrl+alt+e", lambda: None, session=_sess("x11"))
+    try:
+        assert hk.start() and api.registered
+    finally:
+        hk.stop()

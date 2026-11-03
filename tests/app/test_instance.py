@@ -62,3 +62,47 @@ def test_main_refuses_when_held(tmp_path, monkeypatch, capsys):
         assert main(["--data-dir", str(d), "--no-llm", "--frames", "1"]) == 1
     assert "already running" in capsys.readouterr().err
     assert not (d / "config.json").exists()
+
+
+import pytest  # noqa: E402
+
+from engrama.app import instance  # noqa: E402
+
+HOLD = ("import sys, time; from pathlib import Path; from engrama.app.instance import InstanceLock; "
+        "l = InstanceLock(Path(sys.argv[1])); assert l.acquire(); print('ok', flush=True); time.sleep(30)")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="posix flock")
+def test_holder_pid_none_when_free(tmp_path):
+    assert InstanceLock.holder_pid(tmp_path) is None
+    with InstanceLock(tmp_path):
+        pass
+    assert InstanceLock.holder_pid(tmp_path) is None
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="posix flock")
+def test_holder_pid_when_held(tmp_path):
+    p = subprocess.Popen([sys.executable, "-c", HOLD, str(tmp_path)], stdout=subprocess.PIPE)
+    try:
+        assert p.stdout.readline().strip() == b"ok"
+        assert InstanceLock.holder_pid(tmp_path) == p.pid
+    finally:
+        p.kill()
+        p.wait()
+
+
+def test_send_eyes_toggle_codes(tmp_path, monkeypatch, capsys):
+    import signal
+    sent = []
+    kill = lambda pid, sig: sent.append((pid, sig))  # noqa: E731
+    monkeypatch.setattr(instance.InstanceLock, "holder_pid", staticmethod(lambda d: None))
+    assert instance.send_eyes_toggle(tmp_path, kill=kill) == 1
+    monkeypatch.setattr(instance.InstanceLock, "holder_pid", staticmethod(lambda d: 4242))
+    assert instance.send_eyes_toggle(tmp_path, kill=kill, is_engrama=lambda pid: False) == 1
+    assert sent == []
+    monkeypatch.setattr(instance.sys, "platform", "win32")
+    assert instance.send_eyes_toggle(tmp_path, kill=kill, is_engrama=lambda pid: True) == 2
+    assert sent == []
+    monkeypatch.setattr(instance.sys, "platform", "linux")
+    assert instance.send_eyes_toggle(tmp_path, kill=kill, is_engrama=lambda pid: True) == 0
+    assert sent == [(4242, signal.SIGUSR1)]

@@ -673,6 +673,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _main(argv: list[str] | None, held: list) -> int:
     import argparse
+    import signal
     import sys
     import pygame
     from engrama.app.ui.menus import ModelsPanel, SettingsPanel
@@ -704,12 +705,19 @@ def _main(argv: list[str] | None, held: list) -> int:
     ap.add_argument("--no-llm", action="store_true", help="never start or contact Ollama (babble only)")
     ap.add_argument("--frames", type=int, default=None, help="exit after N frames (smoke test; unthrottled)")
     ap.add_argument("--seconds", type=float, default=None, help="exit after S wall seconds (bench)")
+    ap.add_argument("--eyes", choices=["toggle"], default=None,
+                    help="signal the running instance to open/close its eyes, then exit")
     ap.add_argument("--fake-perception", action="store_true", help="bench: scripted machine instead of the real one")
     a = ap.parse_args(argv)
 
     data_dir = Path(a.data_dir) if a.data_dir else default_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
-    from engrama.app.instance import InstanceLock
+    from engrama.app.instance import InstanceLock, send_eyes_toggle
+    if a.eyes == "toggle":
+        cfg0 = Config.load(data_dir / "config.json") if (data_dir / "config.json").exists() else None
+        if cfg0 is not None and cfg0.ui_lang in ("pt", "en"):
+            i18n.set_lang(cfg0.ui_lang)
+        return send_eyes_toggle(data_dir)
     lock = InstanceLock(data_dir)
     if not lock.acquire():
         print("O Engrama já está aberto nesta pasta de dados. / "
@@ -788,6 +796,13 @@ def _main(argv: list[str] | None, held: list) -> int:
         def toggle_eyes() -> None:
             set_eyes(not cfg.eyes_closed)
 
+        eyes_flag = threading.Event()
+        if hasattr(signal, "SIGUSR1"):
+            try:
+                signal.signal(signal.SIGUSR1, lambda *_: eyes_flag.set())   # handler only sets the flag
+            except ValueError:   # not the main thread
+                pass
+
         activity = _Activity(host.post, make_theme_sink(memory, time.time))
         host.theme_fn = lambda: (activity.current() or "") if cfg.permissions.get("process") else ""
 
@@ -840,6 +855,9 @@ def _main(argv: list[str] | None, held: list) -> int:
                 window.handle_event(e)
             if not window.running:
                 break
+            if eyes_flag.is_set():
+                eyes_flag.clear()
+                toggle_eyes()
             host.want_viz = window.panel_name == "mind"
             window.farewell_text = host.farewell_text
             now_w = time.time()

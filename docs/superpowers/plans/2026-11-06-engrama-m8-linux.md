@@ -408,7 +408,7 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - `main()`: `--eyes {toggle}` roda `send_eyes_toggle(data_dir)` e sai **antes** de pegar o lock; com o app aberto e `hasattr(signal, "SIGUSR1")`, instala um tratador que só faz `eyes_flag.set()`; o laço principal, a cada volta, consome a flag e chama `toggle_eyes()`.
   - Painel de permissões: se `hotkey_error() == "wayland"`, mostra `ui.perm.hotkey_wayland` no lugar de `ui.perm.hotkey_failed`.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_x11api_maps_mods_and_keysym` (`X11KeyGrab` falso registra `grab(mask, keysym)`; `ctrl+alt+e` → máscara 12, keysym 0x65);
   - `test_x11api_loop_and_quit` (o falso devolve uma tecla e depois para; `on_press` chamado uma vez; `stop()` em < 0,6 s);
   - `test_start_wayland_error`, `test_start_windows_uses_winapi` (`sys.platform` simulado e `_WinApi` substituído), `test_start_x11_uses_x11api`;
@@ -416,10 +416,10 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - `test_send_eyes_toggle_codes` (sem instância → 1; Windows simulado → 2; PID estranho → 1; ok → `kill` chamado com `SIGUSR1`, 0);
   - `test_sigusr1_toggles_eyes_in_main_loop` (`skipif` win32, `slow`): rode `python -m engrama --no-llm --seconds 6 --data-dir d` como subprocesso com SDL dummy, espere o lock ficar preso, rode `python -m engrama --eyes toggle --data-dir d` (código 0) e confira `eyes_closed: true` no `config.json` depois que o primeiro sair;
   - `test_permissions_wayland_hint` (provider com `hotkey_error` = "wayland" → texto da dica, sem dígitos).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/services/perception tests/app tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m8): eyes hotkey on X11 and eyes toggle command`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/services/perception tests/app tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m8): eyes hotkey on X11 and eyes toggle command`.
 
 ---
 
