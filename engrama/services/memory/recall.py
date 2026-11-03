@@ -4,6 +4,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+import numpy as np
+
+from engrama.services.memory import FACT_MIN_SIM, SEM_MIN_SIM, TOPIC_MIN_SIM, W_SEM, W_WORD
 from engrama.services.memory.topics import normalize_topic, plain_text
 
 _STOP = set("""
@@ -70,6 +73,10 @@ def _facts(memory, words: list[str]) -> list[str]:
 
 def _opinion(memory, words: list[str], lang: str) -> str | None:
     cands = list(dict.fromkeys(normalize_topic(w) for w in words))
+    return _opinion_for(memory, cands, lang)
+
+
+def _opinion_for(memory, cands: list[str], lang: str) -> str | None:
     getter = getattr(memory, "opinion", None)
     found = None
     if getter is not None:
@@ -87,23 +94,77 @@ def _opinion(memory, words: list[str], lang: str) -> str | None:
     return _clean(f"{_stance_word(found['stance'], lang)} {found['topic']}") or None
 
 
-def recall(memory, text: str, stage: str, lang: str) -> RecallContext:
+def _norm_sim(sim: float) -> float:
+    return max(0.0, (sim - SEM_MIN_SIM) / (1.0 - SEM_MIN_SIM))
+
+
+def _facts_semantic(memory, words: list[str], qvec) -> list[str]:
+    rows = memory.fact_rows()
+    sims = dict(memory.similar(qvec, "fact", 6, FACT_MIN_SIM))
+    scored = []
+    for i, r in enumerate(rows):
+        hit = any(w in plain_text(f"{r['key']} {r['value']}".replace("_", " ")) for w in words)
+        sim = sims.get(r["key"])
+        if not hit and sim is None:
+            continue
+        score = W_SEM * (_norm_sim(sim) if sim is not None else 0.0) + W_WORD * (1.0 if hit else 0.0)
+        scored.append((-score, i, r))
+    scored.sort(key=lambda x: (x[0], x[1]))
+    chosen = [x[2] for x in scored[:3]] if scored else rows[:2]
+    return [c for c in (_clean(f"{r['key']}: {r['value']}") for r in chosen) if c]
+
+
+def _opinion_semantic(memory, words: list[str], lang: str, qvec) -> str | None:
+    found = _opinion(memory, words, lang)
+    if found:
+        return found
+    refs = [ref for ref, _ in memory.similar(qvec, "topic", 3, TOPIC_MIN_SIM)]
+    return _opinion_for(memory, refs, lang)
+
+
+def _recall_m4(memory, words: list[str], stage: str, lang: str) -> RecallContext:
+    ctx = RecallContext()
+    ctx.facts = _facts(memory, words)
+    ctx.episodes = [c for c in (_clean(e) for e in memory.retrieve(words, 2)) if c]
+    getter = getattr(memory, "retrieve_ancestral", None)
+    if getter is not None:
+        ctx.ancestral = [c for c in (_clean(e) for e in getter(words, 1)) if c]
+    ctx.current = [c for c in (_clean(t) for t in memory.current_topics(2)) if c]
+    if stage in _STAGES_PAST:
+        ctx.past = [c for c in (_clean(t) for t in memory.past_topics(1)) if c]
+    if stage in _STAGES_OPINION:
+        ctx.opinion = _opinion(memory, words, lang)
+    return ctx
+
+
+def _recall_semantic(memory, words: list[str], stage: str, lang: str, qvec) -> RecallContext:
+    ctx = RecallContext()
+    ctx.facts = _facts_semantic(memory, words, qvec)
+    ep_sims = {int(ref): sim for ref, sim in memory.similar(qvec, "episode", 20, SEM_MIN_SIM)}
+    ctx.episodes = [c for c in (_clean(e) for e in memory.retrieve(words, 2, sims=ep_sims)) if c]
+    getter = getattr(memory, "retrieve_ancestral", None)
+    if getter is not None:
+        an_sims = {int(ref): sim for ref, sim in memory.similar(qvec, "ancestral", 3, SEM_MIN_SIM)}
+        ctx.ancestral = [c for c in (_clean(e) for e in getter(words, 1, sims=an_sims)) if c]
+    ctx.current = [c for c in (_clean(t) for t in memory.current_topics(2)) if c]
+    if stage in _STAGES_PAST:
+        ctx.past = [c for c in (_clean(t) for t in memory.past_topics(1)) if c]
+    if stage in _STAGES_OPINION:
+        ctx.opinion = _opinion_semantic(memory, words, lang, qvec)
+    return ctx
+
+
+def recall(memory, text: str, stage: str, lang: str, qvec: np.ndarray | None = None) -> RecallContext:
     try:
         if stage == "egg":
             return RecallContext()
         lang = "pt" if lang == "pt" else "en"
         words = _words(text)
-        ctx = RecallContext()
-        ctx.facts = _facts(memory, words)
-        ctx.episodes = [c for c in (_clean(e) for e in memory.retrieve(words, 2)) if c]
-        getter = getattr(memory, "retrieve_ancestral", None)
-        if getter is not None:
-            ctx.ancestral = [c for c in (_clean(e) for e in getter(words, 1)) if c]
-        ctx.current = [c for c in (_clean(t) for t in memory.current_topics(2)) if c]
-        if stage in _STAGES_PAST:
-            ctx.past = [c for c in (_clean(t) for t in memory.past_topics(1)) if c]
-        if stage in _STAGES_OPINION:
-            ctx.opinion = _opinion(memory, words, lang)
-        return ctx
+        if qvec is not None and getattr(memory, "similar", None) is not None:
+            try:
+                return _recall_semantic(memory, words, stage, lang, qvec)
+            except Exception:
+                pass   # meaning must never cost the words path
+        return _recall_m4(memory, words, stage, lang)
     except Exception:
         return RecallContext()

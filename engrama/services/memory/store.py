@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import math
 import os
 import re
@@ -10,10 +11,13 @@ from collections import deque
 from pathlib import Path
 from typing import Callable, Iterable
 
+import numpy as np
+
 from engrama.balance import ANCESTRAL_MAX
 from engrama.services.memory import (
     CURRENT_MIN_SALIENCE, MAX_EPISODES, MAX_FACTS, MAX_TOPICS, PAST_MIN_AFFINITY,
-    PAST_MIN_AGE, SALIENCE_HALF_LIFE)
+    PAST_MIN_AGE, SALIENCE_HALF_LIFE, SEM_MIN_SIM, VECTOR_RAM_MAX_MB, W_IMPORTANCE, W_RECENCY,
+    W_RELEVANCE, W_SEM, W_WORD)
 from engrama.services.memory import opinions
 from engrama.services.perception import (
     ACTIVITY_EPISODE_EVERY_S, PERCEIVED_AFFINITY_CAP, PERCEIVED_AFFINITY_STEP)
@@ -58,6 +62,14 @@ _V2_STATEMENTS = (
     " kind TEXT, ref TEXT, t REAL, PRIMARY KEY(kind, ref))",
 )
 
+_V3_STATEMENTS = (
+    "CREATE TABLE IF NOT EXISTS vectors("
+    " kind TEXT NOT NULL, ref TEXT NOT NULL, model TEXT NOT NULL, dim INTEGER NOT NULL,"
+    " h TEXT NOT NULL, vec BLOB NOT NULL, t REAL NOT NULL, PRIMARY KEY(kind, ref))",
+)
+
+VECTOR_KINDS = ("episode", "fact", "topic", "ancestral")
+
 _PT_WORDS = frozenset("de da do que com nao uma um para meu minha foi sobre muito vez dia".split())
 _EN_WORDS = frozenset("the and you with was about of to for a an my many day".split())
 
@@ -68,6 +80,36 @@ _KIND_LABELS = {
     "play": {"pt": ("brincou", "brincou"), "en": ("played", "played")},
     "sleep": {"pt": ("dormiu", "dormiu"), "en": ("slept", "slept")},
 }
+
+
+def _sem(sim: float | None) -> float:
+    """Cosine rescaled so SEM_MIN_SIM -> 0 and 1 -> 1; below the threshold counts as nothing."""
+    if sim is None or not math.isfinite(sim):
+        return 0.0
+    return max(0.0, (float(sim) - SEM_MIN_SIM) / (1.0 - SEM_MIN_SIM))
+
+
+def _vtext(s: str) -> str:
+    """Text that becomes a vector: what is stored, digits removed (same cleaning as recall)."""
+    return re.sub(r"\s+", " ", re.sub(r"\d+", "", s or "")).strip()
+
+
+def _vhash(text: str) -> str:
+    return hashlib.blake2b(text.encode("utf-8"), digest_size=8).hexdigest()
+
+
+def _unit(v) -> np.ndarray | None:
+    """float32 unit vector, or None if empty, not 1-D, non-finite or null."""
+    try:
+        a = np.asarray(v, dtype=np.float32)
+    except (TypeError, ValueError):
+        return None
+    if a.ndim != 1 or a.size == 0 or not np.all(np.isfinite(a)):
+        return None
+    n = float(np.linalg.norm(a))
+    if not math.isfinite(n) or n <= 0.0:
+        return None
+    return a / n
 
 
 def _clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
@@ -113,18 +155,20 @@ def _compact_summary(kind: str, topic: str | None, ts: list[float], texts: list[
 
 
 class MemoryStore:
-    """SQLite-backed episodic and semantic memory (schema v2).
+    """SQLite-backed episodic and semantic memory (schema v3).
 
     The connection is shared across threads (``check_same_thread=False``);
     every operation runs under ``self._lock`` so callers may use the store
     from several threads at once.
     """
 
-    schema_version = 2
+    schema_version = 3
 
     def __init__(self, db_path: Path, now_fn: Callable[[], float] = time.time) -> None:
         self._now = now_fn
         self._lock = threading.Lock()
+        self._vec_version = 0
+        self._vec_cache: dict[tuple[str, int], tuple[int, list[str], np.ndarray]] = {}
         self._db = self._open(Path(db_path))
 
     def meta_get(self, k: str) -> str | None:
@@ -152,10 +196,14 @@ class MemoryStore:
     def _init(self, path: Path) -> sqlite3.Connection:
         db = sqlite3.connect(str(path), check_same_thread=False)
         try:
+            db.execute("PRAGMA secure_delete = ON")
             db.executescript(_BASE_SCHEMA)
             row = db.execute("SELECT v FROM meta WHERE k='schema_version'").fetchone()
             if int(row[0]) < 2:
                 self._migrate_v2(db)
+                row = (2,)
+            if int(row[0]) < 3:
+                self._migrate_v3(db)
             db.commit()
         except BaseException:
             db.close()
@@ -184,6 +232,19 @@ class MemoryStore:
                     " last_t, mentions, source) VALUES(?,?,?,?,?,?,?,?,?)",
                     (key, _clamp(aff), tmax, 0.0, tmax, tmin, tmax, 0, "chat"))
             db.execute("UPDATE meta SET v='2' WHERE k='schema_version'")
+            db.commit()
+        except BaseException:
+            db.rollback()
+            raise
+
+    @staticmethod
+    def _migrate_v3(db: sqlite3.Connection) -> None:
+        """v2 -> v3: add the vectors table only; no other table is touched."""
+        db.execute("BEGIN")
+        try:
+            for stmt in _V3_STATEMENTS:
+                db.execute(stmt)
+            db.execute("UPDATE meta SET v='3' WHERE k='schema_version'")
             db.commit()
         except BaseException:
             db.rollback()
@@ -222,7 +283,8 @@ class MemoryStore:
                      (episode_id, k, r)).fetchone()])
             self._db.commit()
 
-    def retrieve(self, words: list[str], k: int = 5) -> list[str]:
+    def retrieve(self, words: list[str], k: int = 5,
+                 sims: dict[int, float] | None = None) -> list[str]:
         with self._lock:
             now = self._now()
             ws = [w.lower() for w in words if w]
@@ -232,7 +294,12 @@ class MemoryStore:
                 text = f"{summary} {topic or ''}".lower()
                 overlap = sum(1 for w in ws if w in text) / len(ws) if ws else 0.0
                 recency = math.exp(-max(0.0, now - t) / RECENCY_TAU)
-                score = 0.5 * importance + 0.3 * recency + 0.2 * overlap
+                if sims is None:
+                    score = 0.5 * importance + 0.3 * recency + 0.2 * overlap
+                else:
+                    relevance = W_SEM * _sem(sims.get(_id)) + W_WORD * overlap
+                    score = (W_IMPORTANCE * importance + W_RECENCY * recency
+                             + W_RELEVANCE * relevance)
                 scored.append((score, _id, summary))
         scored.sort(key=lambda s: (-s[0], -s[1]))
         return [s[2] for s in scored[:k]]
@@ -273,6 +340,7 @@ class MemoryStore:
                     self._db.execute(
                         "UPDATE facts SET value=?, confidence=?, source=?, t=? WHERE key=?",
                         (value, confidence, source, now, key))
+                    self._vdel("kind='fact' AND ref=?", (key,))   # the old vector encodes the old value
             self._db.commit()
             return True
 
@@ -503,6 +571,170 @@ class MemoryStore:
                 (phrase, lang, now, key))
             self._db.commit()
 
+    # ---- vectors (M9) --------------------------------------------------
+    def _vdel(self, where: str, params: tuple = ()) -> int:
+        """Delete vector rows inside the caller's transaction (no commit here)."""
+        n = self._db.execute(f"DELETE FROM vectors WHERE {where}", params).rowcount
+        if n:
+            self._vec_version += 1
+        return max(n, 0)
+
+    def _vdel_many(self, where: str, rows: list[tuple]) -> None:
+        n = self._db.executemany(f"DELETE FROM vectors WHERE {where}", rows).rowcount
+        if n:
+            self._vec_version += 1
+
+    def vector_model(self) -> str:
+        return self.meta_get("vector_model") or ""
+
+    def set_vector_model(self, model: str) -> bool:
+        """Switch the embedding model. A different name deletes every vector (they live in another
+        space); returns True if it did."""
+        model = model or ""
+        with self._lock:
+            row = self._db.execute("SELECT v FROM meta WHERE k='vector_model'").fetchone()
+            current = row[0] if row else ""
+            if current == model:
+                return False
+            self._vdel("1=1")
+            self._db.execute("INSERT OR REPLACE INTO meta(k, v) VALUES('vector_model', ?)", (model,))
+            self._db.commit()
+            self._vec_cache.clear()
+            return True
+
+    def drop_vectors(self) -> None:
+        with self._lock:
+            self._vdel("1=1")
+            self._db.execute("DELETE FROM meta WHERE k='vector_model'")
+            self._db.commit()
+            self._vec_cache.clear()
+
+    def _vector_texts(self) -> list[tuple[str, str, str]]:
+        """(kind, ref, text) of everything that can have a vector, in indexing order.
+
+        Called under the lock. Facts by confidence, topics by salience, ancestral, then episodes
+        by importance and recency. The text is what is stored, digits removed; empty ones are out."""
+        now = self._now()
+        out: list[tuple[str, str, str]] = []
+        for key, value in self._db.execute(
+                "SELECT key, value FROM facts ORDER BY confidence DESC, t DESC, id DESC"):
+            out.append(("fact", key, _vtext(f"{(key or '').replace('_', ' ')}: {value}")))
+        trows = self._db.execute(
+            "SELECT name, affinity, salience, t_salience FROM topics").fetchall()
+        trows.sort(key=lambda r: (-_decay(r[2], r[3], now), -r[1], r[0]))
+        out.extend(("topic", r[0], _vtext(r[0])) for r in trows)
+        for eid, summary in self._db.execute(
+                "SELECT id, summary FROM episodes WHERE kind='ancestral' ORDER BY id DESC"):
+            out.append(("ancestral", str(eid), _vtext(summary)))
+        for eid, summary, topic in self._db.execute(
+                "SELECT id, summary, topic FROM episodes WHERE kind != 'ancestral'"
+                " ORDER BY importance DESC, t DESC, id DESC"):
+            out.append(("episode", str(eid), _vtext(f"{summary or ''} {topic or ''}")))
+        return [x for x in out if x[2]]
+
+    def unindexed(self, limit: int) -> list[tuple[str, str, str, str]]:
+        """(kind, ref, text, hash) of memories with no vector of the current model, in indexing order."""
+        with self._lock:
+            model = self._meta_model()
+            have = {(k, r): h for k, r, h in self._db.execute(
+                "SELECT kind, ref, h FROM vectors WHERE model=?", (model,))}
+            out = []
+            for kind, ref, text in self._vector_texts():
+                h = _vhash(text)
+                if have.get((kind, ref)) == h:
+                    continue
+                out.append((kind, ref, text, h))
+                if len(out) >= limit:
+                    break
+            return out
+
+    def _meta_model(self) -> str:
+        row = self._db.execute("SELECT v FROM meta WHERE k='vector_model'").fetchone()
+        return row[0] if row else ""
+
+    def put_vectors(self, model: str, items: list[tuple[str, str, str, np.ndarray]]) -> int:
+        """Store vectors (float16). Each one is written only if, inside the lock, ``model`` is still
+        the current model, the memory still exists and its text still has hash ``h``. Returns how
+        many were written."""
+        wrote = 0
+        with self._lock:
+            if not model or model != self._meta_model():
+                return 0
+            texts = {(k, r): _vhash(t) for k, r, t in self._vector_texts()}
+            now = self._now()
+            for kind, ref, h, vec in items:
+                if kind not in VECTOR_KINDS or texts.get((kind, ref)) != h:
+                    continue
+                u = _unit(vec)
+                if u is None:
+                    continue
+                self._db.execute(
+                    "INSERT OR REPLACE INTO vectors(kind, ref, model, dim, h, vec, t)"
+                    " VALUES(?,?,?,?,?,?,?)",
+                    (kind, ref, model, int(u.size), h, u.astype(np.float16).tobytes(), now))
+                wrote += 1
+            if wrote:
+                self._vec_version += 1
+            self._db.commit()
+        return wrote
+
+    def _matrix(self, kind: str, dim: int, model: str) -> tuple[list[str], np.ndarray] | None:
+        """Cached (refs, float32 [n, dim]) of unit vectors; rebuilt when the vectors change. Under lock."""
+        key = (kind, dim)
+        hit = self._vec_cache.get(key)
+        if hit is not None and hit[0] == self._vec_version:
+            return hit[1], hit[2]
+        self._vec_cache.pop(key, None)
+        rows = self._db.execute(
+            "SELECT ref, vec FROM vectors WHERE kind=? AND model=? AND dim=? ORDER BY ref",
+            (kind, model, dim)).fetchall()
+        if not rows:
+            return None
+        refs = [r[0] for r in rows]
+        mat = np.frombuffer(b"".join(r[1] for r in rows), dtype=np.float16).astype(np.float32)
+        mat = mat.reshape(len(rows), dim)
+        norms = np.linalg.norm(mat, axis=1, keepdims=True)
+        mat = mat / np.where(norms > 0, norms, 1.0)
+        cap = VECTOR_RAM_MAX_MB * 1024 * 1024
+        if mat.nbytes <= cap:
+            while self._vec_cache and sum(v[2].nbytes for v in self._vec_cache.values()) + mat.nbytes > cap:
+                self._vec_cache.pop(next(iter(self._vec_cache)))
+            self._vec_cache[key] = (self._vec_version, refs, mat)
+        return refs, mat
+
+    def similar(self, qvec: np.ndarray, kind: str, k: int, min_sim: float) -> list[tuple[str, float]]:
+        """(ref, cosine) best first, for vectors of the current model and the same dimension as qvec."""
+        q = _unit(qvec)
+        if q is None or kind not in VECTOR_KINDS or k <= 0:
+            return []
+        with self._lock:
+            model = self._meta_model()
+            if not model:
+                return []
+            built = self._matrix(kind, int(q.size), model)
+            if built is None:
+                return []
+            refs, mat = built
+            sims = mat @ q
+        idx = np.flatnonzero(sims >= min_sim)
+        if idx.size == 0:
+            return []
+        if idx.size > k:
+            idx = idx[np.argpartition(-sims[idx], k - 1)[:k]]
+        out = sorted(((refs[i], float(sims[i])) for i in idx), key=lambda x: (-x[1], x[0]))
+        return out[:k]
+
+    def release_vectors(self) -> None:
+        with self._lock:
+            self._vec_cache.clear()
+
+    def vector_counts(self) -> dict:
+        with self._lock:
+            n = self._db.execute("SELECT COUNT(*) FROM vectors").fetchone()[0]
+            items = sum(self._db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+                        for t in ("episodes", "facts", "topics"))
+        return {"vectors": n, "items": items}
+
     # ---- deletion / blocklist -----------------------------------------
     def _blocked(self, kind: str, ref: str, since: float | None = None) -> bool:
         row = self._db.execute(
@@ -537,6 +769,8 @@ class MemoryStore:
             chunk = [(x,) for x in ids[i:i + 500]]
             self._db.executemany("DELETE FROM episode_links WHERE episode_id=?", chunk)
             self._db.executemany("DELETE FROM episodes WHERE id=?", chunk)
+            self._vdel_many("kind IN ('episode','ancestral') AND ref=?",
+                            [(str(x),) for (x,) in chunk])
         return len(ids)
 
     def _episodes_about(self, kind: str, ref: str, terms: Iterable[str]) -> set[int]:
@@ -560,6 +794,7 @@ class MemoryStore:
             ids = self._episodes_about("topic", key, terms)
             n = self._drop_episodes(ids)
             self._db.execute("DELETE FROM topics WHERE name=?", (key,))
+            self._vdel("kind='topic' AND ref=?", (key,))
             self._db.execute("DELETE FROM opinions WHERE topic=?", (key,))
             self._block("topic", key, self._now())
             self._db.commit()
@@ -572,6 +807,7 @@ class MemoryStore:
             ids = self._episodes_about("fact", key, terms)
             n = self._drop_episodes(ids)
             self._db.execute("DELETE FROM facts WHERE key=?", (key,))
+            self._vdel("kind='fact' AND ref=?", (key,))
             self._block("fact", key, self._now())
             self._db.commit()
             return n
@@ -585,6 +821,7 @@ class MemoryStore:
                 self._block("fact", key, now)
             for table in ("facts", "topics", "episodes", "episode_links", "app_categories"):
                 self._db.execute(f"DELETE FROM {table}")
+            self._vdel("1=1")       # every vector derives from the rows just deleted
             self._db.execute(
                 "UPDATE opinions SET experience=0, confidence=0, phrase=NULL, phrase_lang=NULL")
             self._db.commit()
@@ -625,11 +862,24 @@ class MemoryStore:
         out = [r[0] for r in rows]
         return out[:n] if n > 0 else out
 
-    def retrieve_ancestral(self, words: list[str], k: int = 1) -> list[str]:
-        """Ancestral episodes whose text matches at least one word."""
+    def retrieve_ancestral(self, words: list[str], k: int = 1,
+                           sims: dict[int, float] | None = None) -> list[str]:
+        """Ancestral episodes whose text matches at least one word (or, with ``sims``, by meaning)."""
         ws = [w.lower() for w in words if w]
-        if not ws:
-            return []
+        if sims is None:
+            if not ws:
+                return []
+            with self._lock:
+                rows = self._db.execute(
+                    "SELECT id, summary FROM episodes WHERE kind='ancestral'").fetchall()
+            scored = []
+            for _id, summary in rows:
+                text = plain_text(summary)
+                hit = sum(1 for w in ws if w in text)
+                if hit:
+                    scored.append((-hit, -_id, summary))
+            scored.sort()
+            return [x[2] for x in scored[:k]]
         with self._lock:
             rows = self._db.execute(
                 "SELECT id, summary FROM episodes WHERE kind='ancestral'").fetchall()
@@ -637,13 +887,19 @@ class MemoryStore:
         for _id, summary in rows:
             text = plain_text(summary)
             hit = sum(1 for w in ws if w in text)
-            if hit:
-                scored.append((-hit, -_id, summary))
+            sim = sims.get(_id)
+            sim = float(sim) if sim is not None and math.isfinite(sim) else 0.0
+            if hit or sim >= SEM_MIN_SIM:
+                overlap = hit / len(ws) if ws else 0.0
+                scored.append((-(W_SEM * _sem(sim) + W_WORD * overlap), -_id, summary))
         scored.sort()
         return [x[2] for x in scored[:k]]
 
     def archive_to(self, path: Path) -> None:
-        """Consistent copy of the database (sqlite3 backup API); creates parent folders."""
+        """Consistent copy of the database (sqlite3 backup API); creates parent folders.
+
+        The copy carries the memory of the finished life but no vectors (they are a derived index
+        of the current model and are not kept in the archive)."""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with self._lock:
@@ -651,6 +907,11 @@ class MemoryStore:
             dest = sqlite3.connect(str(path))
             try:
                 self._db.backup(dest)
+                dest.execute("PRAGMA secure_delete = ON")
+                dest.execute("DELETE FROM vectors")
+                dest.execute("DELETE FROM meta WHERE k='vector_model'")
+                dest.commit()
+                dest.execute("VACUUM")
             finally:
                 dest.close()
 
@@ -660,7 +921,8 @@ class MemoryStore:
             now = self._now()
             for table in ("episodes", "episode_links", "facts", "topics", "opinions"):
                 self._db.execute(f"DELETE FROM {table}")
-            self._db.execute("DELETE FROM meta WHERE k != 'schema_version'")
+            self._vdel("1=1")
+            self._db.execute("DELETE FROM meta WHERE k NOT IN ('schema_version', 'vector_model')")
             for summary in ancestral:
                 summary = (summary or "").strip()
                 if summary:
@@ -692,6 +954,14 @@ class MemoryStore:
             self._db.execute(
                 "DELETE FROM topics WHERE name IN (SELECT name FROM topics"
                 " ORDER BY mentions ASC, last_t ASC, name ASC LIMIT ?)", (n - MAX_TOPICS,))
+        # Facts and topics above go by SQL, not through a helper: sweep what no longer exists.
+        self._vdel("(kind='fact' AND ref NOT IN (SELECT key FROM facts))"
+                   " OR (kind='topic' AND ref NOT IN (SELECT name FROM topics))"
+                   " OR (kind='episode' AND ref NOT IN"
+                   "  (SELECT CAST(id AS TEXT) FROM episodes WHERE kind != 'ancestral'))"
+                   " OR (kind='ancestral' AND ref NOT IN"
+                   "  (SELECT CAST(id AS TEXT) FROM episodes WHERE kind = 'ancestral'))"
+                   " OR kind NOT IN ('episode','fact','topic','ancestral')")
 
     def forget(self, now: float | None = None) -> int:
         with self._lock:

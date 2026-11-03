@@ -1,3 +1,4 @@
+import re
 import json
 
 import pytest
@@ -167,3 +168,23 @@ def test_system_lang_linux_env(monkeypatch):
     assert name({}) == ""
     monkeypatch.setattr(i18n.locale, "getlocale", lambda *a: ("pt_BR", "UTF-8"))
     assert name({}) == "pt_BR"
+
+
+M9_KEYS = (
+    "ui.models.embed_title",
+    "ui.models.embed_hint",
+    "ui.models.embed_on",
+    "ui.models.embed_off",
+    "ui.models.embed_missing",
+    "ui.memories.semantic_on",
+    "ui.memories.semantic_off",
+    "ui.mind.vectors",
+)
+
+
+def test_m9_i18n_keys_pt_en_no_digits():
+    pt, en = _load("pt"), _load("en")
+    for key in M9_KEYS:
+        assert key in pt and key in en, key
+        assert pt[key].strip() and en[key].strip(), key
+        assert not re.search(r"\d", pt[key]) and not re.search(r"\d", en[key]), key

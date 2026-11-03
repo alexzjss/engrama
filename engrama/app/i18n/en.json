@@ -169,5 +169,13 @@
   "ui.perm.hotkey_wayland": "On Wayland, create a system shortcut that runs: engrama --eyes toggle",
   "cli.eyes.not_running": "Engrama is not running.",
   "cli.eyes.windows": "On Windows, use the global eyes shortcut.",
-  "cli.eyes.toggled": "Eyes toggled."
+  "cli.eyes.toggled": "Eyes toggled.",
+  "ui.models.embed_title": "Recall by meaning",
+  "ui.models.embed_hint": "Optional: she remembers by meaning, not only by word",
+  "ui.models.embed_on": "on",
+  "ui.models.embed_off": "off",
+  "ui.models.embed_missing": "model not installed",
+  "ui.memories.semantic_on": "remembers by meaning",
+  "ui.memories.semantic_off": "remembers by words only",
+  "ui.mind.vectors": "memories with a vector"
 }

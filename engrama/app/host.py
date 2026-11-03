@@ -212,6 +212,7 @@ class Host:
     def attach_services(self, memory=None, working=None, language=None) -> None:
         """Wire the services death and rebirth touch (all optional: a bare Host still dies and is reborn)."""
         self.memory, self.working, self.language = memory, working, language
+        self._cache: tuple[float, dict, str] | None = None
 
     @property
     def farewell_text(self) -> str:
@@ -532,8 +533,8 @@ def _build_persona(snap: Snapshot, memory):
 class _MemoryProvider:
     """Adapter the Memories panel (F7) talks to: MemoryStore + WorkingMemory behind the duck-typed protocol."""
 
-    def __init__(self, memory, working) -> None:
-        self.memory, self.working = memory, working
+    def __init__(self, memory, working, language=None) -> None:
+        self.memory, self.working, self.language = memory, working, language
 
     @staticmethod
     def _lang() -> str:
@@ -556,12 +557,58 @@ class _MemoryProvider:
     def reflections(self) -> list[str]:
         return list(self.memory.recent_reflections(5))
 
-    def summary(self) -> dict:
+    def _embed_state(self) -> tuple[str, dict]:
+        """(embedder status, vector counts). Reads only what is already known; never calls the embedder."""
+        lang = self.language
+        if lang is None:
+            try:
+                counts = self.memory.vector_counts()
+            except Exception:
+                counts = {}
+            return "off", counts
+        try:
+            status = str(getattr(lang, "embed_status", "off") or "off")
+        except Exception:
+            status = "off"
+        try:
+            counts = dict(lang.embed_counts() or {})
+        except Exception:
+            counts = {}
+        return status, counts
+
+    SUMMARY_TTL_S = 2.0   # the Mind View asks every frame; the counts are COUNT(*) queries
+
+    def _counts(self, status: str) -> dict:
+        """Counts behind summary(), refreshed at most every SUMMARY_TTL_S (or when the embedder status changes
+        or something is deleted through this adapter)."""
+        now = time.monotonic()
+        c = getattr(self, "_cache", None)
+        if c is not None and c[2] == status and now - c[0] < self.SUMMARY_TTL_S:
+            return c[1]
         refl = self.memory.recent_reflections(1)
-        return {"episodes": len(self.memory.recent(10 ** 6)), "facts": len(self.memory.fact_rows()),
+        _, vcounts = self._embed_state()
+        data = {"episodes": len(self.memory.recent(10 ** 6)), "facts": len(self.memory.fact_rows()),
                 "topics": len(self.memory.topic_rows()),
                 "opinions": len([r for r in self.memory.opinion_rows() if r["confidence"] > 0]),
-                "last_reflection": refl[0] if refl else ""}
+                "last_reflection": refl[0] if refl else "",
+                "vectors": int(vcounts.get("vectors", 0) or 0), "items": int(vcounts.get("items", 0) or 0)}
+        self._cache = (now, data, status)
+        return data
+
+    def _invalidate(self) -> None:
+        self._cache = None
+
+    def summary(self) -> dict:
+        lang = self.language
+        try:
+            status = str(getattr(lang, "embed_status", "off") or "off") if lang is not None else "off"
+        except Exception:
+            status = "off"
+        data = dict(self._counts(status))
+        vectors = data["vectors"]
+        # "on" when the embedder is ready, or when vectors are stored and the embedder is not off
+        data["semantic"] = "on" if (status == "ready" or (vectors > 0 and status != "off")) else "words"
+        return data
 
     def _drop_working(self, needles: list[str]) -> None:
         from engrama.services.memory.topics import plain_text
@@ -575,6 +622,7 @@ class _MemoryProvider:
     def delete_fact(self, key: str) -> None:
         value = next((v for k, v in self.facts() if k == key), "")
         self.memory.delete_fact(key)
+        self._invalidate()
         self._drop_working([value, key.replace("_", " ")])
 
     def delete_topic(self, name: str) -> None:
@@ -585,12 +633,14 @@ class _MemoryProvider:
         except Exception:
             perceived = False
         self.memory.delete_topic(name)
+        self._invalidate()
         if perceived:   # a deleted screen-derived theme stays silenced (and is listed in F8 to undo)
             self.memory.silence_theme(name)
         self._drop_working([key] + [k for k, v in SYNONYMS.items() if v == key])
 
     def forget_all(self) -> None:
         self.memory.forget_all_about_user()
+        self._invalidate()
         self.working.clear()
 
 
@@ -637,8 +687,8 @@ class _Activity:
         return self._theme or self._category
 
 
-def _memory_provider(memory, working) -> _MemoryProvider:
-    return _MemoryProvider(memory, working)
+def _memory_provider(memory, working, language=None) -> _MemoryProvider:
+    return _MemoryProvider(memory, working, language)
 
 
 class _NullServer:
@@ -680,6 +730,7 @@ def _main(argv: list[str] | None, held: list) -> int:
     from engrama.app.ui.window import Window
     from engrama.config import Config, default_data_dir
     from engrama.services.language.client import OllamaClient
+    from engrama.services.language.embedder import Embedder
     from engrama.services.language.lang import detect_lang
     from engrama.services.language.persona import valence
     from engrama.services.language.server import OllamaServer
@@ -755,10 +806,14 @@ def _main(argv: list[str] | None, held: list) -> int:
             return innate_lean(int((snap0.look or {}).get("seed", 0) or 0), topic,
                                dict(snap0.traits or {}))
 
+        client = OllamaClient(cfg)
+        embedder = None if a.no_llm else Embedder(client, cfg)   # --no-llm: no embedding calls at all
         language = LanguageService(
-            OllamaClient(cfg), server, cfg, memory, working,
+            client, server, cfg, memory, working,
             get_state=lambda: _build_persona(host.snapshot(), memory), food_name=food_name,
-            idle=lambda: not host.snapshot().resting, lean_fn=lean_fn)
+            idle=lambda: not host.snapshot().resting, lean_fn=lean_fn, now_fn=time.time, embedder=embedder)
+        embed_log = logging.getLogger("engrama.app")
+        last_embed = ""
         policy = InitiativePolicy(memory, time.time)
         last_input = float("-inf")
         next_policy = 0.0
@@ -774,7 +829,7 @@ def _main(argv: list[str] | None, held: list) -> int:
         host.attach_services(memory, working, language)
         window.generations_provider = host.generations_provider
         window.on_farewell_skip = host.skip_farewell
-        window.memory_provider = _memory_provider(memory, working)
+        window.memory_provider = _memory_provider(memory, working, language)
         window.save_config = lambda: cfg.save(cfg_path)
         window.dev = bool(a.dev or cfg.dev_mode)
         from engrama.app.desktop import get_desktop
@@ -871,6 +926,11 @@ def _main(argv: list[str] | None, held: list) -> int:
             window.farewell_text = host.farewell_text
             now_w = time.time()
             language.tick(now_w)
+            if embedder is not None:   # one line per change: state and model name only, never memory text
+                st = language.embed_status
+                if st != last_embed:
+                    last_embed = st
+                    embed_log.info("embedder status=%s model=%s", st, embedder.model or "-")
             if now_w >= next_forget:   # at startup, then every 6 h of wall time
                 next_forget = now_w + FORGET_EVERY_S
                 try:

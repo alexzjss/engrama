@@ -57,6 +57,9 @@ class Config:
     perception_blocklist: list[str] = field(default_factory=list)
     eyes_hotkey: str = "ctrl+alt+e"
     display_mode: str = "terrarium"   # M7: "terrarium" | "overlay"; unknown values load as "terrarium"
+    embed_model: str = "embeddinggemma"          # M9: "" = semantic recall off
+    semantic_recall: bool = True
+    recommended_embed_models: tuple[str, ...] = ("embeddinggemma", "nomic-embed-text", "bge-m3")
 
     @classmethod
     def load(cls, path: Path) -> "Config":
@@ -86,6 +89,12 @@ class Config:
                 v = [str(x) for x in v]
             elif f.name == "display_mode":
                 v = v if v in DISPLAY_MODES else "terrarium"
+            elif f.name == "embed_model":
+                v = str(v or "")
+            elif f.name == "semantic_recall":
+                v = bool(v)
+            elif f.name == "recommended_embed_models":
+                v = tuple(str(x) for x in v)
             kwargs[f.name] = v
         return cls(**kwargs)
 

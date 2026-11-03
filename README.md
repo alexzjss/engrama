@@ -39,7 +39,7 @@ python -m engrama --no-llm --frames 600     # sem Ollama; encerra após 600 quad
 Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra números e escala de tempo), `--no-llm`, `--frames N`, `--seconds S`, `--eyes toggle` (alterna os olhos da instância aberta e sai).
 
 - **Pré-requisito da conversa:** Ollama em `E:\Ollama` (`ollama.exe`, `home`, `models`; os caminhos vêm de `Config`). O Engrama inicia o `ollama serve` sozinho, em segundo plano, com tudo apontado para o E:, e o encerra ao sair se foi ele quem o iniciou. O modelo padrão é `qwen3:1.7b`; baixe pelo menu de modelos (F5). O modelo só fica carregado durante e logo após a conversa (`keep_alive` de 600 s).
-- **Teclas:** F2 Visão da Mente, F3 descanso manual, F4 comidas, F5 modelos, F6 configurações, F7 Memórias, F12 modo dev (números, `PgUp`/`PgDn` mudam a escala de tempo), Esc fecha o painel. Enter envia a mensagem.
+- **Teclas:** F2 Visão da Mente, F3 descanso manual, F4 comidas, F5 modelos e busca por significado, F6 configurações, F7 Memórias, F12 modo dev (números, `PgUp`/`PgDn` mudam a escala de tempo), Esc fecha o painel. Enter envia a mensagem.
 - **Descanso:** manual (F3) ou automático (app em tela cheia, pouca RAM livre ou 30 min sem uso). Em descanso a janela cai para 2 FPS, a mente roda em ritmo reduzido e o LLM é descarregado. Sem foco a janela usa 5 FPS; com foco, 20 FPS.
 - **Visão da Mente (F2):** o grafo da receita, as propostas do tick (a vencedora destacada), o custo em ms de cada módulo e as visualizações de cada um, como o raster de disparos e a surpresa da SNN. Só aqui e no modo dev aparecem números.
 - **Dados:** em `Config.data_dir` (padrão `data/`, no drive do repositório): `config.json`, `save/` (estado da mente e do corpo), `host.json`, `explog.sqlite` (log de experiência) e `memory.sqlite` (memória da conversa). Nada vai para o C:.
@@ -102,6 +102,16 @@ O Engrama roda no Linux com o que cada sessão permite; o que a sessão não ofe
   - GNOME: Configurações > Teclado > Atalhos personalizados, com o mesmo comando.
 - **Overlay só no X11.** Em sessão Wayland o F11 mostra "o overlay ainda não funciona no Wayland" e fica no terrário.
 - **Privacidade igual à do Windows (M5):** nada de `/dev/input`, teclado, tela ou área de transferência; título e nome de processo nunca saem do serviço de percepção.
+
+### Busca por significado (M9)
+
+- **O que é:** com um modelo de embedding, a criatura lembra pelo sentido e não só por palavras iguais: "meu bichinho anda doente" traz o cachorro que você contou dias antes, e "my dog is sick" traz a lembrança escrita em português. Vale para fatos, episódios, assuntos de opinião e lembranças ancestrais.
+- **É opcional:** sem o modelo (não instalado, Ollama parado, `--no-llm`, busca desligada) tudo funciona exatamente como no M8, por palavras. Nada de erro, nada de espera: a consulta tem tempo limite de 1 s e cai para palavras.
+- **Como ligar:** no menu de modelos (F5), a linha "Busca por significado" baixa o `embeddinggemma` (cerca de 0,6 GB de RAM no Ollama enquanto carregado; o disco leva algumas centenas de MB). Ou, no terminal, `ollama pull embeddinggemma`. A mesma linha liga, desliga e troca o modelo (`embeddinggemma`, `nomic-embed-text` ou `bge-m3`). O Engrama nunca baixa o modelo sozinho.
+- **Quando roda:** o modelo de embedding só é usado com o modelo de conversa já pronto e a máquina livre (nunca em descanso), e nunca na thread da interface. Os vetores são feitos em segundo plano, em lotes pequenos. Ele nunca carrega modelo sozinho.
+- **F7 e F2:** o painel Memórias mostra "lembra pelo sentido" ou "lembra só por palavras"; a Visão da Mente mostra quantas memórias já têm vetor e o estado do modelo.
+- **Privacidade:** os vetores ficam na `memory.sqlite`, no seu disco, e saem só de textos que ela já guarda (nada novo é coletado). Apagar uma memória (fato, assunto, "esquecer tudo", teto, compactação ou nova geração) apaga o vetor dela junto. Desligar a busca ou trocar de modelo apaga todos os vetores. O arquivo de uma geração (`data/generations/<n>/memory.sqlite`) não leva vetores.
+- **Teclas:** F5 agora também controla a busca por significado.
 
 ### Laboratório
 
@@ -188,7 +198,7 @@ python -m engrama --no-llm --frames 600     # no Ollama; exits after 600 frames 
 Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows numbers and the time scale), `--no-llm`, `--frames N`, `--seconds S`, `--eyes toggle` (toggles the running instance's eyes and exits).
 
 - **Chat prerequisite:** Ollama in `E:\Ollama` (`ollama.exe`, `home`, `models`; paths come from `Config`). Engrama starts `ollama serve` itself, in the background, with everything pointed at E:, and stops it on exit if it started it. The default model is `qwen3:1.7b`; download it from the models menu (F5). The model stays loaded only during and shortly after a conversation (`keep_alive` 600 s).
-- **Keys:** F2 Mind View, F3 manual rest, F4 foods, F5 models, F6 settings, F7 Memories, F12 dev mode (numbers; `PgUp`/`PgDn` change the time scale), Esc closes the panel. Enter sends the message.
+- **Keys:** F2 Mind View, F3 manual rest, F4 foods, F5 models and recall by meaning, F6 settings, F7 Memories, F12 dev mode (numbers; `PgUp`/`PgDn` change the time scale), Esc closes the panel. Enter sends the message.
 - **Rest:** manual (F3) or automatic (a fullscreen app, low free RAM, or 30 min without input). While resting the window drops to 2 FPS, the mind runs at a reduced rate and the LLM is unloaded. Unfocused the window runs at 5 FPS; focused, 20 FPS.
 - **Mind View (F2):** the recipe graph, the tick's proposals (winner highlighted), each module's cost in ms and each module's visualisations, such as the SNN spike raster and surprise. Numbers appear only here and in dev mode.
 - **Data:** in `Config.data_dir` (default `data/`, on the repo's drive): `config.json`, `save/` (mind and body state), `host.json`, `explog.sqlite` (experience log) and `memory.sqlite` (chat memory). Nothing goes to C:.
@@ -251,6 +261,16 @@ Engrama runs on Linux with whatever each session allows; anything the session do
   - GNOME: Settings > Keyboard > Custom shortcuts, with the same command.
 - **Overlay on X11 only.** On a Wayland session F11 shows "the overlay does not work on Wayland yet" and stays in the terrarium.
 - **Same privacy as Windows (M5):** no `/dev/input`, keyboard, screen or clipboard; titles and process names never leave the perception service.
+
+### Recall by meaning (M9)
+
+- **What it is:** with an embedding model the creature remembers by meaning, not only by shared words: "my pet is sick" brings back the dog you mentioned days earlier, and "my dog is sick" brings back a memory written in Portuguese. It covers facts, episodes, opinion topics and ancestral memories.
+- **Optional:** without the model (not installed, Ollama stopped, `--no-llm`, search switched off) everything works exactly as in M8, by words. No errors and no waiting: the query has a 1 s time limit and falls back to words.
+- **How to enable:** in the models menu (F5), the "Recall by meaning" row downloads `embeddinggemma` (about 0.6 GB of RAM in Ollama while loaded, a few hundred MB on disk). Or, in a terminal, `ollama pull embeddinggemma`. The same row switches it on and off and changes the model (`embeddinggemma`, `nomic-embed-text` or `bge-m3`). Engrama never downloads the model by itself.
+- **When it runs:** the embedding model is only used while the chat model is ready and the machine is idle (never during rest), and never on the UI thread. Vectors are built in the background, in small batches. It never loads a model on its own.
+- **F7 and F2:** the Memories panel says "remembers by meaning" or "remembers by words only"; the Mind View shows how many memories already have a vector and the model state.
+- **Privacy:** vectors live in `memory.sqlite`, on your disk, and come only from text it already stores (nothing new is collected). Deleting a memory (fact, topic, "forget everything", caps, compaction or a new generation) deletes its vector too. Switching the search off or changing the model deletes every vector. A generation archive (`data/generations/<n>/memory.sqlite`) carries no vectors.
+- **Keys:** F5 now also controls recall by meaning.
 
 ### Lab
 
