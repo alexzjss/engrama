@@ -30,6 +30,7 @@ class RecallContext:
     current: list[str] = field(default_factory=list)
     past: list[str] = field(default_factory=list)
     opinion: str | None = None
+    ancestral: list[str] = field(default_factory=list)   # dreams from before birth
 
 
 def _clean(s: str) -> str:
@@ -95,6 +96,9 @@ def recall(memory, text: str, stage: str, lang: str) -> RecallContext:
         ctx = RecallContext()
         ctx.facts = _facts(memory, words)
         ctx.episodes = [c for c in (_clean(e) for e in memory.retrieve(words, 2)) if c]
+        getter = getattr(memory, "retrieve_ancestral", None)
+        if getter is not None:
+            ctx.ancestral = [c for c in (_clean(e) for e in getter(words, 1)) if c]
         ctx.current = [c for c in (_clean(t) for t in memory.current_topics(2)) if c]
         if stage in _STAGES_PAST:
             ctx.past = [c for c in (_clean(t) for t in memory.past_topics(1)) if c]

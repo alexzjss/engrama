@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import numpy as np
 from engrama import balance as B
 from engrama.kernel.sensors import Obs
-from engrama.vocab import FOOD_IDS
+from engrama.vocab import FOOD_IDS, MEDICINE_ID
 
 
 @dataclass(frozen=True)
@@ -18,13 +18,15 @@ class Profile:
     msg_valence: float
     apps: tuple[str, ...]
     fullscreen_per_day: float
+    medicine_per_h_sick: float = 0.0   # medicine offers per hour while the creature is sick
 
 
 PROFILES: dict[str, Profile] = {p.name: p for p in (
-    Profile("attentive", (8, 22), 0.8, 3.0, 0.6, 1.0, 0.5, ("editor", "browser", "terminal"), 1.0),
+    Profile("attentive", (8, 22), 0.8, 3.0, 0.6, 1.0, 0.5, ("editor", "browser", "terminal"), 1.0, 2.0),
     Profile("absent", (18, 21), 0.1, 0.2, 0.9, 0.05, 0.0, ("browser",), 0.5),
     Profile("night_owl", (20, 4), 0.5, 1.5, 0.7, 0.5, 0.3, ("editor", "terminal", "chat"), 1.0),
     Profile("gamer", (14, 2), 0.3, 0.5, 0.8, 0.2, 0.1, ("game", "chat", "browser"), 4.0),
+    Profile("neglectful", (0, 24), 0.0, 0.0, 1.1, 0.0, 0.0, ("browser",), 40.0),
 )}
 
 _EGG_CLICKS_PER_H = 30.0
@@ -73,6 +75,8 @@ class SimUser:
             out.append(Obs(t, "message", {"valence": v}))
         if creature.get("needs", {}).get("fome", 0.0) >= p.feed_when_fome * 100.0:
             out.append(Obs(t, "food", {"food": FOOD_IDS[int(rng.integers(len(FOOD_IDS)))]}))
+        if creature.get("sick"):
+            out.extend(Obs(t, "food", {"food": MEDICINE_ID}) for _ in range(self._poisson(p.medicine_per_h_sick, dt)))
         for _ in range(self._poisson(_APP_FOCUS_PER_H, dt)):
             app = p.apps[int(rng.integers(len(p.apps)))]
             out.append(Obs(t, "app_focus", {"app": app, "category": app}))

@@ -10,6 +10,7 @@ from engrama.services.perception import PRIVATE
 log = logging.getLogger("engrama.initiative")
 
 FIRE_PROBABILITY = 0.25
+ANCESTRAL_PROBABILITY = 0.12   # of fired remarks, when an ancestral memory exists
 MIN_OPINION_CONFIDENCE = 0.2
 _OPPORTUNITY_ACTIONS = ("ask_attention", "show_something")
 _LATE = ("perfect", "final")
@@ -44,6 +45,10 @@ class InitiativePolicy:
 
     def _pick(self, stage: str, activity: str | None = None) -> tuple[str, str | None] | None:
         m = self.memory
+        if stage in _CHILD_PLUS and hasattr(m, "ancestral_rows"):
+            dreams = m.ancestral_rows(0)
+            if dreams and self._rng.random() < ANCESTRAL_PROBABILITY:
+                return "ancestral", self._rng.choice(dreams)
         if stage in _LATE:
             past = m.past_topics(1)
             if past:

@@ -64,6 +64,22 @@ Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (mostra núme
 - **PC pesado:** CPU acima de 85% por 2 min faz a criatura descansar até aliviar.
 - **Arrastar arquivo:** solte um arquivo ou pasta na janela e ela comenta. Lê só os primeiros 8 KB de texto/código; pasta lista o primeiro nível; imagem dá só nome e tipo; arquivo bloqueado é recusado.
 
+### Vida longa (M6)
+
+- **Ramos:** ao evoluir (criança, jovem), a criatura escolhe um ramo conforme o cuidado recebido, a personalidade e os interesses; o nome do ramo aparece na tela. A linhagem de ramos fica registrada.
+- **Doença e remédio:** descuido prolongado ou um resfriado ocasional deixam a criatura doente (sinal visível na tela). O remédio cura; doença grave sem tratamento leva à morte. Nada disso corre enquanto o app está fechado.
+- **Velhice:** no fim do ciclo a criatura fica velha. Velhice só acaba em morte com o app aberto e a criatura calma (acordada, sem tela cheia, sem conversa recente).
+- **Morte e herança:** a criatura se despede (texto do LLM, ou balbucio se estiver offline; clique para pular). Depois de 10 s, e nunca em tela cheia, a memória da vida é arquivada em `data/generations/<n>/` (com cópia do save), a vida vira um registro em `data/generations.json` e nasce um ovo novo. O ovo herda parte da personalidade e até 3 lembranças ancestrais (sem números e sem nada bloqueado); fatos, assuntos e opiniões do usuário não passam. Configurações, permissões e lista de bloqueio continuam.
+- **Gerações (F10):** lista as vidas passadas (ramo, duração, causa) e deixa apagar o arquivo de uma geração; o registro permanece.
+
+### Presença (M7)
+
+- **Modo sobreposição (F11):** a criatura sai do terrário e passa a andar sobre a barra de tarefas, numa janela sem borda e transparente (Windows). F11 alterna entre os dois modos; a escolha é salva e o app reabre no último modo. Se o sistema não oferece o modo, o app avisa e fica no terrário.
+- **Mini-menu:** clique nela para abrir Comida, Remédio (oculto no ovo), Digital, Conversar (caixa de chat pequena acima dela) e Terrário (volta ao modo normal). Em tela cheia ela se esconde até acabar.
+- **Mundo digital (F1):** itens de manutenção de brincadeira (RAM fresquinha, desfragmentar, instalar atualização, limpar cache, soprar o cooler). De vez em quando, ao pedir atenção, a criatura pede um deles em voz alta e mostra o ícone num balão; atender dentro de 30 min a deixa feliz. No máximo um pedido a cada 2 h. É só jogo: nada é feito no seu PC.
+- **Variantes:** a mesma ação ganha jeitos diferentes (pular, dançar, bocejar, cavar e achar algo, tirar um cochilo olhando o relógio) conforme humor e personalidade.
+- **Privacidade do cursor:** só a posição do cursor, só no modo sobreposição, lida poucas vezes por segundo e nunca guardada nem registrada. A criatura pode virar para o cursor ou persegui-lo. A janela ativa só é consultada (para espiar a borda dela) se a permissão "Título da janela" do F8 estiver ligada.
+
 ### Laboratório
 
 ```
@@ -168,6 +184,22 @@ Flags: `--data-dir`, `--recipe`, `--seed`, `--time-scale`, `--dev` (shows number
 - **Activity remarks:** a new kind of initiative sharing the M4 quota (about one per hour of active use). Never on a private app, in fullscreen or with eyes closed.
 - **Heavy PC:** CPU above 85% for 2 min makes the creature rest until it eases.
 - **Drag a file:** drop a file or folder on the window and it comments. It reads only the first 8 KB of text/code; a folder lists its first level; an image gives just name and type; a blocked file is refused.
+
+### Long life (M6)
+
+- **Branches:** on evolving (child, young), the creature picks a branch from the care it received, its personality and its interests; the branch name shows on screen. The branch lineage is recorded.
+- **Illness and medicine:** prolonged neglect or an occasional cold makes the creature sick (a visible sign on screen). Medicine cures it; severe untreated illness leads to death. None of this runs while the app is closed.
+- **Old age:** at the end of the cycle the creature turns old. Old age only ends in death while the app is open and the creature is calm (awake, not in fullscreen, no recent chat).
+- **Death and inheritance:** the creature says goodbye (LLM text, or babble when offline; click to skip). After 10 s, and never in fullscreen, the life's memory is archived in `data/generations/<n>/` (with a save copy), the life becomes a record in `data/generations.json` and a new egg is born. The egg inherits part of the personality and up to 3 ancestral memories (no digits, nothing blocked); the user's facts, topics and opinions do not carry over. Settings, permissions and the block list stay.
+- **Generations (F10):** lists past lives (branch, length, cause) and lets you delete a generation's archive; the record stays.
+
+### Presence (M7)
+
+- **Overlay mode (F11):** the creature leaves the terrarium and walks along the taskbar in a borderless, transparent window (Windows). F11 toggles between the two modes; the choice is saved and the app reopens in the last mode. If the system does not offer the mode, the app says so and stays in the terrarium.
+- **Mini-menu:** click the creature to open Food, Medicine (hidden for the egg), Digital, Talk (a small chat box above it) and Terrarium (back to normal mode). In fullscreen it hides until you are done.
+- **Digital world (F1):** joke maintenance items (fresh RAM, defragment, install update, clear cache, blow the cooler). Now and then, when asking for attention, the creature asks for one out loud and shows its icon in a bubble; answering within 30 min makes it happy. At most one request every 2 h. It is only a game: nothing is done to your PC.
+- **Variants:** the same action looks different (jump, dance, yawn, dig and find something, nap while watching the clock) depending on mood and personality.
+- **Cursor privacy:** only the cursor position, only in overlay mode, read a few times per second and never stored or logged. The creature may turn toward the cursor or chase it. The active window is queried (to peek at its edge) only if the F8 "Window title" permission is on.
 
 ### Lab
 

@@ -40,21 +40,24 @@ class FoodMenu:
     def __init__(self, on_pick) -> None:
         self.on_pick = on_pick
         self.sel = 0
+        self._ids: tuple[str, ...] = tuple(vocab.FOOD_IDS)   # medicine is appended in draw() unless the creature is an egg
         self._rects: list[pygame.Rect] = []
 
     def _layout(self, surface) -> None:
         r = panel_rect(surface)
         cols = max(1, (r.w - 28) // self.CELL[0])
         self._rects = []
-        for i in range(len(vocab.FOOD_IDS)):
+        for i in range(len(self._ids)):
             x = r.x + 14 + (i % cols) * self.CELL[0]
             y = r.y + 50 + (i // cols) * self.CELL[1]
             self._rects.append(pygame.Rect(x, y, self.CELL[0] - 8, self.CELL[1] - 8))
 
     def draw(self, surface, snap) -> None:
         draw_frame(surface, i18n.t("ui.menu.food"))
+        self._ids = tuple(vocab.FOOD_IDS) + (() if snap.stage == "egg" else (vocab.MEDICINE_ID,))
+        self.sel = min(self.sel, len(self._ids) - 1)
         self._layout(surface)
-        for i, (fid, rect) in enumerate(zip(vocab.FOOD_IDS, self._rects)):
+        for i, (fid, rect) in enumerate(zip(self._ids, self._rects)):
             pygame.draw.rect(surface, (60, 56, 90) if i == self.sel else (42, 40, 62), rect, border_radius=6)
             icon = pygame.transform.scale(sprites.food_icon(fid), (40, 40))
             surface.blit(icon, icon.get_rect(midtop=(rect.centerx, rect.y + 6)))
@@ -64,17 +67,68 @@ class FoodMenu:
         if event.type == pygame.MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             for i, r in enumerate(self._rects):
                 if r.collidepoint(event.pos):
-                    self.on_pick(vocab.FOOD_IDS[i])
+                    self.on_pick(self._ids[i])
                     return True
             return True
         if event.type == pygame.KEYDOWN:
-            n = len(vocab.FOOD_IDS)
+            n = len(self._ids)
             if event.key in (pygame.K_RIGHT, pygame.K_DOWN):
                 self.sel = (self.sel + 1) % n
             elif event.key in (pygame.K_LEFT, pygame.K_UP):
                 self.sel = (self.sel - 1) % n
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                self.on_pick(vocab.FOOD_IDS[self.sel])
+                self.on_pick(self._ids[self.sel])
+            else:
+                return False
+            return True
+        return False
+
+
+class DigitalMenu:
+    """Joke maintenance items (M7), laid out like FoodMenu: icon + i18n name, on_pick(id)."""
+    CELL = (110, 84)
+
+    def __init__(self, on_pick) -> None:
+        self.on_pick = on_pick
+        self.sel = 0
+        self._ids: tuple[str, ...] = tuple(vocab.DIGITAL_IDS)
+        self._rects: list[pygame.Rect] = []
+
+    def _layout(self, surface) -> None:
+        r = panel_rect(surface)
+        cols = max(1, (r.w - 28) // self.CELL[0])
+        self._rects = [pygame.Rect(r.x + 14 + (i % cols) * self.CELL[0], r.y + 50 + (i // cols) * self.CELL[1],
+                                   self.CELL[0] - 8, self.CELL[1] - 8) for i in range(len(self._ids))]
+
+    def draw(self, surface, snap) -> None:
+        from engrama.app.art import digital_fx
+        draw_frame(surface, i18n.t("ui.menu.digital"))
+        self._layout(surface)
+        asked = getattr(snap, "digital_request", "")
+        for i, (did, rect) in enumerate(zip(self._ids, self._rects)):
+            col = (60, 56, 90) if i == self.sel else (42, 40, 62)
+            pygame.draw.rect(surface, col, rect, border_radius=6)
+            if did == asked:
+                pygame.draw.rect(surface, (240, 210, 90), rect, 2, border_radius=6)
+            ic = pygame.transform.scale(digital_fx.icon(did), (40, 40))
+            surface.blit(ic, ic.get_rect(midtop=(rect.centerx, rect.y + 6)))
+            draw_text(surface, i18n.t(f"digital.{did}"), (rect.centerx, rect.bottom - 6), (230, 230, 240), 18, "midbottom")
+
+    def handle_event(self, event) -> bool:
+        if event.type == pygame.MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
+            for i, r in enumerate(self._rects):
+                if r.collidepoint(event.pos):
+                    self.on_pick(self._ids[i])
+                    return True
+            return True
+        if event.type == pygame.KEYDOWN:
+            n = len(self._ids)
+            if event.key in (pygame.K_RIGHT, pygame.K_DOWN):
+                self.sel = (self.sel + 1) % n
+            elif event.key in (pygame.K_LEFT, pygame.K_UP):
+                self.sel = (self.sel - 1) % n
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                self.on_pick(self._ids[self.sel])
             else:
                 return False
             return True
@@ -280,6 +334,8 @@ class SettingsPanel:
 
     def _items(self) -> list[str]:
         items = ["lang", "mute", "rest"]
+        if getattr(getattr(self.window, "desktop", None), "available", False):
+            items.append("overlay")
         if getattr(self.window, "dev", False):
             items.append("scale")
         return items
@@ -305,6 +361,8 @@ class SettingsPanel:
             fn = getattr(w, "set_rest", None)
             if fn:
                 fn(w.rest_manual)
+        elif item == "overlay":
+            w.set_mode("terrarium" if getattr(w, "mode", "terrarium") == "overlay" else "overlay")
         elif item == "scale":
             scales = (1.0, 10.0, 60.0)
             self._scale_i = (self._scale_i + 1) % len(scales)
@@ -328,6 +386,9 @@ class SettingsPanel:
             elif item == "rest":
                 on = getattr(w, "rest_manual", False)
                 label, val = i18n.t("ui.rest.on") if on else i18n.t("ui.rest.off"), "[x]" if on else "[ ]"
+            elif item == "overlay":
+                label = i18n.t("ui.menu.overlay")
+                val = "[x]" if getattr(w, "mode", "terrarium") == "overlay" else "[ ]"
             else:
                 label = i18n.t("ui.dev")
                 val = ("1x", "10x", "60x")[self._scale_i]

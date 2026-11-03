@@ -12,7 +12,7 @@ def _creature(**kw):
 
 
 def test_profiles_present_and_ordered():
-    assert set(PROFILES) == {"attentive", "absent", "night_owl", "gamer"}
+    assert set(PROFILES) == {"attentive", "absent", "night_owl", "gamer", "neglectful"}
     assert PROFILES["attentive"].answer_prob == 0.8 and PROFILES["absent"].answer_prob == 0.1
 
 
