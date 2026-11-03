@@ -1,0 +1,64 @@
+{
+  "wellbeing": 0.046871896722939455,
+  "ask_count": 223,
+  "ignored_rate": 0.874439461883408,
+  "answered_rate": 0.0,
+  "behavior_entropy": 2.128211730565165,
+  "action_share": {
+    "idle": 0.051801131289074126,
+    "wander": 0.05686216135754689,
+    "play_alone": 0.07730475339882902,
+    "sleep": 0.18755582018457875,
+    "ask_attention": 0.028480698620621216,
+    "explore": 0.06668651384340578,
+    "show_something": 0.005160265952168304,
+    "hide": 0.526148655353776
+  },
+  "pad_mean": [
+    -0.16116182645800808,
+    0.31235695978964617,
+    -0.054029590397728
+  ],
+  "pad_std": [
+    0.04948877502871617,
+    0.12876725763620384,
+    0.0032606332874268677
+  ],
+  "shadow_agreement": {},
+  "days_simulated": 6.997916666666667,
+  "ticks": 10077,
+  "lives": {
+    "per_generation": [
+      {
+        "generation": 1,
+        "lineage": [
+          "sonhador"
+        ],
+        "days": 5.013888888888889,
+        "sick_hours": 48.65,
+        "colds": 0,
+        "cause": "neglect",
+        "final_day": null
+      },
+      {
+        "generation": 2,
+        "lineage": [
+          "sonhador"
+        ],
+        "days": 1.9861111111111112,
+        "sick_hours": 0.0,
+        "colds": 0,
+        "cause": "",
+        "final_day": null
+      }
+    ],
+    "generations_finished": 1,
+    "life_days_mean": 5.013888888888889,
+    "sick_hours_total": 48.65,
+    "colds_total": 0,
+    "deaths_by_cause": {
+      "neglect": 1
+    }
+  },
+  "surprise_mean": 0.013980460420977253
+}
