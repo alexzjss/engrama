@@ -144,17 +144,17 @@ Arquivos por onda não se cruzam: em A, só a T2 toca `window.py`/`overlay.py`/`
   - i18n (PT e EN, sem dígitos): `ui.overlay.unavailable_wayland` ("O overlay ainda não funciona no Wayland" / "The overlay does not work on Wayland yet"), `ui.perm.hotkey_wayland` (dica: "No Wayland, crie um atalho do sistema que rode: engrama --eyes toggle"), `cli.eyes.not_running`, `cli.eyes.windows` (use o atalho global), `cli.eyes.toggled`.
   - Arquitetura: `FORBIDDEN["osapi"] = ("engrama",)` com terceiros proibidos (só stdlib); `"engrama.osapi"` adicionado às listas proibidas de `kernel` e `mind`; os arquivos de `APP_PRESENTATION` não podem importar `engrama.osapi`; `app/desktop.py` pode (`APP_ALLOWED` por arquivo).
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_detect_windows`, `test_detect_dummy_is_none`, `test_detect_hyprland` (ambiente da máquina de referência: `XDG_SESSION_TYPE=wayland`, `WAYLAND_DISPLAY=wayland-1`, `DISPLAY=:1`, `HYPRLAND_INSTANCE_SIGNATURE=x` → `("linux","wayland","hyprland")`), `test_detect_x11_kde`, `test_detect_sway`, `test_detect_tty_none`;
   - `test_active_window_frozen`;
   - `test_osapi_only_stdlib` (árvore falsa com `osapi/a.py` importando `engrama.vocab` e `numpy` → 2 violações);
   - `test_ui_cannot_import_osapi`, `test_desktop_may_import_osapi`, `test_perception_may_import_osapi`;
   - `test_m8_i18n_keys_pt_en_no_digits`;
   - `test_fps_constants_match_m7` (`FPS_FOCUSED == 20`, `FPS_UNFOCUSED == 5`, `FPS_RESTING == 2`, `FPS_OVERLAY_MOVING == 10`).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/osapi tests/test_architecture.py tests/app/test_i18n.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m8): osapi session detection, layering rules and texts`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/osapi tests/test_architecture.py tests/app/test_i18n.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m8): osapi session detection, layering rules and texts`.
 
 ---
 

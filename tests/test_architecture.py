@@ -4,12 +4,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1] / "engrama"
 FORBIDDEN = {
-    "kernel": ("engrama.mind", "engrama.modules", "engrama.lab", "engrama.services", "engrama.app"),
-    "mind": ("engrama.kernel", "engrama.modules", "engrama.app"),
+    "kernel": ("engrama.mind", "engrama.modules", "engrama.lab", "engrama.services", "engrama.app", "engrama.osapi"),
+    "mind": ("engrama.kernel", "engrama.modules", "engrama.app", "engrama.osapi"),
     "services": ("engrama.mind", "engrama.modules", "engrama.kernel", "engrama.lab", "engrama.app"),
+    "osapi": ("engrama",),
 }
+OSAPI_SELF = "engrama.osapi"
 APP_PRESENTATION = ("ui", "art", "audio", "i18n")
 APP_ALLOWED = ("engrama.app", "engrama.vocab", "engrama.balance")
+APP_OSAPI = ("app/desktop.py",)
 APP_THIRD_PARTY = {"numpy", "pygame"}
 MODULE_ALLOWED = ("engrama.mind", "engrama.vocab", "engrama.balance")
 STDLIB = set(sys.stdlib_module_names)
@@ -46,17 +49,22 @@ def check(root: Path) -> list[tuple[str, str]]:
     for sub, banned in FORBIDDEN.items():
         for f in sorted((root / sub).rglob("*.py")) if (root / sub).exists() else []:
             for m in _imports(f, root):
+                if sub == "osapi" and _under(m, OSAPI_SELF):
+                    continue
                 if any(_under(m, b) for b in banned):
+                    bad.append((f.relative_to(root).as_posix(), m))
+                elif sub == "osapi" and m.split(".")[0] not in STDLIB:
                     bad.append((f.relative_to(root).as_posix(), m))
     app = root / "app"
     files = [app / n for n in ("snapshot.py", "desktop.py", "digital.py") if (app / n).exists()]
     for sub in APP_PRESENTATION:
         files += sorted((app / sub).rglob("*.py")) if (app / sub).exists() else []
     for f in files:
+        allowed = APP_ALLOWED + ((OSAPI_SELF,) if f.relative_to(root).as_posix() in APP_OSAPI else ())
         for m in _imports(f, root):
             top = m.split(".")[0]
             if top == "engrama":
-                if not any(_under(m, a) for a in APP_ALLOWED) or _under(m, "engrama.app.host"):
+                if not any(_under(m, a) for a in allowed) or _under(m, "engrama.app.host"):
                     bad.append((f.relative_to(root).as_posix(), m))
             elif top not in APP_THIRD_PARTY and top not in STDLIB:
                 bad.append((f.relative_to(root).as_posix(), m))
@@ -172,3 +180,51 @@ def test_host_may_import_everything(tmp_path):
         "__main__.py": "from engrama.app import host\nfrom engrama.modules import x\n",
     })
     assert check(root) == []
+
+
+def test_osapi_only_stdlib(tmp_path):
+    root = _tree(tmp_path, {
+        "osapi/a.py": "from engrama.vocab import x\nimport numpy\nimport json\n",
+    })
+    assert len(check(root)) == 2
+
+
+def test_osapi_may_import_itself(tmp_path):
+    root = _tree(tmp_path, {
+        "osapi/__init__.py": "IPC = 1\n",
+        "osapi/session.py": "from engrama.osapi import IPC\n",
+    })
+    assert check(root) == []
+
+
+def test_ui_cannot_import_osapi(tmp_path):
+    root = _tree(tmp_path, {"app/ui/x.py": "from engrama.osapi import session\n"})
+    assert check(root) == [("app/ui/x.py", "engrama.osapi.session")]
+
+
+def test_desktop_may_import_osapi(tmp_path):
+    root = _tree(tmp_path, {"app/desktop.py": "from engrama.osapi.x11 import X11\n"})
+    assert check(root) == []
+
+
+def test_perception_may_import_osapi(tmp_path):
+    root = _tree(tmp_path, {"services/perception/sources.py": "from engrama.osapi import session\n"})
+    assert check(root) == []
+
+
+def test_kernel_and_mind_cannot_import_osapi(tmp_path):
+    root = _tree(tmp_path, {
+        "kernel/a.py": "from engrama.osapi import session\n",
+        "mind/b.py": "from ..osapi import session\n",
+    })
+    assert len(check(root)) == 2
+
+
+def test_fps_constants_match_m7():
+    from engrama import balance
+
+    assert balance.FPS_FOCUSED == 20
+    assert balance.FPS_STILL == 10
+    assert balance.FPS_UNFOCUSED == 5
+    assert balance.FPS_RESTING == 2
+    assert balance.FPS_OVERLAY_MOVING == 10

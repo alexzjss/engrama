@@ -133,3 +133,20 @@ def test_m3_keys_present_and_food_ids_covered():
         assert {f"food.{f}" for f in FOOD_IDS} <= set(tab)
         assert {f"need.{n}" for n in NEED_KEYS} <= set(tab)
         assert {f"stage.{s}" for s in STAGES} <= set(tab)
+
+
+M8_KEYS = [
+    "ui.overlay.unavailable_wayland",
+    "ui.perm.hotkey_wayland",
+    "cli.eyes.not_running",
+    "cli.eyes.windows",
+    "cli.eyes.toggled",
+]
+
+
+def test_m8_i18n_keys_pt_en_no_digits():
+    pt, en = _load("pt"), _load("en")
+    for key in M8_KEYS:
+        assert key in pt and key in en
+        assert not any(c.isdigit() for c in pt[key])
+        assert not any(c.isdigit() for c in en[key])
