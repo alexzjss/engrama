@@ -93,3 +93,23 @@ class OllamaClient:
                 raise LLMOffline(str(e)) from e
             raise
         return strip_think(d["message"]["content"])
+
+    def embed(self, model: str, texts: list[str], timeout: float) -> list[list[float]]:
+        body = {"model": model, "input": texts, "truncate": True, "keep_alive": self._keep_alive()}
+        try:
+            d = self._json(self._url("/api/embed"), body, timeout)
+        except Exception as e:
+            if _is_timeout(e):
+                raise LLMTimeout(str(e)) from e
+            if isinstance(e, (urllib.error.URLError, ConnectionError, OSError)):
+                raise LLMOffline(str(e)) from e
+            raise
+        if isinstance(d, dict) and d.get("error"):
+            raise RuntimeError(str(d["error"]))
+        return d["embeddings"]
+
+    def unload_embed(self, model: str) -> None:
+        # Ollama documents unloading with keep_alive 0; for an embedding-only model the
+        # request goes to /api/embed with an empty input (/api/generate refuses such models).
+        # Not verified against Ollama 0.18 here (no model installed on the reference machine).
+        self._json(self._url("/api/embed"), {"model": model, "input": [], "keep_alive": 0}, 20)

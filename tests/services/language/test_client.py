@@ -91,3 +91,43 @@ def test_pull_error_raises(tmp_path):
     c = OllamaClient(Config(data_dir=tmp_path), http_stream=lambda u, b, timeout=120: iter([{"error": "nope"}]))
     with pytest.raises(RuntimeError):
         c.pull("m", lambda p, s: None)
+
+
+def test_embed_request_body(tmp_path):
+    seen = {}
+
+    def http_json(url, body=None, timeout=20):
+        seen.update(url=url, body=body, timeout=timeout)
+        return {"embeddings": [[1.0, 0.0]]}
+
+    c = OllamaClient(Config(data_dir=tmp_path), http_json=http_json)
+    assert c.embed("m", ["a"], 2.5) == [[1.0, 0.0]]
+    assert seen["url"].endswith("/api/embed") and seen["timeout"] == 2.5
+    assert seen["body"]["input"] == ["a"] and seen["body"]["truncate"] is True
+    assert seen["body"]["model"] == "m" and seen["body"]["keep_alive"].endswith("s")
+
+
+def test_embed_error_raises(tmp_path):
+    c = OllamaClient(Config(data_dir=tmp_path), http_json=lambda u, b=None, timeout=20: {"error": "does not support embeddings"})
+    with pytest.raises(RuntimeError):
+        c.embed("m", ["a"], 1)
+
+
+def test_embed_timeout_and_offline(tmp_path):
+    def slow(url, body=None, timeout=20):
+        raise TimeoutError("t")
+
+    def down(url, body=None, timeout=20):
+        raise urllib.error.URLError(ConnectionRefusedError())
+
+    with pytest.raises(LLMTimeout):
+        OllamaClient(Config(data_dir=tmp_path), http_json=slow).embed("m", ["a"], 1)
+    with pytest.raises(LLMOffline):
+        OllamaClient(Config(data_dir=tmp_path), http_json=down).embed("m", ["a"], 1)
+
+
+def test_unload_embed_keep_alive_zero(tmp_path):
+    seen = {}
+    OllamaClient(Config(data_dir=tmp_path),
+                 http_json=lambda u, b=None, timeout=20: seen.update(u=u, b=b) or {}).unload_embed("m")
+    assert seen["b"]["keep_alive"] == 0 and seen["b"]["model"] == "m"
