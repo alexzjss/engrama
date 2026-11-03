@@ -139,7 +139,8 @@ class Window:
         self.close_panel()
         if mode == "overlay":
             if not self.desktop.available or not self.overlay.enter():
-                self._notice = (i18n.t("ui.overlay.unavailable"), time.monotonic() + 4.0)
+                key = "ui.overlay.unavailable_wayland" if self.desktop.unavailable_reason == "wayland" else "ui.overlay.unavailable"
+                self._notice = (i18n.t(key), time.monotonic() + 4.0)
                 return False
         else:
             self.overlay.leave()

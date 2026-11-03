@@ -327,6 +327,7 @@ class OverlayController:
         w._draw_digital(snap, self.scene)
         if w.panel is not None:
             w.panel.draw(screen, snap)
+        self.desktop.update_shape(self.hwnd, screen)
         return True
 
     def _signals(self, screen, snap, cr: pygame.Rect) -> None:

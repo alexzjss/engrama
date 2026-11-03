@@ -447,16 +447,16 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - `OverlayController.draw` chama `self.desktop.update_shape(self.hwnd, screen)` depois de desenhar e antes do `flip`, também logo depois de uma mudança de tamanho.
   - `Window.set_mode("overlay")` indisponível: aviso `ui.overlay.unavailable_wayland` se `desktop.unavailable_reason == "wayland"`, senão `ui.overlay.unavailable` (igual ao M7).
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_get_desktop_windows_unchanged` (plataforma simulada e `WinDesktop` substituído), `test_get_desktop_wayland_null_with_reason`, `test_get_desktop_dummy_unsupported`;
   - `test_x11desktop_with_fake_x` (`X11` falso e `pygame.Window` simulado): `make_overlay` liga os estados; `place` repetido não reenvia; `restore` remove forma e estados;
   - `test_shape_mask_bits`: superfície 10×3 com um pixel não-chave em (0,0) e (9,2) → bytes XBM esperados;
   - `test_shape_sent_only_on_change` e `test_shape_follows_resize` (overlay com `FakeDesktop`: abrir o mini-menu muda o tamanho e gera um novo `shape` no mesmo quadro);
   - `test_f11_wayland_notice` (`NullDesktop("wayland")` → aviso do Wayland, modo continua terrário).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/app tests/test_architecture.py tests/test_m7_acceptance.py`. Esperado: PASS (o bench do overlay continua ≤2%).
-- [ ] **Passo 5:** commit `feat(m8): desktop overlay on X11 sessions`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/app tests/test_architecture.py tests/test_m7_acceptance.py`. Esperado: PASS (o bench do overlay continua ≤2%).
+- [x] **Passo 5:** commit `feat(m8): desktop overlay on X11 sessions`.
 
 ---
 
