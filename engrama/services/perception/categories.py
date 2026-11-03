@@ -18,13 +18,45 @@ APP_TABLE: dict[str, str] = {
     "mspaint.exe": "desenho", "blender.exe": "desenho", "aseprite.exe": "desenho",
     "windowsterminal.exe": "terminal", "cmd.exe": "terminal", "powershell.exe": "terminal",
     "pwsh.exe": "terminal", "wt.exe": "terminal",
+    # Linux (sem sufixo) e nomes só do Linux
+    "firefox": "navegador", "chromium": "navegador", "google-chrome": "navegador",
+    "chrome": "navegador", "brave": "navegador", "brave-browser": "navegador",
+    "code": "programacao", "codium": "programacao", "cursor": "programacao",
+    "nvim": "programacao", "zed": "programacao", "pycharm": "programacao", "idea": "programacao",
+    "steam": "jogo", "lutris": "jogo", "heroic": "jogo", "minecraft-launcher": "jogo",
+    "hollow_knight": "jogo", "hollowknight": "jogo", "godot": "jogo",
+    "spotify": "musica", "rhythmbox": "musica", "elisa": "musica", "strawberry": "musica",
+    "audacious": "musica", "lollypop": "musica", "amberol": "musica",
+    "vlc": "video", "mpv": "video", "celluloid": "video",
+    "discord": "chat", "vesktop": "chat", "telegram-desktop": "chat", "slack": "chat",
+    "soffice.bin": "escritorio", "soffice": "escritorio", "libreoffice": "escritorio",
+    "krita": "desenho", "gimp": "desenho", "inkscape": "desenho", "blender": "desenho",
+    "aseprite": "desenho",
+    "kitty": "terminal", "alacritty": "terminal", "foot": "terminal", "wezterm-gui": "terminal",
+    "konsole": "terminal", "gnome-terminal-server": "terminal", "ghostty": "terminal",
 }
 
 CATEGORIES = tuple(sorted(set(APP_TABLE.values())))
 
 
+_SUFFIXES = (".appimage", ".x86_64", ".x86", ".exe", ".bin", ".sh", "-bin")
+
+
+def normalize_process(name: str) -> str:
+    n = (name or "").strip().lower()
+    changed = True
+    while changed:
+        changed = False
+        for suf in _SUFFIXES:
+            if n.endswith(suf) and len(n) > len(suf):
+                n = n[: -len(suf)]
+                changed = True
+    return n
+
+
 def table_category(process: str) -> str | None:
-    return APP_TABLE.get((process or "").strip().lower())
+    p = (process or "").strip().lower()
+    return APP_TABLE.get(p) or APP_TABLE.get(normalize_process(p))
 
 
 class Categorizer:

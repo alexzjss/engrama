@@ -27,3 +27,9 @@ def test_raw_title_never_stored(tmp_path):
     dump = "\n".join(db.iterdump()).lower()
     db.close()
     assert "steam" not in dump and "2026" not in dump
+
+
+def test_spotify_linux_theme():
+    assert extract_theme("spotify", "Daft Punk - Around the World", "musica") == "daft punk"
+    assert extract_theme("Rhythmbox", "Daft Punk - Around the World", "musica") == "daft punk"
+    assert extract_theme("firefox", "Daft Punk - Around the World", "musica") is None
