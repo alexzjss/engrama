@@ -20,7 +20,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-07-engrama-m9-memoria-semantica-design.md` (as seções 2, 3, 5, 6, 7 e 9 são requisito; a §10 explica por que os limiares são valores de partida). Contexto: spec e plano M4 (memória viva), M5 (privacidade), M6 (gerações).
 
-**Antes de começar:** as decisões marcadas **[pendente]** na spec §2 precisam de resposta do usuário. Este plano segue as recomendações; se o usuário escolher outra coisa, o controlador ajusta as tarefas afetadas (indicadas em cada uma) antes de despachar.
+**Antes de começar:** as decisões da spec §2 foram respondidas pelo usuário (2026-11-03), que aceitou todas as recomendações; este plano as segue. Nenhum modelo é instalado ou baixado agora.
 
 ## Restrições globais
 
