@@ -478,3 +478,40 @@ def test_leave_resets_and_enter_again_works():
     assert w.screen.get_size() == w.overlay.size
     w.set_mode("terrarium")
     assert w.screen.get_size() == w.size
+
+
+# ------------------------------------------------------------------ M8: shape + Wayland notice
+def _shapes(w):
+    return [c for c in w.desktop.calls if c[0] == "shape"]
+
+
+def test_shape_sent_only_on_change():
+    w, _, _ = overlay_window()
+    tick(w, 0.0, 20)
+    shapes = _shapes(w)
+    assert shapes
+    assert all(a[2:] != b[2:] for a, b in zip(shapes, shapes[1:]))   # never the same mask twice in a row
+    n = len(shapes)
+    ov = w.overlay
+    ov.draw(w.screen, w._snap, 7.0)
+    ov.draw(w.screen, w._snap, 7.0)
+    assert len(_shapes(w)) <= n + 1
+
+
+def test_shape_follows_resize():
+    w, _, _ = overlay_window()
+    tick(w, 0.0, 10)
+    before = _shapes(w)
+    w.overlay.menu_open = True
+    w.frame(3.0)
+    after = _shapes(w)
+    assert len(after) > len(before)
+    assert after[-1][2] == w.overlay.size
+
+
+def test_f11_wayland_notice():
+    w, _, _ = make(desktop=NullDesktop("wayland"))
+    w.handle_event(key(pygame.K_F11))
+    assert w.mode == "terrarium"
+    assert w._notice[0] == i18n.t("ui.overlay.unavailable_wayland")
+    w.frame(1.0)

@@ -204,10 +204,8 @@ def test_failing_callbacks_contained():
     assert posts == [("app_focus", {"category": "programa"})]
 
 
-def test_null_sources_off_windows(monkeypatch):
-    import engrama.services.perception.sources as s
-    monkeypatch.setattr(s.sys, "platform", "linux")
-    src = make_sources()
+def test_null_sources_off_windows():
+    src = make_sources(env={}, platform="linux")
     assert isinstance(src, NullSources)
     assert (src.foreground(), src.idle_seconds(), src.is_fullscreen(), src.cpu_percent()) == (None,) * 4
     svc, posts, _, _ = make(FakeCfg(idle=True, process=True, system_load=True), src)

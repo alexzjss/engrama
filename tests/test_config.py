@@ -1,4 +1,6 @@
 import json
+import sys
+from pathlib import Path
 from engrama.config import Config
 
 
@@ -38,3 +40,63 @@ def test_config_m5_defaults_and_old_config(tmp_path):
     old = Config.load(p)
     assert old.permissions["idle"] is True and old.permissions["time"] is False
     assert old.perception_asked is False and old.eyes_hotkey == "ctrl+alt+e"
+
+
+def test_config_linux_defaults_no_drive_letter(tmp_path, monkeypatch):
+    from engrama import config as config_mod
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(config_mod.shutil, "which", lambda name: "/usr/bin/ollama")
+    p = tmp_path / "config.json"
+    cfg = Config.load(p)
+    assert str(cfg.ollama_exe) == "/usr/bin/ollama"
+    assert cfg.ollama_home is None and cfg.ollama_models is None
+    assert "E:" not in p.read_text(encoding="utf-8")
+
+
+def test_config_windows_defaults_unchanged(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "win32")
+    cfg = Config()
+    assert cfg.ollama_exe == Path(r"E:\Ollama\ollama.exe")
+    assert cfg.ollama_home == Path(r"E:\Ollama\home")
+    assert cfg.ollama_models == Path(r"E:\Ollama\models")
+
+
+def test_windows_config_loaded_on_linux_falls_back(tmp_path, monkeypatch):
+    from engrama import config as config_mod
+
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(config_mod.shutil, "which", lambda name: None)
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"ollama_exe": r"E:\Ollama\ollama.exe", "ollama_home": r"E:\Ollama\home",
+                             "ollama_models": "E:/Ollama/models", "recipe": "x"}), encoding="utf-8")
+    cfg = Config.load(p)
+    assert str(cfg.ollama_exe) == "/usr/local/bin/ollama"
+    assert cfg.ollama_home is None and cfg.ollama_models is None
+    assert cfg.recipe == "x"
+
+
+def test_linux_custom_ollama_path_is_kept(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"ollama_exe": "/opt/ollama/bin/ollama", "ollama_home": "/srv/ollama"}),
+                 encoding="utf-8")
+    cfg = Config.load(p)
+    assert str(cfg.ollama_exe) == "/opt/ollama/bin/ollama"
+    assert cfg.ollama_home == Path("/srv/ollama")
+
+
+def test_windows_config_kept_on_windows(tmp_path, monkeypatch):
+    monkeypatch.setattr(sys, "platform", "win32")
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"ollama_home": r"D:\Ollama\home"}), encoding="utf-8")
+    assert Config.load(p).ollama_home == Path(r"D:\Ollama\home")
+
+
+def test_null_paths_roundtrip(tmp_path):
+    p = tmp_path / "config.json"
+    cfg = Config(ollama_home=None, ollama_models=None)
+    cfg.save(p)
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    assert raw["ollama_home"] is None and raw["ollama_models"] is None
+    assert Config.load(p) == cfg

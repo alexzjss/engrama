@@ -133,3 +133,37 @@ def test_m3_keys_present_and_food_ids_covered():
         assert {f"food.{f}" for f in FOOD_IDS} <= set(tab)
         assert {f"need.{n}" for n in NEED_KEYS} <= set(tab)
         assert {f"stage.{s}" for s in STAGES} <= set(tab)
+
+
+M8_KEYS = [
+    "ui.overlay.unavailable_wayland",
+    "ui.perm.hotkey_wayland",
+    "cli.eyes.not_running",
+    "cli.eyes.windows",
+    "cli.eyes.toggled",
+]
+
+
+def test_m8_i18n_keys_pt_en_no_digits():
+    pt, en = _load("pt"), _load("en")
+    for key in M8_KEYS:
+        assert key in pt and key in en
+        assert not any(c.isdigit() for c in pt[key])
+        assert not any(c.isdigit() for c in en[key])
+
+
+def test_system_lang_linux_env(monkeypatch):
+    monkeypatch.setattr(i18n.locale, "getlocale", lambda *a: (None, None))
+
+    def name(env):
+        return i18n._ui_locale_name(env=env, platform="linux")
+
+    assert name({"LANG": "pt_BR.UTF-8"}).startswith("pt")
+    assert name({"LANGUAGE": "en_US:pt_BR"}).startswith("en")
+    assert name({"LC_ALL": "pt_BR.UTF-8", "LANG": "en_US.UTF-8"}).startswith("pt")
+    assert name({"LC_MESSAGES": "pt_PT", "LANG": "en_US"}).startswith("pt")
+    assert name({"LANG": "C"}) == ""
+    assert name({"LANG": "POSIX"}) == ""
+    assert name({}) == ""
+    monkeypatch.setattr(i18n.locale, "getlocale", lambda *a: ("pt_BR", "UTF-8"))
+    assert name({}) == "pt_BR"

@@ -1,4 +1,4 @@
-"""Atalho global do Windows para os olhos (RegisterHotKey numa thread própria).
+"""Atalho global para os olhos: RegisterHotKey no Windows, XGrabKey numa sessão X11.
 
 Só stdlib. A API do sistema é injetável (`api`) para os testes; a real usa
 ctypes.windll.user32 e só existe no Windows.
@@ -6,7 +6,6 @@ ctypes.windll.user32 e só existe no Windows.
 
 from __future__ import annotations
 
-import sys
 import threading
 from typing import Callable
 
@@ -87,14 +86,68 @@ class _WinApi:
         self._user32.PostThreadMessageW(thread_id, WM_QUIT, 0, 0)
 
 
+class _X11Api:
+    """Mesma interface de `_WinApi`, sobre `X11KeyGrab` (conexão própria da thread do atalho)."""
+
+    def __init__(self, opener=None) -> None:
+        self._opener = opener
+        self._kg = None
+
+    def register(self, id: int, mods: int, vk: int) -> bool:
+        from engrama.osapi.x11 import MODMASK, X11KeyGrab
+
+        opener = self._opener or X11KeyGrab.open
+        kg = opener()
+        if kg is None:
+            return False
+        mask = 0
+        if mods & MOD_SHIFT:
+            mask |= MODMASK["shift"]
+        if mods & MOD_CONTROL:
+            mask |= MODMASK["ctrl"]
+        if mods & MOD_ALT:
+            mask |= MODMASK["alt"]
+        if mods & MOD_WIN:
+            mask |= MODMASK["win"]
+        if 0x70 <= vk <= 0x87:   # F1..F24
+            keysym = 0xFFBE + (vk - 0x70)
+        else:
+            keysym = ord(chr(vk).lower())
+        self._kg = kg
+        if not kg.grab(mask, keysym):
+            self._kg = None
+            kg.close()
+            return False
+        return True
+
+    def unregister(self, id: int) -> None:
+        kg, self._kg = self._kg, None
+        if kg is not None:
+            kg.ungrab()
+            kg.close()
+
+    def get_message(self) -> int | None:
+        kg = self._kg
+        if kg is None:
+            return None
+        return HOTKEY_ID if kg.wait() else None
+
+    def post_quit(self, thread_id: int) -> None:
+        kg = self._kg
+        if kg is not None:
+            kg.wake()
+
+
 class GlobalHotkey:
     def __init__(
         self,
         spec: str,
         on_press: Callable[[], None],
         api=None,
+        session=None,
     ) -> None:
         self.spec = spec
+        self._session = session
         self._on_press = on_press
         self._api = api
         self._thread: threading.Thread | None = None
@@ -108,12 +161,22 @@ class GlobalHotkey:
         if self._thread is not None and self._thread.is_alive():
             return self.ok
         if self._api is None:
-            if sys.platform != "win32":
-                self.ok = False
-                self.error = "unsupported"
-                return False
+            from engrama.osapi.session import detect
+
+            sess = self._session or detect()
             try:
-                self._api = _WinApi()
+                if sess.platform == "win32":
+                    self._api = _WinApi()
+                elif sess.platform == "linux" and sess.kind == "x11":
+                    self._api = _X11Api()
+                elif sess.platform == "linux" and sess.kind == "wayland":
+                    self.ok = False
+                    self.error = "wayland"
+                    return False
+                else:
+                    self.ok = False
+                    self.error = "unsupported"
+                    return False
             except Exception as exc:  # noqa: BLE001
                 self.ok = False
                 self.error = f"api indisponível: {exc}"

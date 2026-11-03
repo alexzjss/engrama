@@ -206,7 +206,7 @@ def test_rest_mode_unloads_llm_and_drops_fps(tmp_path):
     h.on_rest_change = lambda resting, reason: lang.unload() if resting else None
     win = Window(h.snapshot, h.post, language=lang, set_rest=h.set_rest)
     win.frame(0.0)
-    assert win.target_fps == 20 and client.unloads == 0
+    assert win.target_fps in (20, 10) and client.unloads == 0   # FPS_FOCUSED, or FPS_STILL when nothing moves (M8)
     win.set_rest(True)   # manual rest (what F3 does)
     run(h, ft, 2)
     win.frame(1.0)
@@ -215,7 +215,7 @@ def test_rest_mode_unloads_llm_and_drops_fps(tmp_path):
     win.set_rest(False)
     run(h, ft, 2)
     win.frame(2.0)
-    assert not h.snapshot().resting and win.target_fps == 20
+    assert not h.snapshot().resting and win.target_fps in (20, 10)   # FPS_FOCUSED, or FPS_STILL when nothing moves (M8)
     h.post("fullscreen_on")   # automatic rest
     run(h, ft, 2)
     win.frame(3.0)

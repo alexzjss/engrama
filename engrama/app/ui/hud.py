@@ -73,6 +73,16 @@ def _mood_icon(surface, cx, cy, kind):
 
 
 class Hud:
+    def key(self, snap: Snapshot, dev: bool = False) -> tuple:
+        """Everything `draw` paints, as a comparable value: equal keys mean an identical HUD."""
+        urgent = tuple(k for _v, k in sorted(((v, k) for k, v in snap.needs.items() if v > NEED_THRESHOLD),
+                                             reverse=True)[:MAX_NEED_ICONS])
+        k = (mood_kind(snap), urgent, snap.resting, snap.stage, snap.dead, snap.branch_name, snap.branch, snap.grave,
+             snap.sick, snap.old, i18n.get_lang(), dev)
+        if dev:
+            k += (tuple(snap.needs.items()), snap.action, round(snap.t))
+        return k
+
     def draw(self, surface: pygame.Surface, snap: Snapshot, dev: bool = False) -> None:
         w = surface.get_width()
         _mood_icon(surface, 20, 20, mood_kind(snap))

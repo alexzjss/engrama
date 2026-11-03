@@ -18,9 +18,38 @@ from engrama.lab.simuser import PROFILES, SimUser  # noqa: E402
 from engrama.mind.recipe import load_recipe  # noqa: E402
 
 
-def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5, fake_perception: bool = False) -> dict:
-    """Run the whole app (`python -m engrama --no-llm`, dummy SDL) in a child process; sample its RSS/CPU."""
+def _thread_ticks(pids: list[int]) -> dict[tuple[int, int], tuple[str, int]]:
+    """{(pid, tid): (comm, utime+stime ticks)} from /proc/<pid>/task/*/stat (Linux; empty elsewhere)."""
+    out: dict[tuple[int, int], tuple[str, int]] = {}
+    for pid in pids:
+        try:
+            tids = os.listdir(f"/proc/{pid}/task")
+        except OSError:
+            continue
+        for tid in tids:
+            try:
+                raw = Path(f"/proc/{pid}/task/{tid}/stat").read_text()
+                comm = raw[raw.index("(") + 1:raw.rindex(")")]
+                f = raw[raw.rindex(")") + 2:].split()
+                out[(pid, int(tid))] = (comm, int(f[11]) + int(f[12]))
+            except (OSError, ValueError, IndexError):
+                continue
+    return out
+
+
+def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5, fake_perception: bool = False,
+              first_use: bool = False, threads: bool = False) -> dict:
+    """Run the whole app (`python -m engrama --no-llm`, dummy SDL) in a child process; sample its RSS/CPU.
+
+    By default the first-use screen is already answered (steady state: it is shown once in a user's life);
+    `first_use=True` keeps the old behaviour (fresh data dir). `threads=True` adds per-thread CPU % (Linux)."""
     cmd = [sys.executable, "-m", "engrama", "--no-llm", "--data-dir", str(data_dir)]
+    if not fake_perception and not first_use:
+        from engrama.config import Config
+        cfg = Config(data_dir=data_dir)
+        cfg.perception_asked = True
+        cfg.permissions = {k: False for k in cfg.permissions}
+        cfg.save(data_dir / "config.json")
     if fake_perception:   # all sources allowed, scripted machine, short interval: worst case for the service
         from engrama.config import Config
         cfg = Config(data_dir=data_dir)
@@ -50,12 +79,20 @@ def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5, fake_percep
 
     time.sleep(2.0)   # let imports and start-up settle, then measure the steady state
     psutil.cpu_percent(None)
+    pids = [p.pid for p in tree()]
+    t0 = _thread_ticks(pids) if threads else {}
     (cpu0, peak), wall0 = usage(), time.perf_counter()
     while time.perf_counter() - wall0 < seconds and child.poll() is None:
         peak = max(peak, usage()[1])
         time.sleep(sample_s)
     wall = time.perf_counter() - wall0
     cpu = (usage()[0] - cpu0) / wall * 100.0
+    per_thread: dict[str, float] = {}
+    if threads:
+        hz = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
+        for (pid, tid), (comm, ticks) in _thread_ticks(pids).items():
+            pct = round((ticks - t0.get((pid, tid), (comm, 0))[1]) / hz / wall * 100.0, 2)
+            per_thread[comm if comm not in per_thread else f"{comm}-{tid}"] = pct
     system_load = psutil.cpu_percent(None)
     alive = child.poll() is None
     child.terminate()
@@ -63,10 +100,12 @@ def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5, fake_percep
         child.wait(5)
     except subprocess.TimeoutExpired:
         child.kill()
-    return {"mode": "app", "fake_perception": fake_perception, "seconds": round(wall, 1), "alive": alive,
-            "peak_rss_mb": round(peak / 2**20, 1), "mean_cpu_percent": round(cpu, 2),
-            "system_cpu_percent": system_load, "cpu_count": psutil.cpu_count(),
-            "loaded": system_load > 50.0}
+    res = {"mode": "app", "fake_perception": fake_perception, "first_use": first_use, "seconds": round(wall, 1),
+           "alive": alive, "peak_rss_mb": round(peak / 2**20, 1), "mean_cpu_percent": round(cpu, 2),
+           "system_cpu_percent": system_load, "cpu_count": psutil.cpu_count(), "loaded": system_load > 50.0}
+    if threads:
+        res["threads"] = per_thread
+    return res
 
 
 def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict:
@@ -90,6 +129,7 @@ def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict
     window.save_config = lambda: None
     host.start()
     ok = window.set_mode("overlay")
+    window.focused = False   # the real overlay never takes focus
     proc = psutil.Process()
     time.sleep(1.0)
     cpu0, wall0 = sum(proc.cpu_times()[:2]), time.perf_counter()
@@ -99,7 +139,8 @@ def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict
         el = time.perf_counter() - wall0
         desk.cur = (int(960 + 800 * math.sin(el / 3.0)), int(500 + 300 * math.sin(el / 5.0)))   # fake cursor
         for e in pygame.event.get():
-            window.handle_event(e)
+            if e.type != pygame.WINDOWFOCUSGAINED:   # the dummy driver "focuses" the window; the real overlay never has focus
+                window.handle_event(e)
         window.frame()
         if el >= nxt:
             peak = max(peak, proc.memory_info().rss)
@@ -110,7 +151,7 @@ def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict
     mode = window.mode
     host.stop()
     pygame.display.quit()
-    return {"mode": "overlay", "overlay_active": ok and mode == "overlay", "seconds": round(wall, 1),
+    return {"mode": "overlay", "overlay_active": ok and mode == "overlay", "focused": window.focused, "seconds": round(wall, 1),
             "peak_rss_mb": round(peak / 2**20, 1), "mean_cpu_percent": round(cpu, 2),
             "cpu_count": psutil.cpu_count()}
 
@@ -124,6 +165,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--app", action="store_true", help="bench the whole app process (dummy SDL, --no-llm)")
     ap.add_argument("--overlay", action="store_true", help="bench overlay mode in-process (FakeDesktop + fake cursor)")
     ap.add_argument("--fake-perception", action="store_true", help="with --app: scripted perception sources, all allowed")
+    ap.add_argument("--first-use", action="store_true", help="with --app: fresh data dir, first-use screen open")
+    ap.add_argument("--threads", action="store_true", help="with --app: per-thread CPU %% (Linux)")
     ap.add_argument("--data-dir", type=Path, default=ROOT / ".pytest_tmp" / "bench_app")
     a = ap.parse_args(argv)
     if a.overlay:
@@ -134,7 +177,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if a.app:
         a.data_dir.mkdir(parents=True, exist_ok=True)
-        print(json.dumps(bench_app(a.seconds, a.data_dir, fake_perception=a.fake_perception), indent=2))
+        print(json.dumps(bench_app(a.seconds, a.data_dir, fake_perception=a.fake_perception,
+                                     first_use=a.first_use, threads=a.threads), indent=2))
         return 0
     rt = Runtime(load_recipe(a.recipe), a.seed)
     user = SimUser(PROFILES[a.profile], np.random.default_rng([a.seed, 1]))

@@ -673,6 +673,7 @@ def main(argv: list[str] | None = None) -> int:
 
 def _main(argv: list[str] | None, held: list) -> int:
     import argparse
+    import signal
     import sys
     import pygame
     from engrama.app.ui.menus import ModelsPanel, SettingsPanel
@@ -704,12 +705,19 @@ def _main(argv: list[str] | None, held: list) -> int:
     ap.add_argument("--no-llm", action="store_true", help="never start or contact Ollama (babble only)")
     ap.add_argument("--frames", type=int, default=None, help="exit after N frames (smoke test; unthrottled)")
     ap.add_argument("--seconds", type=float, default=None, help="exit after S wall seconds (bench)")
+    ap.add_argument("--eyes", choices=["toggle"], default=None,
+                    help="signal the running instance to open/close its eyes, then exit")
     ap.add_argument("--fake-perception", action="store_true", help="bench: scripted machine instead of the real one")
     a = ap.parse_args(argv)
 
     data_dir = Path(a.data_dir) if a.data_dir else default_data_dir()
     data_dir.mkdir(parents=True, exist_ok=True)
-    from engrama.app.instance import InstanceLock
+    from engrama.app.instance import InstanceLock, send_eyes_toggle
+    if a.eyes == "toggle":
+        cfg0 = Config.load(data_dir / "config.json") if (data_dir / "config.json").exists() else None
+        if cfg0 is not None and cfg0.ui_lang in ("pt", "en"):
+            i18n.set_lang(cfg0.ui_lang)
+        return send_eyes_toggle(data_dir)
     lock = InstanceLock(data_dir)
     if not lock.acquire():
         print("O Engrama já está aberto nesta pasta de dados. / "
@@ -788,6 +796,13 @@ def _main(argv: list[str] | None, held: list) -> int:
         def toggle_eyes() -> None:
             set_eyes(not cfg.eyes_closed)
 
+        eyes_flag = threading.Event()
+        if hasattr(signal, "SIGUSR1"):
+            try:
+                signal.signal(signal.SIGUSR1, lambda *_: eyes_flag.set())   # handler only sets the flag
+            except ValueError:   # not the main thread
+                pass
+
         activity = _Activity(host.post, make_theme_sink(memory, time.time))
         host.theme_fn = lambda: (activity.current() or "") if cfg.permissions.get("process") else ""
 
@@ -801,8 +816,17 @@ def _main(argv: list[str] | None, held: list) -> int:
 
         host.on_digital_ask = lambda did: say(f"digital.ask.{did}")
         host.on_digital_thanks = lambda did: say("digital.thanks")
+        sources = ScriptedSources() if a.fake_perception else make_sources()
+        try:
+            from engrama.osapi.session import detect as _detect_session
+            _s = _detect_session()
+            logging.getLogger("engrama.app").info(
+                "session platform=%s kind=%s compositor=%s sources=%s", _s.platform, _s.kind,
+                _s.compositor or "-", getattr(sources, "backends", "") or type(sources).__name__)
+        except Exception:
+            pass
         perception = PerceptionService(
-            activity.post, ScriptedSources() if a.fake_perception else make_sources(), lambda: cfg,
+            activity.post, sources, lambda: cfg,
             lambda: cfg.eyes_closed, on_theme=activity.on_theme, on_heavy=host.set_heavy_pc,
             categorize=Categorizer(memory, language))
         hotkey = GlobalHotkey(cfg.eyes_hotkey, toggle_eyes)
@@ -827,7 +851,7 @@ def _main(argv: list[str] | None, held: list) -> int:
         host.on_rest_change = on_rest
         host.start()
         perception.start()
-        if not a.fake_perception:
+        if not a.fake_perception:   # Windows RegisterHotKey, X11 XGrabKey; inert (error code) elsewhere
             hotkey.start()
         open_in_display_mode(window, cfg)
 
@@ -840,6 +864,9 @@ def _main(argv: list[str] | None, held: list) -> int:
                 window.handle_event(e)
             if not window.running:
                 break
+            if eyes_flag.is_set():
+                eyes_flag.clear()
+                toggle_eyes()
             host.want_viz = window.panel_name == "mind"
             window.farewell_text = host.farewell_text
             now_w = time.time()
@@ -877,6 +904,9 @@ def _main(argv: list[str] | None, held: list) -> int:
                 pass
         if perception is not None:
             perception.stop()
+            closer = getattr(getattr(perception, "_src", None), "close", None)
+            if callable(closer):
+                closer()
         if hotkey is not None:
             hotkey.stop()
         host.stop()

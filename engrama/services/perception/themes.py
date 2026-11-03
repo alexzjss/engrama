@@ -4,10 +4,13 @@ from __future__ import annotations
 import re
 from typing import Callable
 
+from .categories import normalize_process
+
 _BAD = re.compile(r"[@\\/:]|\d")
 _SEP = re.compile(r"\s+[-|–—]\s+")
 _GENERIC = {"steam", "epic games launcher", "launcher", "menu", "friends list", "home", "sign in"}
-_MUSIC_PLAYERS = {"spotify.exe", "foobar2000.exe", "musicbee.exe", "itunes.exe"}
+_MUSIC_PLAYERS = {"spotify", "foobar2000", "musicbee", "itunes", "rhythmbox", "elisa", "strawberry",
+                  "audacious", "lollypop", "amberol"}
 _LANGS = {"py": "python", "pyw": "python", "js": "javascript", "ts": "typescript", "tsx": "typescript",
           "jsx": "javascript", "rs": "rust", "java": "java", "cs": "csharp", "cpp": "cpp", "c": "c",
           "h": "c", "go": "go", "rb": "ruby", "php": "php", "kt": "kotlin", "lua": "lua",
@@ -29,7 +32,7 @@ def extract_theme(process: str, title: str, category: str) -> str | None:
     if category == "jogo":
         return _clean(_SEP.split(title)[0])
     if category == "musica":
-        if (process or "").strip().lower() not in _MUSIC_PLAYERS:
+        if normalize_process(process) not in _MUSIC_PLAYERS:
             return None
         parts = _SEP.split(title, maxsplit=1)
         return _clean(parts[0]) if len(parts) == 2 else None

@@ -1,6 +1,15 @@
 """OS sources. WinSources uses ctypes + psutil; every call is guarded."""
 import sys
+import time
+from collections.abc import Callable, Sequence
 from typing import Protocol
+
+from engrama.osapi import BACKEND_RETRY_S, ActiveWindow, dbus_idle, hyprland, sway
+from engrama.osapi.session import Session, detect
+from engrama.osapi.wayland import IdleWatcher
+from engrama.osapi.x11 import X11
+
+from . import IDLE_AFTER_S
 
 
 class Sources(Protocol):
@@ -126,10 +135,157 @@ class WinSources:
             return None
 
 
-def make_sources() -> Sources:
-    if sys.platform != "win32":
+_SANDBOX_NAMES = {"bwrap", "flatpak-bwrap"}
+
+
+class LinuxSources:
+    """Sources over the Linux backends. Every call is guarded; a failing idle backend rests BACKEND_RETRY_S."""
+
+    def __init__(self, window: Callable[[], ActiveWindow | None] | None,
+                 idle: Sequence[Callable[[], float | None]], now=time.monotonic,
+                 closers: Sequence[Callable[[], None]] = (), backends: str = "") -> None:
+        self._window = window
+        self._closers = list(closers)
+        self.backends = backends
+        self._idle = list(idle)
+        self._now = now
+        self._off_until = [float("-inf")] * len(self._idle)
+
+    def _active(self) -> ActiveWindow | None:
+        if self._window is None:
+            return None
+        try:
+            return self._window()
+        except Exception:
+            return None
+
+    def close(self) -> None:
+        for fn in self._closers:
+            try:
+                fn()
+            except Exception:
+                pass
+
+    def foreground(self):
+        try:
+            aw = self._active()
+            if aw is None:
+                return None
+            name = ""
+            if aw.pid:
+                try:
+                    import psutil
+                    name = psutil.Process(aw.pid).name().strip().lower()
+                except Exception:
+                    name = ""
+            if not name or name in _SANDBOX_NAMES:
+                name = (aw.cls or "").strip().lower()
+            if not name:
+                return None
+            return name, aw.title or ""
+        except Exception:
+            return None
+
+    def idle_seconds(self):
+        now = self._now()
+        for i, fn in enumerate(self._idle):
+            if now < self._off_until[i]:
+                continue
+            try:
+                v = fn()
+            except Exception:
+                v = None
+            if v is None:
+                self._off_until[i] = now + BACKEND_RETRY_S
+                continue
+            return float(v)
+        return None
+
+    def is_fullscreen(self):
+        aw = self._active()
+        return None if aw is None else aw.fullscreen
+
+    def cpu_percent(self):
+        try:
+            import psutil
+            return float(psutil.cpu_percent(interval=None))
+        except Exception:
+            return None
+
+
+def _ms_to_s(fn: Callable[[], int | None]) -> Callable[[], float | None]:
+    def call():
+        v = fn()
+        return None if v is None else v / 1000.0
+    return call
+
+
+def _wayland_idle(env) -> Callable[[], float | None]:
+    state: dict = {"w": None}
+
+    def call():
+        w = state["w"]
+        if w is None:
+            w = IdleWatcher(IDLE_AFTER_S, env=env)
+            if not w.start():
+                w.close()
+                return None
+            state["w"] = w
+        v = w.idle_seconds()
+        if v is None:
+            w.close()
+            state["w"] = None
+        return v
+
+    def close():
+        w, state["w"] = state["w"], None
+        if w is not None:
+            w.close()
+    call.close = close  # type: ignore[attr-defined]
+    return call
+
+
+def build_linux_sources(session: Session) -> Sources:
+    window = None
+    idle: list[Callable[[], float | None]] = []
+    closers: list[Callable[[], None]] = []
+    names: list[str] = []
+    if session.kind == "wayland":
+        env = session.env
+        if session.compositor == "hyprland":
+            window = lambda: hyprland.active_window(env)  # noqa: E731
+        elif session.compositor == "sway":
+            window = lambda: sway.active_window(env)  # noqa: E731
+        names.append(session.compositor if window is not None else "no-window")
+        wi = _wayland_idle(env)
+        idle.append(wi)
+        closers.append(wi.close)
+        names += ["wayland-idle", "dbus-idle"]
+        idle.append(_ms_to_s(lambda: dbus_idle.idle_ms()))
+    elif session.kind == "x11":
+        x = X11.open()
+        if x is not None:
+            window = x.active
+            idle.append(_ms_to_s(x.idle_ms))
+            closers.append(lambda: x.close())
+            names += ["x11", "x11-idle"]
+        idle.append(_ms_to_s(lambda: dbus_idle.idle_ms()))
+        names.append("dbus-idle")
+    else:
         return NullSources()
-    try:
-        return WinSources()
-    except Exception:
-        return NullSources()
+    return LinuxSources(window, idle, closers=closers, backends=",".join(names))
+
+
+def make_sources(env=None, platform: str | None = None) -> Sources:
+    platform = sys.platform if platform is None else platform
+    if platform == "win32":
+        try:
+            return WinSources()
+        except Exception:
+            return NullSources()
+    if platform.startswith("linux"):
+        try:
+            return build_linux_sources(detect(env, platform))
+        except Exception:
+            return NullSources()
+    return NullSources()

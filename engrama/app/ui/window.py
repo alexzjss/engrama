@@ -4,11 +4,11 @@ import queue
 import time
 from typing import Callable
 import pygame
-from engrama import vocab
+from engrama import balance, vocab
 from engrama.app import i18n
 from engrama.app.audio.growl import Growler
 from engrama.app.art import digital_fx
-from engrama.app.art.sprites import Look
+from engrama.app.art.sprites import look_of
 from engrama.app.desktop import Desktop, NullDesktop
 from engrama.app.snapshot import Snapshot
 from engrama.app.ui import menus
@@ -19,6 +19,9 @@ from engrama.app.ui.scene import FAREWELL_BUBBLE_AT, Scene
 from engrama.app.ui.variants import VariantCtx, pick_variant
 
 SCALE = 4
+KEEPALIVE_S = 2.0   # an identical frame is still re-presented this often (cheap insurance against lost expose events)
+_EXPOSE = tuple(getattr(pygame, n) for n in ("VIDEOEXPOSE", "WINDOWEXPOSED", "WINDOWSHOWN", "WINDOWRESTORED",
+                                              "WINDOWMAXIMIZED", "WINDOWSIZECHANGED") if hasattr(pygame, n))
 EAT_SECONDS = 2.0
 TIME_SCALES = (1.0, 10.0, 60.0, 600.0)
 KEY_PANELS = {pygame.K_F1: "digital", pygame.K_F2: "mind", pygame.K_F4: "food", pygame.K_F5: "models", pygame.K_F6: "settings",
@@ -84,7 +87,7 @@ class Window:
         self.hud = Hud()
         self.growler = growler if growler is not None else Growler()
         self.chat = ChatBox(language, post, self.growler, valence_fn,
-                            lambda: Look.from_dict(self._snap.look).voice_pitch)
+                            lambda: look_of(self._snap.look).voice_pitch)
         self.panels: dict[str, Callable[["Window"], object]] = dict(PANELS)
         self.panel_name: str | None = None
         self.panel = None
@@ -114,6 +117,10 @@ class Window:
         self._variant_key: tuple | None = None
         self._prev_now: float | None = None
         self._overlay: OverlayController | None = None
+        self.skip_identical = True
+        self._sig: tuple | None = None            # what the screen currently shows, when the frame was "plain"
+        self._sig_at = 0.0
+        self._sig_screen: pygame.Surface | None = None
 
     # --- display mode
     @property
@@ -132,12 +139,14 @@ class Window:
         self.close_panel()
         if mode == "overlay":
             if not self.desktop.available or not self.overlay.enter():
-                self._notice = (i18n.t("ui.overlay.unavailable"), time.monotonic() + 4.0)
+                key = "ui.overlay.unavailable_wayland" if self.desktop.unavailable_reason == "wayland" else "ui.overlay.unavailable"
+                self._notice = (i18n.t(key), time.monotonic() + 4.0)
                 return False
         else:
             self.overlay.leave()
         self.mode = mode
         self._variant_key = None
+        self._sig = None
         cfg = getattr(self, "config", None)
         if cfg is not None:
             cfg.display_mode = mode
@@ -223,14 +232,30 @@ class Window:
     @property
     def target_fps(self) -> int:
         if self._snap.resting:
-            return 2
-        base = 20 if self.focused else 5
+            return balance.FPS_RESTING
+        if not self.focused:
+            base = balance.FPS_UNFOCUSED
+        else:
+            base = balance.FPS_FOCUSED if self._busy_ui() else balance.FPS_STILL
         if self.mode == "overlay" and self._overlay is not None and self._overlay.moving:
-            return max(base, 10)   # walking needs a few more frames, still far below the terrarium's 20
+            return max(base, balance.FPS_OVERLAY_MOVING)   # walking needs a few more frames than standing
         return base
+
+    def _busy_ui(self) -> bool:
+        """Something on screen changes fast enough to need the full rate (a moving creature, a panel, chat, effects)."""
+        now = time.monotonic() if self._prev_now is None else self._prev_now
+        ov = self._overlay if self.mode == "overlay" else None
+        scene = ov.scene if ov is not None else self.scene
+        if scene.moving or self.panel is not None or self.digital_fx is not None or not self.chat.quiet(now):
+            return True
+        if self._notice[0] and time.monotonic() < self._notice[1]:
+            return True
+        return ov is not None and (ov.moving or ov.menu_open or ov.chat_open or self._snap.dead)
 
     # --- input
     def handle_event(self, e: pygame.event.Event) -> None:
+        if e.type in _EXPOSE:
+            self._sig = None   # the surface may need to be presented again even if the pixels did not change
         if e.type == pygame.QUIT:
             self.running = False
         elif e.type == pygame.WINDOWFOCUSGAINED:
@@ -339,7 +364,7 @@ class Window:
 
     # --- frame loop
     def _drain_host_events(self) -> None:
-        pitch = Look.from_dict(self._snap.look).voice_pitch
+        pitch = look_of(self._snap.look).voice_pitch
         while True:
             try:
                 name, data = self._events.get_nowait()
@@ -362,13 +387,14 @@ class Window:
         if self.mode == "overlay":
             ov = self.overlay
             ov.update(snap, dt, now)
-            if not ov.hidden:
-                ov.draw(self.screen, snap, now)
+            if not ov.hidden and ov.draw(self.screen, snap, now) is not False:
                 pygame.display.flip()
             return
         self.refresh_variant(snap)
         self.scene.draw(self.low, snap, now, eating=time.monotonic() < self.eat_until, variant=self.variant,
                         item=self.variant_item)
+        if self._identical(snap, now):
+            return
         pygame.transform.scale(self.low, self.size, self.screen)
         self.hud.draw(self.screen, snap, self.dev)
         if snap.dead:
@@ -383,6 +409,27 @@ class Window:
         if self.panel is not None:
             self.panel.draw(self.screen, snap)
         pygame.display.flip()
+
+    def _identical(self, snap, now: float) -> bool:
+        """True when this frame would paint exactly what the screen already shows (so the upscale, HUD and flip can go).
+
+        Only "plain" frames qualify: no panel, no chat activity, no notice, no digital effect, not dead."""
+        plain = (self.skip_identical and self.panel is None and not snap.dead and self.digital_fx is None
+                 and not (self._notice[0] and time.monotonic() < self._notice[1]))
+        if plain:
+            self.chat.poll(now)
+            plain = self.chat.quiet(now)
+        if not plain:
+            self._sig = None
+            return False
+        r = self.scene.creature_rect
+        sig = (self.low.get_buffer().raw, self.hud.key(snap, self.dev), bool(snap.eyes_closed),
+               getattr(snap, "digital_request", ""), tuple(self.chat.history), self.chat.status_line(now),
+               (r.x, r.y, r.w, r.h), self.size)
+        if (sig == self._sig and self._sig_screen is self.screen and 0.0 <= now - self._sig_at < KEEPALIVE_S):
+            return True
+        self._sig, self._sig_at, self._sig_screen = sig, now, self.screen
+        return False
 
     def _draw_farewell_bubble(self) -> None:
         text = (self.farewell_text or "").strip()

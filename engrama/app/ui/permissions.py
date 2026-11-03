@@ -212,8 +212,10 @@ class PermissionsPanel:
         if self.provider is not None:
             y += 6
             row(i18n.t("ui.perm.clear_categories"), "clear", None)
-            if self._call("hotkey_error"):
-                draw_text(surface, i18n.t("ui.perm.hotkey_failed"), (x, y + 4), WARN, 20)
+            err = self._call("hotkey_error")
+            if err:
+                key = "ui.perm.hotkey_wayland" if err == "wayland" else "ui.perm.hotkey_failed"
+                draw_text(surface, i18n.t(key), (x, y + 4), WARN, 20)
         if self.sel >= len(self._kinds):
             self.sel = max(0, len(self._kinds) - 1)
 
