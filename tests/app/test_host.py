@@ -347,3 +347,42 @@ def test_eyes_closed_in_snapshot(tmp_path, hosts):
     h.set_eyes_closed(False)
     run(h, ft, 1)
     assert h.snapshot().eyes_closed is False
+
+
+class _FakeLanguage:
+    def __init__(self, status, counts=None):
+        self.embed_status = status
+        self._counts = counts if counts is not None else {"vectors": 0, "items": 0}
+
+    def embed_counts(self):
+        return dict(self._counts)
+
+
+def test_memory_provider_semantic_summary(tmp_path):
+    from engrama.app.host import _memory_provider
+    from engrama.services.memory.store import MemoryStore
+    from engrama.services.memory.store import WorkingMemory
+
+    mem = MemoryStore(tmp_path / "m.sqlite")
+    work = WorkingMemory()
+    cases = [
+        (None, {}, "words", 0, 0),                                     # no language service
+        (_FakeLanguage("ready", {"vectors": 4, "items": 9}), None, "on", 4, 9),
+        (_FakeLanguage("cold", {"vectors": 0, "items": 9}), None, "words", 0, 9),
+        (_FakeLanguage("cold", {"vectors": 5, "items": 9}), None, "on", 5, 9),
+        (_FakeLanguage("off", {"vectors": 5, "items": 9}), None, "words", 5, 9),
+    ]
+    for lang, _, want, vectors, items in cases:
+        s = _memory_provider(mem, work, lang).summary()
+        assert s["semantic"] == want
+        assert s["vectors"] == vectors and s["items"] == items
+        assert "episodes" in s and "facts" in s
+
+
+def test_memory_provider_summary_without_language_counts_store(tmp_path):
+    from engrama.app.host import _memory_provider
+    from engrama.services.memory.store import MemoryStore, WorkingMemory
+
+    mem = MemoryStore(tmp_path / "m.sqlite")
+    s = _memory_provider(mem, WorkingMemory()).summary()
+    assert s["semantic"] == "words" and s["vectors"] == 0 and s["items"] == 0

@@ -39,6 +39,7 @@ class MemoriesPanel:
         self._max_scroll = 0
         self._body_h = 0
         self._follow = False
+        self._semantic = False                            # M9: summary()["semantic"] == "on"
 
     @property
     def provider(self):
@@ -57,6 +58,10 @@ class MemoriesPanel:
         if p is None:
             self._data = {}
             return
+        try:
+            self._semantic = str(p.summary().get("semantic", "")) == "on"
+        except Exception:
+            self._semantic = False
         d = {}
         for name in ("facts", "topics", "opinions", "reflections"):
             try:
@@ -102,6 +107,9 @@ class MemoriesPanel:
         if time.monotonic() - self._t > REFRESH_S:
             self._refresh()
         r = draw_frame(surface, i18n.t("ui.memories.title"))
+        if self.provider is not None:   # M9: one discreet status line, no numbers
+            key = "ui.memories.semantic_on" if self._semantic else "ui.memories.semantic_off"
+            draw_text(surface, i18n.t(key), (r.right - 14, r.y + 22), OK if self._semantic else DIM, 18, "midright")
         self._rows, self._x_rects, self._items, self._item_y = [], [], [], []
         self._forget_rect = pygame.Rect(0, 0, 0, 0)
         if self.provider is None:

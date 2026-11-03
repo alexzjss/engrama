@@ -1,3 +1,4 @@
+import re
 import pygame
 from engrama.app import i18n
 from engrama.app.snapshot import Snapshot
@@ -175,3 +176,24 @@ def test_window_wires_summary_into_mind_view():
     w = make(FakeProvider())
     w.open_panel("mind")
     assert w.panel.memory_summary()["episodes"] == 7
+
+
+class SemanticProvider(FakeProvider):
+    def __init__(self, semantic):
+        super().__init__()
+        self._semantic = semantic
+
+    def summary(self):
+        s = dict(super().summary())
+        if self._semantic is not None:
+            s["semantic"] = self._semantic
+        return s
+
+
+def test_memories_semantic_line_on_and_words_no_digits():
+    for sem, want in (("on", "ui.memories.semantic_on"), ("words", "ui.memories.semantic_off"), (None, "ui.memories.semantic_off")):
+        w = make(SemanticProvider(sem))
+        w.open_panel("memories")
+        out = texts(w)
+        assert i18n.t(want) in out
+        assert not any(re.search(r"\d", s) for s in out)

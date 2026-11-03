@@ -397,7 +397,7 @@ Afetada pelas decisões "download do modelo" e "painel Memórias" (spec §2).
   - Visão da Mente: na linha de memória, `ui.mind.vectors` com `vectors/items` e o estado do embedder (números permitidos ali).
   - Nada disso chama o embedder: só lê estado e contagens já calculados.
 
-- [ ] **Passo 1:** escreva os testes (window e language falsos, pygame dummy):
+- [x] **Passo 1:** escreva os testes (window e language falsos, pygame dummy):
   - `test_embed_block_shows_missing_and_download` (modelo fora de `installed_models` → texto de não instalado; clicar em baixar chama `pull("embeddinggemma", ...)`);
   - `test_embed_select_and_toggle_save_config` (trocar → `set_embed_model` + `save_config`; desligar → `set_semantic_recall(False)` + `save_config`);
   - `test_chat_models_flow_unchanged` (os testes existentes do `ModelsPanel` em `tests/app/test_menus.py` passam sem edição);
@@ -405,10 +405,10 @@ Afetada pelas decisões "download do modelo" e "painel Memórias" (spec §2).
   - `test_memories_semantic_line_no_digits` (on e words);
   - `test_mind_view_shows_vector_counts`;
   - `test_memory_provider_semantic_summary` (language falso `ready` → `on`; `off` → `words`; sem language → `words`).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/app tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m9): recall-by-meaning controls in models, memories and mind view`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/app tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m9): recall-by-meaning controls in models, memories and mind view`.
 
 ---
 

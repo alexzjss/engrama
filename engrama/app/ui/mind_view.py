@@ -75,6 +75,13 @@ class MindView:
         except Exception:
             return y
         y += draw_text(surface, line, (6, y), vd.FG, 10) + 1
+        try:   # M9: vectors / items and whether recall is by meaning (numbers allowed in the Mind View)
+            sem = i18n.t("ui.memories.semantic_on" if s.get("semantic") == "on" else "ui.memories.semantic_off")
+            vline = (f"{i18n.t('ui.mind.vectors')}: {int(s.get('vectors', 0))}/{int(s.get('items', 0))}  {sem}")
+        except Exception:
+            vline = ""
+        if vline:
+            y += draw_text(surface, vline, (6, y), vd.DIM, 10) + 1
         if refl:
             y += draw_text(surface, refl, (6, y), vd.DIM, 10) + 1
         return y + 4
