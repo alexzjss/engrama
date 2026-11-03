@@ -88,8 +88,9 @@ def test_m9_constants():
     assert m.MAX_EPISODES == 2000 and m.CURRENT_MIN_SALIENCE == 0.35
 
 
-def test_recall_function_still_m8_signature():
+def test_recall_function_signature_m8_plus_optional_qvec():
     import inspect
 
     params = inspect.signature(recall).parameters
-    assert list(params) == ["memory", "text", "stage", "lang"]
+    assert list(params) == ["memory", "text", "stage", "lang", "qvec"]
+    assert params["qvec"].default is None
