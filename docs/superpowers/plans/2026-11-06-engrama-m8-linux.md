@@ -337,14 +337,14 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - Hyprland: objeto vazio `{}` (nenhuma janela) ou JSON inválido → `None`.
   - `dbus_idle.idle_ms`: tenta `gdbus call --session --dest org.gnome.Mutter.IdleMonitor --object-path /org/gnome/Mutter/IdleMonitor/Core --method org.gnome.Mutter.IdleMonitor.GetIdletime` e depois `org.freedesktop.ScreenSaver ... GetSessionIdleTime`; lembra qual funcionou; analisa `(uint64 N,)` e `(uint32 N,)`; `gdbus` ausente (`FileNotFoundError`), código ≠ 0 ou tempo limite → próximo ou `None`. `run` padrão = `subprocess.run(args, capture_output=True, text=True, timeout=timeout)`. O ScreenSaver devolve segundos em algumas implementações e ms em outras: o builder decide pela documentação do KDE e registra a escolha num comentário.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - Hyprland: `test_socket_path`, `test_active_window_from_fixture` (servidor falso num socket Unix em `tmp_path`), `test_fullscreen_flags`, `test_empty_object_is_none`, `test_missing_socket_none`, `test_silent_socket_times_out` (≤ 0,3 s);
   - Sway: `test_ipc_header`, `test_focused_node_found` (árvore aninhada com nó flutuante focado), `test_xwayland_class_fallback`, `test_no_focus_none`;
   - DBus: `test_mutter_reply_parsed`, `test_screensaver_fallback`, `test_gdbus_missing_none`, `test_timeout_none`, `test_remembers_working_backend` (o runner falso conta chamadas).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/osapi tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m8): Hyprland and Sway IPC, DBus idle time`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/osapi tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m8): Hyprland and Sway IPC, DBus idle time`.
 
 ---
 
