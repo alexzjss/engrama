@@ -302,7 +302,7 @@ Afetada pela decisão "forma das comparações" (spec §2).
   - `recipes/ctrnn-v1.toml`: cópia de `default-v1` com `type = "temporal.ctrnn"` no lugar de `temporal.snn` (mesma posição na lista, para os RNGs dos outros módulos não mudarem), `name = "ctrnn-v1"`, `version = 1`.
   - `recipes/shadow-ctrnn-v1.toml`: cópia de `default-v1` mais `[[shadow]] type = "temporal.ctrnn"`, `name = "shadow-ctrnn-v1"`.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_writes_temporal_channels_in_range`;
   - `test_dt_invariant` (mesmos eventos com `dt = 1` e `dt = 60`: as mesmas saídas nas fronteiras de bin, como o teste equivalente da SNN);
   - `test_rare_event_more_surprising` (um evento raro dá mais surpresa que um comum depois de habituar);
@@ -317,10 +317,10 @@ Afetada pela decisão "forma das comparações" (spec §2).
     - `assert_no_global_rng`;
     - `mean_ms ≤ EXP_BUDGET_MS`;
   - `test_shadow_ctrnn_live_identical_to_default` (`assert_same_live_actions`).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/modules/test_ctrnn.py tests/modules/test_snn.py tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m10): CTRNN temporal module and recipes`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/modules/test_ctrnn.py tests/modules/test_snn.py tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m10): CTRNN temporal module and recipes`.
 
 ---
 
