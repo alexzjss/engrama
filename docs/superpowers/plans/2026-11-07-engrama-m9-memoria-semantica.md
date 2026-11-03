@@ -216,7 +216,7 @@ Afetada pelas decisões "modelo de embedding" e "download" (spec §2).
   - `model` mudou desde a última chamada → estado volta a `cold` (sem `tags()` velho).
   - Nunca chama `pull`: baixar é só pelo F5 (T5).
 
-- [ ] **Passo 1:** escreva os testes (com `http_json` falso no `OllamaClient` e cliente falso no `Embedder`):
+- [x] **Passo 1:** escreva os testes (com `http_json` falso no `OllamaClient` e cliente falso no `Embedder`):
   - `test_embed_request_body` (URL `/api/embed`, `input` lista, `truncate`, `keep_alive`), `test_embed_error_raises`, `test_embed_timeout_and_offline`;
   - `test_family_and_installed` (`embeddinggemma` × `embeddinggemma:latest`; `nomic-embed-text:v1.5` não casa com `nomic-embed-text`);
   - `test_status_off_missing_cold_ready` (config vazia → off; `tags` sem o modelo → missing; com → cold; `warm` ok → ready);
@@ -226,10 +226,10 @@ Afetada pelas decisões "modelo de embedding" e "download" (spec §2).
   - `test_not_ready_never_calls_client` (off/missing/cold/failed → `query`/`documents` sem chamada);
   - `test_dim_change_flag`, `test_model_change_resets_to_cold`;
   - `test_never_pulls` (cliente falso cujo `pull` falha o teste).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/services/language tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m9): Ollama embed client and Embedder`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/services/language tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m9): Ollama embed client and Embedder`.
 
 ---
 
