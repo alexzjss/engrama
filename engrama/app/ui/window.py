@@ -9,11 +9,14 @@ from engrama.app import i18n
 from engrama.app.audio.growl import Growler
 from engrama.app.art import digital_fx
 from engrama.app.art.sprites import Look
+from engrama.app.desktop import Desktop, NullDesktop
 from engrama.app.snapshot import Snapshot
 from engrama.app.ui import menus
 from engrama.app.ui.chat import ChatBox, _wrap as chat_wrap
 from engrama.app.ui.hud import Hud, draw_text, font
+from engrama.app.ui.overlay import OverlayController
 from engrama.app.ui.scene import FAREWELL_BUBBLE_AT, Scene
+from engrama.app.ui.variants import VariantCtx, pick_variant
 
 SCALE = 4
 EAT_SECONDS = 2.0
@@ -68,6 +71,8 @@ class Window:
         self.post = post
         self.language = language
         self.size = size
+        self.mode = "terrarium"
+        self.desktop: Desktop = NullDesktop()
         self.set_rest = set_rest
         self.set_time_scale = set_time_scale
         pygame.display.init()
@@ -103,6 +108,59 @@ class Window:
         self._last_active = 0.0
         self._events: queue.SimpleQueue = queue.SimpleQueue()
         self._snap = self.get_snapshot()
+        self.variant = ""
+        self.variant_item = ""
+        self.variant_n = 0
+        self._variant_key: tuple | None = None
+        self._prev_now: float | None = None
+        self._overlay: OverlayController | None = None
+
+    # --- display mode
+    @property
+    def overlay(self) -> OverlayController:
+        if self._overlay is None or self._overlay.desktop is not self.desktop:
+            if self._overlay is not None and self._overlay.active:
+                self._overlay.leave()
+            self._overlay = OverlayController(self, self.desktop)
+        return self._overlay
+
+    def set_mode(self, mode: str) -> bool:
+        if mode not in vocab.DISPLAY_MODES:
+            return False
+        if mode == self.mode:
+            return True
+        self.close_panel()
+        if mode == "overlay":
+            if not self.desktop.available or not self.overlay.enter():
+                self._notice = (i18n.t("ui.overlay.unavailable"), time.monotonic() + 4.0)
+                return False
+        else:
+            self.overlay.leave()
+        self.mode = mode
+        self._variant_key = None
+        cfg = getattr(self, "config", None)
+        if cfg is not None:
+            cfg.display_mode = mode
+            if callable(self.save_config):
+                self.save_config()
+        return True
+
+    def refresh_variant(self, snap) -> None:
+        """Re-roll the purely visual behaviour variant whenever the action (or stage) changes."""
+        key = (snap.action, snap.stage)
+        if key == self._variant_key:
+            return
+        self._variant_key = key
+        self.variant_n += 1
+        look = snap.look or {}
+        seed = int(look.get("seed", 0)) if isinstance(look, dict) else 0
+        in_overlay = self.mode == "overlay"
+        ov = self._overlay
+        ctx = VariantCtx(stage=snap.stage, pad=tuple(snap.pad), needs=dict(snap.needs), overlay=in_overlay,
+                         cursor_near=bool(in_overlay and ov is not None and ov.cursor_near), theme=snap.theme,
+                         peek_ok=bool(in_overlay and ov is not None and ov.peek_ok), asleep=snap.asleep)
+        self.variant = pick_variant(snap.action, ctx, seed, self.variant_n)
+        self.variant_item = ("osso", "chip", "pedra", "arquivo")[(seed + self.variant_n) % 4] if self.variant == "found" else ""
 
     # --- panels
     def open_panel(self, name: str) -> None:
@@ -141,8 +199,8 @@ class Window:
         self.digital_fx = (digital_id, time.monotonic())
         self.close_panel()
 
-    def _draw_digital(self, snap) -> None:
-        r = self.scene.creature_rect
+    def _draw_digital(self, snap, scene=None) -> None:
+        r = (scene or self.scene).creature_rect
         rect = pygame.Rect(r.x * SCALE, r.y * SCALE, r.w * SCALE, r.h * SCALE)
         if self.digital_fx is not None:
             did, t0 = self.digital_fx
@@ -166,7 +224,10 @@ class Window:
     def target_fps(self) -> int:
         if self._snap.resting:
             return 2
-        return 20 if self.focused else 5
+        base = 20 if self.focused else 5
+        if self.mode == "overlay" and self._overlay is not None and self._overlay.moving:
+            return max(base, 10)   # walking needs a few more frames, still far below the terrarium's 20
+        return base
 
     # --- input
     def handle_event(self, e: pygame.event.Event) -> None:
@@ -182,8 +243,12 @@ class Window:
                 self.toggle_eyes()
             elif self.panel_name == "first_use":
                 self.panel.handle_event(e)   # modal: nothing else reacts while it is open
+            elif e.key == pygame.K_F11:
+                self.set_mode("terrarium" if self.mode == "overlay" else "overlay")
             elif e.key == pygame.K_ESCAPE:
                 self.close_panel()
+                if self.mode == "overlay":
+                    self.overlay.close_menus()
             elif e.key in KEY_PANELS:
                 self.toggle_panel(KEY_PANELS[e.key])
             elif e.key == pygame.K_F3:
@@ -198,20 +263,28 @@ class Window:
                 self.set_time_scale(TIME_SCALES[self._scale_i])
             elif self.panel is not None:
                 self.panel.handle_event(e)
-            else:
+            elif self._chat_listens():
                 self.chat.handle_event(e)
         elif e.type == pygame.MOUSEBUTTONDOWN and getattr(e, "button", 1) == 1:
             self._touch()
             if self.panel is not None:
                 self.panel.handle_event(e)
+            elif self.mode == "overlay":
+                self.overlay.handle_event(e)
             else:
                 self._click(e.pos)
+        elif self.mode == "overlay" and self.panel is None and e.type in (pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
+            self.overlay.handle_event(e)
         elif self.panel is not None and e.type in (pygame.TEXTINPUT, pygame.TEXTEDITING, pygame.MOUSEWHEEL):
             self.panel.handle_event(e)
-        elif e.type in (pygame.TEXTINPUT, pygame.TEXTEDITING):
+        elif e.type in (pygame.TEXTINPUT, pygame.TEXTEDITING) and self._chat_listens():
             self.chat.handle_event(e)
         elif e.type == pygame.DROPFILE:
             self._drop(getattr(e, "file", None))
+
+    def _chat_listens(self) -> bool:
+        """The terrarium chat is always on; in the overlay it only takes keys once "Talk" opened its box."""
+        return self.mode != "overlay" or self.overlay.chat_open
 
     def toggle_eyes(self) -> None:
         cfg = getattr(self, "config", None)
@@ -248,11 +321,16 @@ class Window:
             self._last_active = now
             self.post("user_active", None)
 
+    def farewell_click(self, scene) -> bool:
+        """A click after the farewell text is shown (or after the fade) moves on."""
+        shown = bool(self.farewell_text) and scene.farewell_age >= FAREWELL_BUBBLE_AT
+        if (shown or scene.farewell_done) and callable(self.on_farewell_skip):
+            self.on_farewell_skip()
+        return True
+
     def _click(self, pos) -> None:
-        if self._snap.dead:   # farewell: a click after the text is shown (or after the fade) moves on
-            shown = bool(self.farewell_text) and self.scene.farewell_age >= FAREWELL_BUBBLE_AT
-            if (shown or self.scene.farewell_done) and callable(self.on_farewell_skip):
-                self.on_farewell_skip()
+        if self._snap.dead:
+            self.farewell_click(self.scene)
             return
         r = self.scene.creature_rect
         hit = pygame.Rect(r.x * SCALE, r.y * SCALE, r.w * SCALE, r.h * SCALE).inflate(16, 16)
@@ -279,7 +357,18 @@ class Window:
         self._snap = snap = self.get_snapshot()
         self._maybe_first_use()
         self._drain_host_events()
-        self.scene.draw(self.low, snap, now, eating=time.monotonic() < self.eat_until)
+        dt = 0.0 if self._prev_now is None else max(0.0, min(0.5, now - self._prev_now))
+        self._prev_now = now
+        if self.mode == "overlay":
+            ov = self.overlay
+            ov.update(snap, dt, now)
+            if not ov.hidden:
+                ov.draw(self.screen, snap, now)
+                pygame.display.flip()
+            return
+        self.refresh_variant(snap)
+        self.scene.draw(self.low, snap, now, eating=time.monotonic() < self.eat_until, variant=self.variant,
+                        item=self.variant_item)
         pygame.transform.scale(self.low, self.size, self.screen)
         self.hud.draw(self.screen, snap, self.dev)
         if snap.dead:

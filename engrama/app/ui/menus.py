@@ -334,6 +334,8 @@ class SettingsPanel:
 
     def _items(self) -> list[str]:
         items = ["lang", "mute", "rest"]
+        if getattr(getattr(self.window, "desktop", None), "available", False):
+            items.append("overlay")
         if getattr(self.window, "dev", False):
             items.append("scale")
         return items
@@ -359,6 +361,8 @@ class SettingsPanel:
             fn = getattr(w, "set_rest", None)
             if fn:
                 fn(w.rest_manual)
+        elif item == "overlay":
+            w.set_mode("terrarium" if getattr(w, "mode", "terrarium") == "overlay" else "overlay")
         elif item == "scale":
             scales = (1.0, 10.0, 60.0)
             self._scale_i = (self._scale_i + 1) % len(scales)
@@ -382,6 +386,9 @@ class SettingsPanel:
             elif item == "rest":
                 on = getattr(w, "rest_manual", False)
                 label, val = i18n.t("ui.rest.on") if on else i18n.t("ui.rest.off"), "[x]" if on else "[ ]"
+            elif item == "overlay":
+                label = i18n.t("ui.menu.overlay")
+                val = "[x]" if getattr(w, "mode", "terrarium") == "overlay" else "[ ]"
             else:
                 label = i18n.t("ui.dev")
                 val = ("1x", "10x", "60x")[self._scale_i]

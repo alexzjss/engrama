@@ -67,14 +67,17 @@ class Scene:
         return self._bg
 
     def draw(self, surface: pygame.Surface, snap: Snapshot, now: float, eating: bool = False,
-             variant: str = "", background: bool = True, item: str = "") -> None:
+             variant: str = "", background: bool = True, item: str = "", flip: bool = False,
+             pos_x: int | None = None, ground: int | None = None) -> None:
         if background:
             surface.blit(self._background(), (0, 0))
         w, h = self.size
         look = Look.from_dict(snap.look)
         stage = snap.stage if snap.stage in sprites.SIZES else "baby"
         self.is_egg = stage == "egg"
-        ground = int(h * 0.80)
+        x_override = pos_x
+        if ground is None:
+            ground = int(h * 0.80)
         if self.is_egg:
             level = min(3, int(snap.egg_clicks * 4 / max(1, balance.EGG_HATCH_CLICKS)))
             if level == 0:
@@ -107,6 +110,10 @@ class Scene:
                 img = sprites.frames(look, stage, "sleep")[0]   # user asked for closed eyes: first sleep frame has them shut
             moving = snap.action in ("wander", "explore") and not snap.asleep
             pos_x = int(w / 2 + (math.sin(now * 0.6) * w * 0.3 if moving else math.sin(now * 0.1) * 6))
+        if x_override is not None:   # overlay: the caller owns the horizontal position
+            pos_x = int(x_override)
+        if flip:
+            img = pygame.transform.flip(img, True, False)
         if not snap.dead:
             self._dead_t0 = None
             self._age = 0.0
