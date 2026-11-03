@@ -32,7 +32,10 @@ def _ping_after_start():
     return ping
 
 
-def test_server_env_points_to_drive_e(tmp_path):
+def test_server_env_points_to_drive_e(tmp_path, monkeypatch):
+    from engrama.services.language import server as server_mod
+
+    monkeypatch.setattr(server_mod.sys, "platform", "win32")
     seen = {}
 
     def popen(cmd, **kw):
@@ -84,3 +87,56 @@ def test_start_timeout_returns_false(tmp_path):
     srv = OllamaServer(_cfg(tmp_path), popen=lambda *a, **k: FakeProc(), ping=lambda u, t: False,
                        start_timeout=0.3)
     assert srv.start() is False
+
+
+def test_server_linux_no_creationflags_no_home(tmp_path, monkeypatch):
+    import os
+
+    from engrama.services.language import server as server_mod
+
+    monkeypatch.setattr(server_mod.sys, "platform", "linux")
+    seen = {}
+
+    def popen(cmd, **kw):
+        seen["kw"] = kw
+        return FakeProc()
+
+    cfg = _cfg(tmp_path)
+    assert cfg.ollama_home is None and cfg.ollama_models is None
+    srv = OllamaServer(cfg, popen=popen, ping=_ping_after_start())
+    assert srv.start() is True
+    kw = seen["kw"]
+    assert "creationflags" not in kw
+    assert kw["env"].get("HOME") == os.environ.get("HOME")
+    assert kw["env"].get("OLLAMA_MODELS") == os.environ.get("OLLAMA_MODELS")
+    assert kw["env"].get("USERPROFILE") == os.environ.get("USERPROFILE")
+
+
+def test_server_linux_custom_home_sets_home_only(tmp_path, monkeypatch):
+    import os
+
+    from engrama.services.language import server as server_mod
+
+    monkeypatch.setattr(server_mod.sys, "platform", "linux")
+    seen = {}
+
+    def popen(cmd, **kw):
+        seen["kw"] = kw
+        return FakeProc()
+
+    cfg = _cfg(tmp_path)
+    cfg.ollama_home = tmp_path / "home"
+    srv = OllamaServer(cfg, popen=popen, ping=_ping_after_start())
+    assert srv.start() is True
+    env = seen["kw"]["env"]
+    assert env["HOME"] == str(cfg.ollama_home)
+    assert env.get("USERPROFILE") == os.environ.get("USERPROFILE")
+
+
+def test_popen_valueerror_is_failure(tmp_path):
+    def popen(cmd, **kw):
+        raise ValueError("embedded null byte")
+
+    srv = OllamaServer(_cfg(tmp_path), popen=popen, ping=lambda u, t: False)
+    assert srv.start() is False
+    assert not srv.started_by_us

@@ -150,3 +150,20 @@ def test_m8_i18n_keys_pt_en_no_digits():
         assert key in pt and key in en
         assert not any(c.isdigit() for c in pt[key])
         assert not any(c.isdigit() for c in en[key])
+
+
+def test_system_lang_linux_env(monkeypatch):
+    monkeypatch.setattr(i18n.locale, "getlocale", lambda *a: (None, None))
+
+    def name(env):
+        return i18n._ui_locale_name(env=env, platform="linux")
+
+    assert name({"LANG": "pt_BR.UTF-8"}).startswith("pt")
+    assert name({"LANGUAGE": "en_US:pt_BR"}).startswith("en")
+    assert name({"LC_ALL": "pt_BR.UTF-8", "LANG": "en_US.UTF-8"}).startswith("pt")
+    assert name({"LC_MESSAGES": "pt_PT", "LANG": "en_US"}).startswith("pt")
+    assert name({"LANG": "C"}) == ""
+    assert name({"LANG": "POSIX"}) == ""
+    assert name({}) == ""
+    monkeypatch.setattr(i18n.locale, "getlocale", lambda *a: ("pt_BR", "UTF-8"))
+    assert name({}) == "pt_BR"

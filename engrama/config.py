@@ -1,12 +1,35 @@
 import json
+import re
+import shutil
+import sys
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 from engrama.vocab import DISPLAY_MODES
 
+_WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
+
 
 def default_data_dir() -> Path:
     return Path(__file__).resolve().parents[1] / "data"
+
+
+def default_ollama_exe(platform: str | None = None) -> Path:
+    plat = sys.platform if platform is None else platform
+    if plat == "win32":
+        return Path(r"E:\Ollama\ollama.exe")
+    found = shutil.which("ollama")
+    return Path(found) if found else Path("/usr/local/bin/ollama")
+
+
+def _default_ollama_home(platform: str | None = None) -> Path | None:
+    plat = sys.platform if platform is None else platform
+    return Path(r"E:\Ollama\home") if plat == "win32" else None
+
+
+def _default_ollama_models(platform: str | None = None) -> Path | None:
+    plat = sys.platform if platform is None else platform
+    return Path(r"E:\Ollama\models") if plat == "win32" else None
 
 
 def _default_permissions() -> dict[str, bool]:
@@ -16,9 +39,9 @@ def _default_permissions() -> dict[str, bool]:
 @dataclass
 class Config:
     data_dir: Path = field(default_factory=default_data_dir)
-    ollama_exe: Path = Path(r"E:\Ollama\ollama.exe")
-    ollama_home: Path = Path(r"E:\Ollama\home")
-    ollama_models: Path = Path(r"E:\Ollama\models")
+    ollama_exe: Path = field(default_factory=default_ollama_exe)
+    ollama_home: Path | None = field(default_factory=_default_ollama_home)     # None = do not touch HOME
+    ollama_models: Path | None = field(default_factory=_default_ollama_models)  # None = do not set OLLAMA_MODELS
     ollama_url: str = "http://127.0.0.1:11434"
     model: str = "qwen3:1.7b"
     keep_alive_s: float = 600.0
@@ -49,7 +72,12 @@ class Config:
                 continue
             v = raw[f.name]
             if f.name in ("data_dir", "ollama_exe", "ollama_home", "ollama_models"):
-                v = Path(v)
+                if f.name in ("ollama_exe", "ollama_home", "ollama_models") and sys.platform != "win32" \
+                        and isinstance(v, str) and _WINDOWS_PATH.match(v):
+                    # M8: a Windows path saved on another machine is replaced by the Linux default
+                    v = default_ollama_exe() if f.name == "ollama_exe" else None
+                elif v is not None:
+                    v = Path(v)
             elif f.name == "recommended_models":
                 v = tuple(v)
             elif f.name == "permissions":
