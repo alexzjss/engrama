@@ -4,8 +4,15 @@ Never raises: every method falls back to an inert value on any failure.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import sys
+
+import numpy as np
+import pygame
+
+from engrama.osapi.session import detect
+from engrama.osapi.x11 import X11
 
 COLORKEY = (255, 0, 255)
 Rect = tuple[int, int, int, int]  # x, y, w, h in screen pixels
@@ -15,6 +22,7 @@ _FALLBACK_WORK: Rect = (0, 0, 1280, 720)
 
 class Desktop:
     available: bool = False
+    unavailable_reason: str = ""
 
     def work_area(self) -> Rect:
         return _FALLBACK_WORK
@@ -34,12 +42,18 @@ class Desktop:
     def show(self, hwnd: int, visible: bool) -> None:
         return None
 
+    def update_shape(self, hwnd: int, surface: pygame.Surface) -> None:
+        return None
+
     def restore(self, hwnd: int) -> None:
         return None
 
 
 class NullDesktop(Desktop):
     available = False
+
+    def __init__(self, reason: str = "") -> None:
+        self.unavailable_reason = reason
 
 
 class FakeDesktop(Desktop):
@@ -54,6 +68,7 @@ class FakeDesktop(Desktop):
         self.fg = fg
         self.calls: list[tuple] = []
         self._last: dict[int, Rect] = {}
+        self._shape: dict[int, tuple] = {}
 
     def work_area(self) -> Rect:
         return self.work
@@ -78,8 +93,17 @@ class FakeDesktop(Desktop):
     def show(self, hwnd: int, visible: bool) -> None:
         self.calls.append(("show", hwnd, bool(visible)))
 
+    def update_shape(self, hwnd: int, surface: pygame.Surface) -> None:
+        mask, w, h = shape_mask(surface)
+        key = ((w, h), hashlib.blake2b(mask, digest_size=8).digest())
+        if self._shape.get(hwnd) == key:
+            return
+        self._shape[hwnd] = key
+        self.calls.append(("shape", hwnd, key[0], key[1]))
+
     def restore(self, hwnd: int) -> None:
         self._last.pop(hwnd, None)
+        self._shape.pop(hwnd, None)
         self.calls.append(("restore", hwnd))
 
 
@@ -253,10 +277,148 @@ class WinDesktop(Desktop):
             pass
 
 
-def get_desktop() -> Desktop:
-    if sys.platform != "win32" or os.environ.get("SDL_VIDEODRIVER") == "dummy":
-        return NullDesktop()
+def shape_mask(surface: pygame.Surface) -> tuple[bytes, int, int]:
+    """XBM bitmap (LSB first, rows padded to bytes) of every pixel that is not the colour key."""
+    w, h = surface.get_size()
     try:
-        return WinDesktop()
+        px = pygame.surfarray.pixels2d(surface)
     except Exception:
-        return NullDesktop()
+        px = pygame.surfarray.array2d(surface)
+    solid = (px != surface.map_rgb(COLORKEY)).T          # (h, w)
+    del px
+    return np.packbits(solid, axis=1, bitorder="little").tobytes(), w, h
+
+
+class X11Desktop(Desktop):
+    """Overlay on an X11 session: always-on-top borderless window shaped by the colour-key mask."""
+
+    available = True
+    _STATES = ("_NET_WM_STATE_SKIP_TASKBAR", "_NET_WM_STATE_SKIP_PAGER", "_NET_WM_STATE_STICKY")
+
+    def __init__(self, x, window=None) -> None:
+        self._x = x
+        self._window_fn = window or pygame.Window.from_display_module
+        self._last: dict[int, Rect] = {}
+        self._shape: dict[int, tuple] = {}
+        self._own: Rect | None = None
+
+    def _win(self):
+        try:
+            return self._window_fn()
+        except Exception:
+            return None
+
+    def work_area(self) -> Rect:
+        try:
+            r = self._x.work_area()
+            if r:
+                return tuple(int(v) for v in r)  # type: ignore[return-value]
+            sz = self._x.screen_size()
+            if sz:
+                return (0, 0, int(sz[0]), int(sz[1]))
+        except Exception:
+            pass
+        return _FALLBACK_WORK
+
+    def cursor(self) -> tuple[int, int] | None:
+        try:
+            return self._x.pointer()
+        except Exception:
+            return None
+
+    def foreground_rect(self) -> Rect | None:
+        try:
+            a = self._x.active()
+            if a is None or a.rect is None:
+                return None
+            if a.pid == os.getpid() or (self._own is not None and tuple(a.rect) == self._own):
+                return None   # our own overlay window
+            return tuple(a.rect)  # type: ignore[return-value]
+        except Exception:
+            return None
+
+    def make_overlay(self, hwnd: int) -> bool:
+        try:
+            win = self._win()
+            if win is None or self._x is None or not hwnd:
+                return False
+            win.always_on_top = True
+            for atom in self._STATES:
+                self._x.set_state(hwnd, atom, True)
+            self._last.pop(hwnd, None)
+            self._shape.pop(hwnd, None)
+            return True
+        except Exception:
+            return False
+
+    def place(self, hwnd: int, rect: Rect) -> None:
+        try:
+            rect = tuple(int(v) for v in rect)  # type: ignore[assignment]
+            if self._last.get(hwnd) == rect:
+                return
+            win = self._win()
+            if win is None:
+                return
+            x, y, w, h = rect
+            if tuple(win.size) != (w, h):
+                win.size = (w, h)
+            win.position = (x, y)
+            self._last[hwnd] = rect
+            self._own = rect
+        except Exception:
+            pass
+
+    def show(self, hwnd: int, visible: bool) -> None:
+        try:
+            win = self._win()
+            if win is not None:
+                win.show() if visible else win.hide()
+        except Exception:
+            pass
+
+    def update_shape(self, hwnd: int, surface: pygame.Surface) -> None:
+        try:
+            mask, w, h = shape_mask(surface)
+            key = ((w, h), hashlib.blake2b(mask, digest_size=8).digest())
+            if self._shape.get(hwnd) == key:
+                return
+            if self._x.set_shape(hwnd, mask, w, h):
+                self._shape[hwnd] = key
+        except Exception:
+            pass
+
+    def restore(self, hwnd: int) -> None:
+        try:
+            self._last.pop(hwnd, None)
+            self._shape.pop(hwnd, None)
+            self._own = None
+            self._x.set_shape(hwnd, None, 0, 0)
+            for atom in self._STATES:
+                self._x.set_state(hwnd, atom, False)
+            win = self._win()
+            if win is not None:
+                win.always_on_top = False
+        except Exception:
+            pass
+
+
+def get_desktop() -> Desktop:
+    if os.environ.get("SDL_VIDEODRIVER") == "dummy":
+        return NullDesktop("unsupported")
+    if sys.platform == "win32":
+        try:
+            return WinDesktop()
+        except Exception:
+            return NullDesktop("unsupported")
+    if sys.platform.startswith("linux"):
+        try:
+            kind = detect().kind
+            if kind == "wayland":
+                return NullDesktop("wayland")
+            if kind == "x11" and pygame.display.get_driver() == "x11":
+                x = X11.open()
+                if x is not None:
+                    return X11Desktop(x)
+        except Exception:
+            pass
+    return NullDesktop("unsupported")
