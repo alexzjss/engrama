@@ -21,15 +21,11 @@ A receita `default-v1` e tudo o que ela produz ficam byte a byte iguais ao M9.
 
 **Spec:** `docs/superpowers/specs/2026-11-08-engrama-m10-experimentos-design.md`. As seções 2, 3, 5, 6, 7 e 9 são requisito; a §10 dá os tempos medidos e a §11 os riscos. Contexto: arquitetura v2 (§4 contrato e famílias, §6 laboratório), plano v2 (sombra, replay, `compare`) e a nota R21 do M2.
 
-**Antes de começar:** as decisões marcadas **[pendente]** na spec §2 precisam da resposta do usuário antes da Onda 0. Este plano segue as recomendações:
-- só lab/CLI, sem UI;
-- `world.error` entra em `CHANNELS`;
-- nenhuma promoção a padrão;
-- uma troca por receita, e `aif-solo-v1` só no relatório.
-
-Se o usuário escolher outra coisa:
-- **(b) ou (c) para escolher experimento no app:** entra uma tarefa de UI na Onda C (painel F10, i18n, testes de UI), e a T7 cresce;
-- **`CHANNELS` congelado:** a T2 junta o modelo de mundo dentro do `policy.curious` (sem `world.model` e sem canal novo), e a T0 não mexe em `contracts.py`.
+**Antes de começar:** o usuário respondeu as decisões da spec §2 (2026-11-03) e aceitou todas as recomendações. Este plano segue essas decisões:
+- só lab/CLI (`--recipe` na linha de comando, em pasta de dados nova), sem UI;
+- `world.error` entra em `CHANNELS` (único canal novo);
+- nenhuma promoção a padrão no M10;
+- uma troca por receita, e `aif-solo-v1` só como linha extra do relatório, fora da aceitação.
 
 ## Restrições globais
 
