@@ -231,8 +231,8 @@ Afetada pelas decisões "criatura padrão" e "canal novo `world.error`" (spec §
   - As linhas novas de `REGISTRY` apontam para arquivos que só existem depois da Onda A. Até lá, `build` levanta `ModuleUnavailable` (o import é preguiçoso).
   - O gabarito novo é gerado **com o código do M9, antes de qualquer outra mudança**: `python -m engrama.lab sim --recipe recipes/default-v1.toml --days 7 --seed 2 --profile neglectful > tests/fixtures/m9_sim_7d_seed2_neglectful.json`. Ele tem que conter pelo menos uma morte e um renascimento; se não tiver, troque a semente e registre no commit.
 
-- [ ] **Passo 1:** com o código do M9 intacto, gere e commite o gabarito novo. Anote o SHA-256 atual de `recipes/default-v1.toml` e `recipes/minimal-v1.toml`.
-- [ ] **Passo 2:** escreva os testes:
+- [x] **Passo 1:** com o código do M9 intacto, gere e commite o gabarito novo. Anote o SHA-256 atual de `recipes/default-v1.toml` e `recipes/minimal-v1.toml`.
+- [x] **Passo 2:** escreva os testes:
   - `tests/test_m10_guard.py`:
     - `test_default_lab_matches_m6_fixture` (a mesma comparação do `test_lab_identical_to_m8`);
     - `test_default_multilife_matches_m9_fixture` (`slow`; 7 dias, semente 2, `neglectful`; `lives.generations_finished ≥ 1`);
@@ -249,10 +249,10 @@ Afetada pelas decisões "criatura padrão" e "canal novo `world.error`" (spec §
     - `assert_no_global_rng` com `minimal-v1`;
     - `test_kit_detects_global_rng` (um módulo falso que chama `np.random.random()` faz o kit falhar);
     - `test_new_types_registered_lazily` (os cinco nomes estão no `REGISTRY`; `build` não quebra o import do `registry`).
-- [ ] **Passo 3:** rode os testes. Esperado: FAIL nos novos (os gabaritos já passam).
-- [ ] **Passo 4:** implemente.
-- [ ] **Passo 5:** rode `-m pytest -q tests/test_m10_guard.py tests/modules tests/mind tests/lab tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 6:** commit `feat(m10): M9 lab golden, constants, world.error channel, registry and module test kit`.
+- [x] **Passo 3:** rode os testes. Esperado: FAIL nos novos (os gabaritos já passam).
+- [x] **Passo 4:** implemente.
+- [x] **Passo 5:** rode `-m pytest -q tests/test_m10_guard.py tests/modules tests/mind tests/lab tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 6:** commit `feat(m10): M9 lab golden, constants, world.error channel, registry and module test kit`.
 
 ---
 
