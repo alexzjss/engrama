@@ -91,7 +91,7 @@ def test_food_menu_posts_food_event():
 def test_fps_policy():
     w, _, h = make(snap())
     w.frame(0)
-    assert w.target_fps == 20
+    assert w.target_fps == 10   # nothing moves: the still rate (M8); moving/chat/panel use 20
     w.handle_event(pygame.event.Event(pygame.WINDOWFOCUSLOST))
     assert w.target_fps == 5
     h["s"] = snap(resting=True)
@@ -217,3 +217,119 @@ def test_window_no_longer_posts_app_focus():
     w.handle_event(pygame.event.Event(pygame.WINDOWFOCUSLOST))
     w.handle_event(pygame.event.Event(pygame.WINDOWFOCUSGAINED))
     assert posts == [] and w.focused is True
+
+
+# ------------------------------------------------------------------ M8: skip identical frames, adaptive fps
+import hashlib
+import time
+
+from engrama import balance
+from engrama.app.desktop import FakeDesktop
+
+
+def _run_frames(skip, snaps, nows, mutate=None):
+    """Run a fresh window over (snapshot, now) pairs; return the screen hash after each frame and the flip count."""
+    flips = []
+    real = pygame.display.flip
+    pygame.display.flip = lambda: flips.append(1) or real()
+    try:
+        w, _, h = make(snaps[0])
+        w.skip_identical = skip
+        hashes = []
+        for i, (s, now) in enumerate(zip(snaps, nows)):
+            h["s"] = s
+            if mutate:
+                mutate(w, i)
+            w.frame(now)
+            hashes.append(hashlib.md5(pygame.image.tobytes(w.screen, "RGB")).hexdigest())
+        return hashes, len(flips)
+    finally:
+        pygame.display.flip = real
+
+
+def test_skip_identical_same_pixels():
+    base = dict(stage="child", action="idle", needs={"fome": 0.7})
+    snaps = [snap(**base) for _ in range(60)]
+    nows = [3.0 + (i // 3) * 0.1 for i in range(60)]   # repeated clock values: many truly identical frames
+    ha, fa = _run_frames(True, snaps, nows)
+    hb, fb = _run_frames(False, snaps, nows)
+    assert ha == hb
+    assert fb == 60 and fa < fb
+    # a snapshot change in the middle (HUD values) is never swallowed
+    snaps2 = snaps[:30] + [snap(**dict(base, needs={"fome": 0.9, "sono": 0.8})) for _ in range(30)]
+    ha, _ = _run_frames(True, snaps2, nows)
+    hb, _ = _run_frames(False, snaps2, nows)
+    assert ha == hb and ha[29] != ha[-1]
+
+
+def test_no_skip_with_panel_chat_or_notice():
+    def flips_while(setup):
+        counted = []
+        real = pygame.display.flip
+        pygame.display.flip = lambda: counted.append(1) or real()
+        try:
+            w, _, _ = make(snap(stage="child", action="idle"))
+            for _ in range(5):
+                w.frame(5.0)
+            assert len(counted) < 5, "identical frames should be skipped when nothing is active"
+            setup(w)
+            n0 = len(counted)
+            for _ in range(5):
+                w.frame(5.0)
+            return len(counted) - n0
+        finally:
+            pygame.display.flip = real
+
+    assert flips_while(lambda w: w.open_panel("food")) == 5
+    assert flips_while(lambda w: setattr(w.chat, "text", "oi")) == 5
+    assert flips_while(lambda w: setattr(w, "_notice", ("aviso", 1e18))) == 5
+    assert flips_while(lambda w: setattr(w.chat, "bubble", "oi") or setattr(w.chat, "bubble_until", 1e18)) == 5
+    assert flips_while(lambda w: setattr(w, "digital_fx", ("ram", time.monotonic()))) == 5
+
+
+def test_target_fps_still_vs_moving():
+    w, _, h = make(snap(stage="child", action="idle"))
+    w.frame(1.0)
+    assert w.target_fps == balance.FPS_STILL == 10
+    h["s"] = snap(stage="child", action="wander")
+    w.frame(1.1)
+    assert w.scene.moving and w.target_fps == balance.FPS_FOCUSED == 20
+    h["s"] = snap(stage="child", action="idle")
+    w.frame(1.2)
+    w.open_panel("food")
+    assert w.target_fps == 20
+    w.close_panel()
+    w.chat.text = "oi"
+    assert w.target_fps == 20
+    w.chat.text = ""
+    w.focused = False
+    assert w.target_fps == balance.FPS_UNFOCUSED == 5
+    h["s"] = snap(stage="child", action="idle", resting=True)
+    w.frame(1.3)
+    assert w.target_fps == balance.FPS_RESTING == 2
+
+
+def test_overlay_target_fps_and_skip():
+    w, _, h = make(snap(stage="adult", action="wander"))
+    w.desktop = FakeDesktop(work=(0, 0, 1280, 680), cur=(100, 100))
+    w.config = type("C", (), {"permissions": {}, "display_mode": "terrarium", "perception_asked": True})()
+    w.save_config = lambda: None
+    assert w.set_mode("overlay")
+    w.focused = False
+    for i in range(5):
+        w.frame(1.0 + i * 0.1)
+    assert w.overlay.moving and w.target_fps == 10
+    h["s"] = snap(stage="adult", action="idle")
+    for i in range(5):
+        w.frame(2.0 + i * 0.1)
+    assert not w.overlay.moving and w.target_fps == balance.FPS_UNFOCUSED
+    # still overlay, same clock: identical frames do not flip
+    counted = []
+    real = pygame.display.flip
+    pygame.display.flip = lambda: counted.append(1) or real()
+    try:
+        for _ in range(5):
+            w.frame(3.0)
+    finally:
+        pygame.display.flip = real
+    assert len(counted) <= 1

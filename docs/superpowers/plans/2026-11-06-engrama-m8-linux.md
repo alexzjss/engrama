@@ -210,18 +210,18 @@ Base: spec §10 (medições da máquina de referência). Meça antes e depois de
   - `Window.skip_identical: bool = True`. No terrário, se `panel is None`, `chat.quiet(now)`, sem aviso, sem efeito digital, sem despedida, e os bytes de `self.low` e `hud.key` forem iguais aos do quadro anterior, o quadro **não** amplia, não desenha HUD e não chama `flip`. No overlay, a mesma regra sobre a superfície baixa do overlay quando a janela não se moveu.
   - `Window.target_fps`: resting → `FPS_RESTING`; sem foco → `FPS_UNFOCUSED`; overlay andando → `max(base, FPS_OVERLAY_MOVING)`; terrário com foco → `FPS_FOCUSED` se `scene.moving` ou painel/chat ativo, senão `FPS_STILL`.
 
-- [ ] **Passo 1:** meça e anote a linha de base (`--app`, `--app --first-use`, `--overlay`, `--app --threads`).
-- [ ] **Passo 2:** escreva os testes:
+- [x] **Passo 1:** meça e anote a linha de base (`--app`, `--app --first-use`, `--overlay`, `--app --threads`).
+- [x] **Passo 2:** escreva os testes:
   - `test_look_of_cached_by_identity` (mesmo dict → mesmo objeto; dict novo igual → valor igual);
   - `test_skip_identical_same_pixels`: com relógio falso e snapshot fixo, 60 quadros com `skip_identical=True` e `False` produzem a mesma sequência de hashes de `screen` depois de cada `frame` e o número de `flip` cai (contar com `monkeypatch` de `pygame.display.flip`);
   - `test_no_skip_with_panel_chat_or_notice`;
   - `test_target_fps_still_vs_moving` (parado com foco → 10; andando → 20; sem foco → 5; descansando → 2; overlay andando → 10);
   - `test_bench_app_steady_state_config` (rodar `bench_app` 3 s e conferir que o `config.json` gerado tem `perception_asked` True e permissões False; com `first_use=True`, sem config);
   - `test_bench_threads_key_on_linux` (`skipif` fora do Linux).
-- [ ] **Passo 3:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 4:** implemente na ordem bench → `look_of` → pulo de quadros → FPS adaptativo, medindo depois de cada um.
-- [ ] **Passo 5:** rode `-m pytest -q tests/app tests/tools`, depois `-m pytest -q tests/test_m3_acceptance.py::test_core_budget tests/test_m7_acceptance.py::test_overlay_bench_within_budget`. Esperado: PASS com ≤2%. Se não fechar, **pare** e reporte a tabela ao controlador.
-- [ ] **Passo 6:** commit `perf(m8): steady-state bench, cached looks, skip identical frames, adaptive fps` com a tabela antes/depois no corpo.
+- [x] **Passo 3:** rode os testes. Esperado: FAIL.
+- [x] **Passo 4:** implemente na ordem bench → `look_of` → pulo de quadros → FPS adaptativo, medindo depois de cada um.
+- [x] **Passo 5:** rode `-m pytest -q tests/app tests/tools`, depois `-m pytest -q tests/test_m3_acceptance.py::test_core_budget tests/test_m7_acceptance.py::test_overlay_bench_within_budget`. Esperado: PASS com ≤2%. Se não fechar, **pare** e reporte a tabela ao controlador.
+- [x] **Passo 6:** commit `perf(m8): steady-state bench, cached looks, skip identical frames, adaptive fps` com a tabela antes/depois no corpo.
 
 ---
 

@@ -45,6 +45,7 @@ class Scene:
         self.size = size  # low-res size
         self.creature_rect = pygame.Rect(0, 0, 0, 0)  # low-res coordinates, from the last draw
         self.is_egg = True
+        self.moving = False   # the last draw displaced the creature (walking, jumping, bouncing) or animates fast
         self._bg: pygame.Surface | None = None
         self._dead_t0: float | None = None
         self._age = 0.0
@@ -72,10 +73,11 @@ class Scene:
         if background:
             surface.blit(self._background(), (0, 0))
         w, h = self.size
-        look = Look.from_dict(snap.look)
+        look = sprites.look_of(snap.look)
         stage = snap.stage if snap.stage in sprites.SIZES else "baby"
         self.is_egg = stage == "egg"
         x_override = pos_x
+        self.moving = False
         if ground is None:
             ground = int(h * 0.80)
         if self.is_egg:
@@ -110,6 +112,8 @@ class Scene:
                 img = sprites.frames(look, stage, "sleep")[0]   # user asked for closed eyes: first sleep frame has them shut
             moving = snap.action in ("wander", "explore") and not snap.asleep
             pos_x = int(w / 2 + (math.sin(now * 0.6) * w * 0.3 if moving else math.sin(now * 0.1) * 6))
+            self.moving = (moving or evolving or eating or snap.dead or snap.action == "ask_attention"
+                           or (plain and variant in ("jump", "dance", "dig", "chase")))
         if x_override is not None:   # overlay: the caller owns the horizontal position
             pos_x = int(x_override)
         if flip:

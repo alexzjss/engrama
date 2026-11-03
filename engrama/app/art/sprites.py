@@ -58,6 +58,20 @@ class Look:
                    ears=num("ears", 0, int), tail=num("tail", 0, int), pattern=num("pattern", 0, int),
                    palette=tuple(pal), voice_pitch=num("voice_pitch", 300.0, float))
 
+_look_cache: tuple[dict | None, "Look"] | None = None
+
+
+def look_of(d: dict | None) -> Look:
+    """`Look.from_dict` with a one-entry cache keyed by the identity of `d` (snapshots reuse the same dict every frame)."""
+    global _look_cache
+    c = _look_cache
+    if c is not None and c[0] is d:
+        return c[1]
+    look = Look.from_dict(d)
+    _look_cache = (d, look)
+    return look
+
+
 ANIMS = ("idle", "walk", "eat", "sleep", "happy", "sad", "sick", "evolve", "old", "dead")
 
 SIZES = {"egg": 16, "baby": 24, "child": 32, "adult": 40, "perfect": 44, "final": 48}
