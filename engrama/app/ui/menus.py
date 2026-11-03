@@ -154,23 +154,32 @@ def _enter(event) -> bool:
 
 
 class ModelsPanel:
-    """Lists recommended models, a free-text row, a download button with progress.
+    """Lists recommended models, a free-text row, a download button with progress, and (M9) the
+    'Busca por significado' block: embedding model choice, download and on/off switch.
 
-    Window attributes used: config (recommended_models, model), save_config(), language
-    (status, installed_models(), pull(name, on_progress))."""
+    Window attributes used: config (recommended_models, model, recommended_embed_models, embed_model,
+    semantic_recall), save_config(), language (status, embed_status, installed_models(),
+    pull(name, on_progress), set_embed_model(name), set_semantic_recall(on))."""
     ROW_H = 34
+    EMBED_SUB = 3          # embed block rows: 0 model, 1 download, 2 switch
 
     def __init__(self, window) -> None:
         self.window = window
         self.sel = 0
         self.text = ""
+        self.embed_focus = False
+        self.esel = 0
         self._lock = threading.Lock()
         self._pct = -2          # -2 idle, -1 failed, 0..100 running/done
         self._stat = ""
+        self._kind = "chat"     # which download the progress belongs to: "chat" or "embed"
         self._dirty = False     # a pull finished: refresh installed set
         self._installed: set[str] | None = None
         self._rows: list[pygame.Rect] = []
         self._dl_rect = pygame.Rect(0, 0, 0, 0)
+        self._embed_model_rect = pygame.Rect(0, 0, 0, 0)
+        self._embed_dl_rect = pygame.Rect(0, 0, 0, 0)
+        self._embed_sw_rect = pygame.Rect(0, 0, 0, 0)
 
     @property
     def config(self):
@@ -194,6 +203,32 @@ class ModelsPanel:
             return models[self.sel]
         return self.text.strip()
 
+    # --- M9 embedding block helpers
+    def _embed_models(self) -> list[str]:
+        cfg = self.config
+        if cfg is None:
+            return []
+        names = list(getattr(cfg, "recommended_embed_models", ()) or ())
+        cur = getattr(cfg, "embed_model", "") or ""
+        if cur and cur not in names:
+            names.insert(0, cur)
+        return names
+
+    def _embed_target(self) -> str:
+        cfg = self.config
+        return (getattr(cfg, "embed_model", "") or "") if cfg is not None else ""
+
+    def _embed_installed(self) -> bool:
+        name = self._embed_target()
+        inst = self._installed
+        return bool(name) and inst is not None and (name in inst or f"{name}:latest" in inst)
+
+    def _embed_status(self) -> str:
+        return str(getattr(self.language, "embed_status", "off") or "off")
+
+    def _embed_on(self) -> bool:
+        return bool(getattr(self.config, "semantic_recall", True))
+
     def on_open(self) -> None:
         self._refresh()
 
@@ -214,20 +249,77 @@ class ModelsPanel:
         if save:
             save()
 
+    def select_embed(self, name: str) -> None:
+        cfg = self.config
+        lang = self.language
+        if not name or cfg is None or lang is None:
+            return
+        try:
+            fn = getattr(lang, "set_embed_model", None)
+            if fn:
+                fn(name)
+        except Exception:
+            pass
+        cfg.embed_model = name
+        save = getattr(self.window, "save_config", None)
+        if save:
+            save()
+
+    def cycle_embed(self, step: int = 1) -> None:
+        names = self._embed_models()
+        if not names:
+            return
+        cur = self._embed_target()
+        i = names.index(cur) if cur in names else -1
+        self.select_embed(names[(i + step) % len(names)])
+
+    def toggle_embed(self) -> None:
+        cfg = self.config
+        lang = self.language
+        if cfg is None or lang is None:
+            return
+        new = not self._embed_on()
+        try:
+            fn = getattr(lang, "set_semantic_recall", None)
+            if fn:
+                fn(new)
+        except Exception:
+            pass
+        cfg.semantic_recall = new
+        save = getattr(self.window, "save_config", None)
+        if save:
+            save()
+
     def _progress(self, pct: int, status: str) -> None:  # may run on another thread
         with self._lock:
             self._pct, self._stat = int(pct), str(status)
             if pct >= 100 or pct < 0:
                 self._dirty = True
 
+    def _start_pull(self, kind: str) -> bool:
+        with self._lock:
+            if 0 <= self._pct < 100:
+                return False
+            self._pct, self._stat, self._kind = 0, "", kind
+            return True
+
     def download(self) -> None:
         name = self._target()
         if not name or self._missing():
             return
-        with self._lock:
-            if 0 <= self._pct < 100:
-                return
-            self._pct, self._stat = 0, ""
+        if not self._start_pull("chat"):
+            return
+        try:
+            self.language.pull(name, self._progress)
+        except Exception as ex:
+            self._progress(-1, f"error: {ex}")
+
+    def download_embed(self) -> None:
+        name = self._embed_target()
+        if not name or self._missing():
+            return
+        if not self._start_pull("embed"):
+            return
         try:
             self.language.pull(name, self._progress)
         except Exception as ex:
@@ -236,7 +328,7 @@ class ModelsPanel:
     # --- view
     def draw(self, surface, snap) -> None:
         with self._lock:
-            pct, dirty = self._pct, self._dirty
+            pct, dirty, kind = self._pct, self._dirty, self._kind
             self._dirty = False
         if dirty:
             self._refresh()
@@ -245,6 +337,8 @@ class ModelsPanel:
             draw_text(surface, i18n.t("ui.ollama.missing"), (r.x + 14, r.y + 60), ERR_COL, 24)
             self._rows = []
             self._dl_rect = pygame.Rect(0, 0, 0, 0)
+            self._embed_rects_clear()
+            self._draw_embed(surface, r, r.y + 100, enabled=False, pct=-2)
             return
         cur = getattr(self.config, "model", None)
         models = self._models()
@@ -253,7 +347,8 @@ class ModelsPanel:
         for i in range(len(models) + 1):
             rect = pygame.Rect(r.x + 14, y, r.w - 28 - 120, self.ROW_H - 4)
             self._rows.append(rect)
-            pygame.draw.rect(surface, (60, 56, 90) if i == self.sel else (42, 40, 62), rect, border_radius=6)
+            pygame.draw.rect(surface, (60, 56, 90) if (i == self.sel and not self.embed_focus) else (42, 40, 62),
+                             rect, border_radius=6)
             if i < len(models):
                 name = models[i]
                 draw_text(surface, name, (rect.x + 10, rect.centery), TXT, 22, "midleft")
@@ -267,22 +362,108 @@ class ModelsPanel:
             else:
                 shown = self.text or i18n.t("ui.models.custom")
                 col = TXT if self.text else (140, 140, 160)
-                if i == self.sel and self.text:
+                if i == self.sel and self.text and not self.embed_focus:
                     shown += "_"
                 draw_text(surface, shown, (rect.x + 10, rect.centery), col, 22, "midleft")
             y += self.ROW_H
         self._dl_rect = pygame.Rect(r.right - 14 - 110, r.y + 50, 110, 32)
         _btn(surface, self._dl_rect, i18n.t("ui.download"))
         y += 10
-        if 0 <= pct < 100:
+        chat_pull = kind == "chat"
+        if chat_pull and 0 <= pct < 100:
             bar = pygame.Rect(r.x + 14, y, r.w - 28, 16)
             pygame.draw.rect(surface, (42, 40, 62), bar, border_radius=6)
             fill = bar.copy()
             fill.w = int(bar.w * pct / 100)
             pygame.draw.rect(surface, OK_COL, fill, border_radius=6)
             draw_text(surface, i18n.t("ui.ollama.pulling"), (bar.x, bar.bottom + 6), TXT, 20)
-        elif pct == -1:
+            y += 30
+        elif chat_pull and pct == -1:
             draw_text(surface, i18n.t("ui.models.failed"), (r.x + 14, y), ERR_COL, 22)
+            y += 30
+        self._draw_embed(surface, r, y + 10, enabled=True, pct=pct if kind == "embed" else -2,
+                         failed=(kind == "embed" and pct == -1))
+
+    def _embed_rects_clear(self) -> None:
+        self._embed_model_rect = self._embed_dl_rect = self._embed_sw_rect = pygame.Rect(0, 0, 0, 0)
+
+    def _draw_embed(self, surface, r, y, enabled: bool, pct: int, failed: bool = False) -> None:
+        head = (170, 160, 240) if enabled else (90, 90, 110)
+        draw_text(surface, i18n.t("ui.models.embed_title"), (r.x + 14, y), head, 22)
+        if not enabled:
+            self._embed_rects_clear()
+            draw_text(surface, i18n.t("ui.models.embed_hint"), (r.x + 14, y + 26), (90, 90, 110), 18)
+            return
+        if self._embed_installed():
+            draw_text(surface, i18n.t("ui.models.installed"), (r.right - 14, y), OK_COL, 20, "midright")
+        else:
+            draw_text(surface, i18n.t("ui.models.embed_missing"), (r.right - 14, y), ERR_COL, 20, "midright")
+        draw_text(surface, i18n.t("ui.models.embed_hint"), (r.x + 14, y + 26), (150, 150, 170), 18)
+        row_y = y + 52
+        sw_w, dl_w, gap = 150, 110, 8
+        model_w = r.w - 28 - sw_w - dl_w - 2 * gap
+        self._embed_model_rect = pygame.Rect(r.x + 14, row_y, model_w, 30)
+        self._embed_dl_rect = pygame.Rect(self._embed_model_rect.right + gap, row_y, dl_w, 30)
+        self._embed_sw_rect = pygame.Rect(self._embed_dl_rect.right + gap, row_y, sw_w, 30)
+        focus = self.embed_focus
+        pygame.draw.rect(surface, (60, 56, 90) if focus and self.esel == 0 else (42, 40, 62),
+                         self._embed_model_rect, border_radius=6)
+        draw_text(surface, self._embed_target() or "-", (self._embed_model_rect.x + 10, self._embed_model_rect.centery),
+                  TXT, 22, "midleft")
+        _btn(surface, self._embed_dl_rect, i18n.t("ui.download"), active=focus and self.esel == 1)
+        on = self._embed_on()
+        _btn(surface, self._embed_sw_rect, i18n.t("ui.models.embed_on" if on else "ui.models.embed_off"),
+             active=on or (focus and self.esel == 2))
+        if 0 <= pct < 100:
+            bar = pygame.Rect(r.x + 14, row_y + 40, r.w - 28, 12)
+            pygame.draw.rect(surface, (42, 40, 62), bar, border_radius=6)
+            fill = bar.copy()
+            fill.w = int(bar.w * pct / 100)
+            pygame.draw.rect(surface, OK_COL, fill, border_radius=6)
+        elif failed:
+            draw_text(surface, i18n.t("ui.models.failed"), (r.x + 14, row_y + 40), ERR_COL, 20)
+
+    def _embed_click(self, pos) -> bool:
+        if self._embed_model_rect.collidepoint(pos):
+            self.embed_focus, self.esel = True, 0
+            self.cycle_embed(1)
+            return True
+        if self._embed_dl_rect.collidepoint(pos):
+            self.embed_focus, self.esel = True, 1
+            self.download_embed()
+            return True
+        if self._embed_sw_rect.collidepoint(pos):
+            self.embed_focus, self.esel = True, 2
+            self.toggle_embed()
+            return True
+        return False
+
+    def _embed_key(self, event) -> bool:
+        if event.key == pygame.K_DOWN:
+            if self.esel < self.EMBED_SUB - 1:
+                self.esel += 1
+            else:
+                self.embed_focus = False
+                self.sel = 0
+        elif event.key == pygame.K_UP:
+            if self.esel > 0:
+                self.esel -= 1
+            else:
+                self.embed_focus = False
+                self.sel = len(self._models())
+        elif event.key in (pygame.K_LEFT, pygame.K_RIGHT) and self.esel == 0:
+            self.cycle_embed(1 if event.key == pygame.K_RIGHT else -1)
+        elif event.key == pygame.K_TAB or (_enter(event) and self.esel == 1) or (
+                event.key == pygame.K_SPACE and self.esel == 1):
+            self.download_embed()
+        elif _enter(event) or event.key == pygame.K_SPACE:
+            if self.esel == 0:
+                self.cycle_embed(1)
+            elif self.esel == 2:
+                self.toggle_embed()
+        else:
+            return False
+        return True
 
     def handle_event(self, event) -> bool:
         if self._missing():
@@ -290,14 +471,22 @@ class ModelsPanel:
         n = len(self._models()) + 1
         if event.type == pygame.MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
             if self._dl_rect.collidepoint(event.pos):
+                self.embed_focus = False
                 self.download()
                 return True
+            if self._embed_click(event.pos):
+                return True
+            self.embed_focus = False
             for i, rc in enumerate(self._rows):
                 if rc.collidepoint(event.pos):
                     self.sel = i
                     if i < len(self._models()):
                         self.select(self._models()[i])
             return True
+        if self.embed_focus and event.type == pygame.KEYDOWN:
+            return self._embed_key(event)
+        if event.type == pygame.TEXTINPUT:
+            self.embed_focus = False
         if event.type == pygame.TEXTINPUT:
             self.sel = n - 1
             self.text += event.text

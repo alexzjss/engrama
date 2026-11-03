@@ -5,6 +5,7 @@ import numpy as np
 import pygame
 import pytest
 
+from engrama.app import i18n
 from engrama.app.host import Host, to_viz
 from engrama.app.snapshot import ModuleView, ProposalView, Snapshot, Viz
 from engrama.app.ui import viz_draw
@@ -149,3 +150,28 @@ def test_demoted_module_marked():
     assert any("temporal.snn" in t and "desligado" in t for t in texts)
     assert not any("policy.utility" in t and ("rebaixado" in t or "desligado" in t) for t in texts)
     assert any("(sombra)" in t for t in texts)
+
+
+def test_mind_view_shows_vector_counts():
+    
+    class Summ:
+        def summary(self):
+            return {"episodes": 7, "facts": 1, "topics": 2, "opinions": 1, "last_reflection": "",
+                    "semantic": "on", "vectors": 3, "items": 9}
+    seen = []
+    from engrama.app.ui import mind_view
+    orig = mind_view.draw_text
+
+    def spy(surface, text, *a, **k):
+        seen.append(text)
+        return orig(surface, text, *a, **k)
+    mv = MindView()
+    mv.memory_summary = Summ().summary
+    mind_view.draw_text = spy
+    try:
+        mv.draw(pygame.Surface((400, 300)), Snapshot())
+    finally:
+        mind_view.draw_text = orig
+    out = " | ".join(seen)
+    assert i18n.t("ui.mind.vectors") in out and "3/9" in out
+    assert i18n.t("ui.memories.semantic_on") in out

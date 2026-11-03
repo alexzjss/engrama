@@ -532,8 +532,8 @@ def _build_persona(snap: Snapshot, memory):
 class _MemoryProvider:
     """Adapter the Memories panel (F7) talks to: MemoryStore + WorkingMemory behind the duck-typed protocol."""
 
-    def __init__(self, memory, working) -> None:
-        self.memory, self.working = memory, working
+    def __init__(self, memory, working, language=None) -> None:
+        self.memory, self.working, self.language = memory, working, language
 
     @staticmethod
     def _lang() -> str:
@@ -556,12 +556,36 @@ class _MemoryProvider:
     def reflections(self) -> list[str]:
         return list(self.memory.recent_reflections(5))
 
+    def _embed_state(self) -> tuple[str, dict]:
+        """(embedder status, vector counts). Reads only what is already known; never calls the embedder."""
+        lang = self.language
+        if lang is None:
+            try:
+                counts = self.memory.vector_counts()
+            except Exception:
+                counts = {}
+            return "off", counts
+        try:
+            status = str(getattr(lang, "embed_status", "off") or "off")
+        except Exception:
+            status = "off"
+        try:
+            counts = dict(lang.embed_counts() or {})
+        except Exception:
+            counts = {}
+        return status, counts
+
     def summary(self) -> dict:
         refl = self.memory.recent_reflections(1)
+        status, counts = self._embed_state()
+        vectors = int(counts.get("vectors", 0) or 0)
+        # "on" when the embedder is ready, or when vectors are stored and the embedder is not off
+        semantic = "on" if (status == "ready" or (vectors > 0 and status != "off")) else "words"
         return {"episodes": len(self.memory.recent(10 ** 6)), "facts": len(self.memory.fact_rows()),
                 "topics": len(self.memory.topic_rows()),
                 "opinions": len([r for r in self.memory.opinion_rows() if r["confidence"] > 0]),
-                "last_reflection": refl[0] if refl else ""}
+                "last_reflection": refl[0] if refl else "",
+                "semantic": semantic, "vectors": vectors, "items": int(counts.get("items", 0) or 0)}
 
     def _drop_working(self, needles: list[str]) -> None:
         from engrama.services.memory.topics import plain_text
@@ -637,8 +661,8 @@ class _Activity:
         return self._theme or self._category
 
 
-def _memory_provider(memory, working) -> _MemoryProvider:
-    return _MemoryProvider(memory, working)
+def _memory_provider(memory, working, language=None) -> _MemoryProvider:
+    return _MemoryProvider(memory, working, language)
 
 
 class _NullServer:
