@@ -43,6 +43,22 @@ def _replay_summary(a) -> dict:
     return summary
 
 
+def _suite(a) -> int:
+    from engrama.lab.suite import run_suite, specs_from, summarize, to_markdown
+    specs = specs_from({"preset": a.preset, "recipes": a.recipes, "profiles": a.profiles, "seeds": a.seeds,
+                        "days": a.days, "routine_days": a.routine_days, "dt": a.dt})
+    runs = run_suite(specs, a.jobs)
+    summary = summarize(runs, a.baseline)
+    text = json.dumps({"runs": runs, "summary": summary}, indent=2)
+    if a.out:
+        Path(a.out).write_text(text + "\n", encoding="utf-8")
+    else:
+        print(text)
+    if a.md:
+        Path(a.md).write_text(to_markdown(summary), encoding="utf-8")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="engrama.lab")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -72,7 +88,22 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--param", action="append", default=[], metavar="K=V")
     p.add_argument("--run", default=None)
     p.add_argument("--seed", type=int, default=0)
+    u = sub.add_parser("suite", help="run recipes x profiles x seeds (with rebirth) and compare them")
+    u.add_argument("--preset", default="m10")
+    u.add_argument("--recipes", type=Path, nargs="+", default=None, metavar="P",
+                   help="paths or names of recipes/ (default: the preset's)")
+    u.add_argument("--profiles", nargs="+", default=None)
+    u.add_argument("--seeds", type=int, nargs="+", default=None)
+    u.add_argument("--days", type=float, default=None)
+    u.add_argument("--routine-days", type=float, default=None)
+    u.add_argument("--dt", type=float, default=60.0)
+    u.add_argument("--jobs", type=int, default=1)
+    u.add_argument("--baseline", default="default-v1")
+    u.add_argument("--out", type=Path, default=None)
+    u.add_argument("--md", type=Path, default=None)
     a = ap.parse_args(argv)
+    if a.cmd == "suite":
+        return _suite(a)
     if a.cmd == "sim":
         m = run_days(a.recipe, a.days, a.profile, a.seed, a.dt, a.log, a.save, a.enforce_budgets)
     elif a.cmd == "compare":

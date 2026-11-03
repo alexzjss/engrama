@@ -587,7 +587,7 @@ Afetada pela decisão "forma das comparações" (spec §2).
   - Os módulos sem `lab_metrics` são ignorados (duck typing, `getattr`).
   - CLI: `python -m engrama.lab suite [--preset m10] [--recipes P ...] [--profiles ...] [--seeds ...] [--days N] [--routine-days N] [--dt 60] [--jobs N] [--baseline default-v1] [--out x.json] [--md x.md]`. Sem `--out`, imprime o JSON (`runs` + `summary`); com `--md`, grava a tabela.
 
-- [ ] **Passo 1:** escreva os testes:
+- [x] **Passo 1:** escreva os testes:
   - `test_expmetrics.py`:
     - `test_brier_known_sequence` (quadro-negro falso com expectativa e eventos conhecidos);
     - `test_brier_skips_rebirth_tick_and_first_half`;
@@ -605,10 +605,10 @@ Afetada pela decisão "forma das comparações" (spec §2).
     - `test_markdown_has_one_table_per_profile`;
     - `test_cli_suite_small` (`--recipes default-v1 minimal-v1 --profiles attentive --seeds 1 --days 0.5 --out --md`);
     - `test_sim_and_compare_output_unchanged` (o gabarito do M6 continua igual por `cli.main(["sim", ...])`).
-- [ ] **Passo 2:** rode os testes. Esperado: FAIL.
-- [ ] **Passo 3:** implemente.
-- [ ] **Passo 4:** rode `-m pytest -q tests/lab tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
-- [ ] **Passo 5:** commit `feat(m10): lab experiment suite and comparison metrics`.
+- [x] **Passo 2:** rode os testes. Esperado: FAIL.
+- [x] **Passo 3:** implemente.
+- [x] **Passo 4:** rode `-m pytest -q tests/lab tests/test_m10_guard.py tests/test_architecture.py`. Esperado: PASS.
+- [x] **Passo 5:** commit `feat(m10): lab experiment suite and comparison metrics`.
 
 ---
 
