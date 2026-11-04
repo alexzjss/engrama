@@ -55,11 +55,12 @@ def palette(hue, sat, val, acc_hue, acc_sat=.85):
 
 
 class Part:
-    __slots__ = ("kind", "a", "mat", "z", "name", "on", "line", "flat", "keep")
+    __slots__ = ("kind", "a", "mat", "z", "name", "on", "line", "flat", "keep", "grp")
 
-    def __init__(self, kind, a, mat, z, name, on=None, line=True, flat=False, keep=False):
+    def __init__(self, kind, a, mat, z, name, on=None, line=True, flat=False, keep=False, grp=None):
         self.kind, self.a, self.mat, self.z, self.name = kind, a, mat, z, name
         self.on, self.line, self.flat, self.keep = on, line, flat, keep
+        self.grp = grp or name          # parts of one group never get an inner line between them
 
     def bbox(self):
         k, a = self.kind, self.a
@@ -140,6 +141,36 @@ def _mask_normal(p, X, Y, s, need_n=True):
             c, sn = math.cos(rot), math.sin(rot)
             u, v = u * c - v * sn, u * sn + v * c
         return m, (u, v, nz)
+    if k == "C" and len(a[0]) > 4:          # long chains (rings, tentacles): evaluate each segment in its own box
+        pts, rs = a
+        xs, ys = X[0], Y[:, 0]
+        E = np.full(X.shape, np.inf, np.float32)
+        U = np.zeros(X.shape, np.float32); V = np.zeros(X.shape, np.float32)
+        for i in range(len(pts) - 1):
+            (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+            r0, r1 = max(rs[i], half), max(rs[i + 1], half)
+            rm = max(r0, r1)
+            c0 = int(np.searchsorted(xs, min(x0, x1) - rm)); c1 = int(np.searchsorted(xs, max(x0, x1) + rm)) + 1
+            q0 = int(np.searchsorted(ys, min(y0, y1) - rm)); q1 = int(np.searchsorted(ys, max(y0, y1) + rm)) + 1
+            if c0 >= c1 or q0 >= q1:
+                continue
+            Xs, Ys = X[q0:q1, c0:c1], Y[q0:q1, c0:c1]
+            ddx, ddy = x1 - x0, y1 - y0
+            L2 = ddx * ddx + ddy * ddy + 1e-9
+            t = np.clip(((Xs - x0) * ddx + (Ys - y0) * ddy) / L2, 0, 1)
+            px, py = Xs - (x0 + t * ddx), Ys - (y0 + t * ddy)
+            r = r0 + (r1 - r0) * t
+            e = np.sqrt(px * px + py * py) - r
+            sub = E[q0:q1, c0:c1]
+            w = e < sub
+            sub[w] = e[w]
+            if need_n:
+                U[q0:q1, c0:c1][w] = (px / r)[w]; V[q0:q1, c0:c1][w] = (py / r)[w]
+        m = E <= 0
+        if not need_n:
+            return m, None
+        nz = np.sqrt(np.clip(1 - U * U - V * V, 0, 1))
+        return m, (U, V, nz)
     if k == "C":
         pts, rs = a
         es, us, vs = [], [], []
@@ -235,6 +266,7 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
     pid = np.full((N, N), -1, np.int16)
     keep = np.zeros((N, N), bool)
     names = []
+    grps = []
     lines = []
     name_ids = {}
     for i, p in enumerate(parts):
@@ -243,7 +275,7 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
         px0 = max(0, int(ox + bx0 * s) - 2); px1 = min(N, int(ox + bx1 * s) + 3)
         py0 = max(0, int(oy + by0 * s) - 2); py1 = min(N, int(oy + by1 * s) + 3)
         if px0 >= px1 or py0 >= py1:
-            names.append(p.name)
+            names.append(p.name); grps.append(p.grp)
             continue
         win = (slice(py0, py1), slice(px0, px1))
         ms, nrm = _mask_normal(p, X[win], Y[win], s, need_n=p.on is None and not p.flat)
@@ -254,10 +286,10 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
             matw[msk] = p.mat
             if p.flat:
                 tonew[msk] = 1
-            names.append(p.name)
+            names.append(p.name); grps.append(p.grp)
             continue
         if not ms.any():
-            names.append(p.name)
+            names.append(p.name); grps.append(p.grp)
             continue
         ts = np.ones(ms.shape, np.int8)
         if nrm is None or p.flat:
@@ -274,7 +306,7 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
         tonew[ms] = ts[ms]
         pidw[ms] = i
         keepw[ms] = p.keep
-        names.append(p.name)
+        names.append(p.name); grps.append(p.grp)
         if p.line:
             lines.append(i)
     occ = mat >= 0
@@ -313,7 +345,7 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
     # --- selective inner lines: edge of a front part where it overlaps a different, earlier part
     nparts = len(names)
     uniq = {}
-    name_id = np.array([uniq.setdefault(nm, len(uniq)) for nm in names] + [-1])
+    name_id = np.array([uniq.setdefault(nm, len(uniq)) for nm in grps] + [-1])
     is_line = np.zeros(nparts + 1, bool)
     is_line[lines] = True
     counts = np.bincount(pid[pid >= 0].ravel(), minlength=nparts + 1)

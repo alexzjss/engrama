@@ -42,24 +42,58 @@ SLOT = {"brincalhao": "face", "curioso": "top", "sonhador": "top", "arisco": "fa
         "mestre": "chest", "eco": "back", "sombra": "back"}
 
 
+FALLBACK = {"back": ("chest", "top"), "neck": ("chest", "top"), "wrist": ("chest", "top"), "chest": ("top",),
+            "face": ("top",), "top": ("face",)}
+
+
 def accessories(b: Builder, d, lineage, t):
+    """One accessory per slot, latest branch first, at most d.acc_max (<= MAX_ACC). A slot the plan cannot wear
+    (d.no_slots) falls back to another slot with an alternative form of the same accessory."""
     chosen, used = [], set()
+    limit = min(MAX_ACC, getattr(d, "acc_max", MAX_ACC))
+    banned = set(getattr(d, "no_slots", ()))
+    if not d.hands:
+        banned.add("wrist")
     for k in range(t, 0, -1):
         bid = branch_at(k, lineage)
         if bid == "base":
             continue
-        slot = SLOT[bid]
-        if slot == "wrist" and not d.hands:
-            slot = "chest"
-        if slot in used:
-            continue
-        used.add(slot)
-        chosen.append((bid, 1.0 if not chosen else .88))
-        if len(chosen) >= MAX_ACC:
+        for slot in (SLOT[bid],) + FALLBACK[SLOT[bid]]:
+            if slot not in banned and slot not in used:
+                used.add(slot)
+                chosen.append((bid, slot, 1.0 if not chosen else .88))
+                break
+        if len(chosen) >= limit:
             break
-    for bid, k in chosen:
-        _accessory(b, d, bid, k)
-    return [c[0] for c in chosen]
+    for bid, slot, k in chosen:
+        if slot == SLOT[bid]:
+            _accessory(b, d, bid, k)
+        else:
+            _accessory_alt(b, d, bid, slot, k)
+    return [(c[0], c[1]) for c in chosen]
+
+
+def _accessory_alt(b, d, bid, slot, k):
+    """The same branch, worn elsewhere: a badge on the chest or a small ornament on the head."""
+    hx, hr, hw, htop = d.head_cx, d.hr * k, d.hw * k, d.htop
+    head = ("head", "mk", "muzzle", "face", "disc", "screen")
+    mat = {"sombrio": MARK, "sombra": MARK, "eco": GLASS, "sabio": GOLD, "companheiro": ACC, "rebelde": BONE,
+           "guardiao": GOLD, "mestre": GOLD}.get(bid, ACC)
+    if slot == "chest":
+        cx, cy = d.bx, d.by - d.bh * .1
+        r = max(1.5, min(d.bw, 2 * hw) * .14) * k
+        if bid in ("sombrio", "sombra", "rebelde"):
+            pts = [(cx - r * 1.6, cy - r * .3)] + [(cx - r * 1.6 + r * .8 * i, cy - r * (1.3 if i % 2 else .3))
+                                                   for i in range(1, 4)] + [(cx + r * 1.6, cy - r * .3),
+                                                                            (cx + r * 1.6, cy + r * .4),
+                                                                            (cx - r * 1.6, cy + r * .4)]
+            b.P(pts, mat, 24, "badge", keep=True)
+        else:
+            b.P(_star(cx, cy, r * 1.2), mat, 24, "badge", keep=True)
+    else:  # top / face: a forehead mark
+        b.P([(hx, htop + .6), (hx + hr * .25, htop + hr * .35), (hx, htop + hr * .7), (hx - hr * .25,
+                                                                                    htop + hr * .35)],
+            mat, 24, "badge", on=head)
 
 
 def _star(cx, cy, r, n=5, inner=.45):
@@ -76,7 +110,7 @@ def _accessory(b, d, bid, k):
         b.E(hx - hw * .66, d.eye_y + hr * .36, hr * .22, hr * .14, ACC, 23, "blush", on=head, line=False)
     elif bid == "curioso":
         b.C([(hx + .3, htop + 1.0), (hx + hr * .25, htop - hr * .55), (hx + hr * .6, htop - hr * .5),
-             (hx + hr * .45, htop - hr * .25)], [.75, .6, .5, .4], ACC, 26, "ahoge", keep=True)
+             (hx + hr * .45, htop - hr * .25)], [.75, .6, .5, .4], BODY, 26, "ahoge", keep=True)
     elif bid == "sonhador":
         b.P(_star(hx + hw * .62, htop + .2, hr * .42), GOLD, 27, "star", keep=True)
     elif bid == "arisco":

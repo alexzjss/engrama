@@ -12,8 +12,7 @@ Folhas de revisão (em `art-review/`, fora do git):
 extremos e cada ramo), `anims.png` (todas as `ANIMS`). Imagens do README do produto:
 `python -m spike.vpet2.showcase docs/images`.
 
-Custo medido (adulto/final, 400 sprites): mediana ~5,5 ms, p95 ~8 ms, pior ~11 ms (finais densos de dragão
-quadrúpede). Determinístico.
+Custo medido (400 sprites adulto+final, melhor de 3): mediana ~5,4 ms, p95 ~7,2 ms, pior ~8,7 ms. Determinístico.
 
 ## Coesão (mantida da rodada 1)
 
@@ -28,7 +27,7 @@ quadrúpede). Determinístico.
 | dragão | quadrúpede 3/4: tronco horizontal, pescoço, focinho, cauda grossa, asas de membrana com dedos (adulto+) | bípede pesado de frente: quadril largo, focinho, cauda, asas grandes | serpente/wyrm: corpo em S saindo de uma espiral, bigodes, crista nas costas, bracinhos |
 | fera | quadrúpede 3/4 ágil, cauda para cima | sentado: ancas largas, patas dianteiras retas (sociável acena com uma), cauda em volta | bípede (urso/coelho), orelhas grandes |
 | ave | empoleirada 3/4: corpo inclinado, bico de acento, cauda longa, pernas finas, asas sobem no perfeito | coruja: disco facial, tufos, asas laterais, garras | em voo: asas abertas em leque, cauda em leque, sem pernas |
-| inseto | besouro de frente: carapaça em domo (acento) com costura, cabeça baixa, chifre, 6 patas | louva-a-deus/formiga: abdômen grande atrás, tórax fino, braços-lâmina | mariposa: corpo segmentado, dois pares de asas grandes com ocelos |
+| inseto | besouro de frente: domo de dois élitros (acento) com costura e pintas, pronoto, cabeça pequena com chifre, patas curtas | abelha: tórax peludo, abdômen listrado com ferrão, asas de vidro, patas curtas (substitui o louva-a-deus, ilegível em 40 px) | mariposa: corpo segmentado, dois pares de asas grandes com ocelos |
 | planta | bulbo andante: pera, folhas no topo, raízes, mãos-folha | flor: rosto num anel de pétalas sobre um caule, braços-folha, base de raízes | cacto: coluna alta, braços dobrados, espinhos, flor no topo |
 | espírito | lençol: domo + barra ondulada, bracinhos, flutua | chama: gota coroada de línguas de fogo, cauda de fumaça | encapuzado: manto com barra recortada, rosto na sombra com olhos acesos, mãos soltas, cajado com orbe |
 | aquático | água-viva: sino, saia recortada, tentáculos | peixe 3/4: nadadeira bifurcada, dorsal, peitoral | anfíbio de pé: brânquias/nadadeiras na cabeça, cauda com nadadeira |
@@ -89,17 +88,22 @@ Matiz base = `Genome.palette[1]`, puxado pela família e pelo temperamento.
 manchas (fera), pintinhas (ave), faixas (inseto), broto no topo (planta), chama (espírito), onda (aquático),
 rebites + antena (máquina).
 
+## Rodada 3
+
+- Dragão quadrúpede: prioridade asas > chifres > espinhos (espinhos só sem asas, 3 no máximo), asas atrás do corpo,
+  dedos da asa só do perfeito em diante, no máximo 2 acessórios.
+- Ave empoleirada: asa dobrada em todos os estágios (rêmiges passando da cauda), asa de trás aparecendo no
+  perfeito; cristas são lâminas de pena na cor do corpo/marcação, nunca haste com bola.
+- Besouro com élitros separados por costura; louva-a-deus trocado por abelha.
+- Encaixes proibidos por plano (`D.no_slots`): costas/pulso em serpente, água-viva, peixe, drone, chama, ave em
+  voo, besouro; o ramo cai para outro encaixe com forma alternativa (distintivo no peito ou marca na testa).
+- Partes do mesmo grupo (`grp`) não recebem linha interna (espiral do wyrm).
+- Cadeias longas (anéis, tentáculos) rasterizadas por segmento na própria caixa.
+
 ## Limitações conhecidas
 
-- Dragão quadrúpede no adulto ainda fica carregado (asa + chifres + acessórios competem); a ave empoleirada com
-  asas erguidas no final lê como "pente" em algumas sementes; louva-a-deus é o plano menos legível.
-- Acessórios de costas (capa) em serpente e água-viva ficam estranhos; não há regra por plano para esconder um
-  encaixe.
-- Linhas internas por nome às vezes riscam o corpo em partes que deveriam fundir (ex.: barriga do wyrm).
-- Custo: pior caso ~11 ms num final denso; com o LRU do app (desenho só na evolução) é aceitável, mas fica acima
-  da meta de 10 ms. Caminhos: menos partes pequenas (juntar espinhos num polígono), cache de máscaras por estágio.
+- Dragão quadrúpede adulto ainda é o plano mais denso; besouro lê mais como "joaninha de frente".
 - Babies de planos diferentes da mesma família às vezes se parecem (bolha + traço da família).
-- Sem testes ainda.
 
 ## Integração em `engrama/app/art`
 

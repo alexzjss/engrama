@@ -39,6 +39,8 @@ class D:
         self.mouth = "smile"
         self.mouth_x = None
         self.eyes = ("gem",)
+        self.no_slots = frozenset()      # accessory slots this plan cannot wear
+        self.acc_max = 3
 
     def head(self, cx, cy, hr, hw=None, hy=1.0):
         self.head_cx, self.hcy, self.hr, self.hw, self.hy = cx, cy, hr, hw or hr, hy
@@ -187,7 +189,7 @@ def horns(b, g, d, x, y, L, mat, back=1):
             sym=not d.facing)
 
 
-def membrane_wing(b, sx, sy, ws, z=2, mat=ACC, name="wing", sym=False, flip=1):
+def membrane_wing(b, sx, sy, ws, z=2, mat=ACC, name="wing", sym=False, flip=1, struts=True):
     """Bat-like wing rising up-right from (sx, sy); flip=-1 mirrors it."""
     f = flip
     top, tip = (sx + f * ws * .55, sy - ws * 1.25), (sx + f * ws * 1.3, sy - ws * .9)
@@ -195,8 +197,9 @@ def membrane_wing(b, sx, sy, ws, z=2, mat=ACC, name="wing", sym=False, flip=1):
            (sx + f * ws * .72, sy + ws * .12), (sx + f * ws * .45, sy - ws * .08), (sx + f * .6, sy + ws * .35)]
     b.P(pts, mat, z, name, sym=sym, keep=True)
     b.C([(sx, sy + .5), top, tip], [.9, .65, .4], BODY, z + .5, name + "arm", sym=sym, keep=True)
-    for q in (pts[4], pts[6]):          # finger struts from the wrist to the scallop points
-        b.C([top, q], [.5, .3], BODY, z + .4, name + "arm", sym=sym, keep=True)
+    if struts:                          # finger struts from the wrist to the scallop points
+        for q in (pts[4], pts[6]):
+            b.C([top, q], [.5, .3], BODY, z + .4, name + "arm", sym=sym, keep=True)
     b.P([(top[0] - .6, top[1] + .4), (top[0] + .6, top[1] + .2), (top[0] - .2 * f, top[1] - 1.3)], BONE, z + .5,
         name + "claw", sym=sym, keep=True)
 
@@ -234,15 +237,19 @@ def draco(b, g, P, t):
         tl = (3 + 7 * m) * (1 + .25 * d.ind)
         tip = tail_chain(b, (L * .4, d.by + bh * .1), tl, bh * .36, up=.9)
         _tail_tip(b, g, d, tip, 1)
-        if t >= 1 and g["f4"] < 2:
-            for k in range(3 + t):
-                x = -L * .25 + k * L * .7 / (2 + t)
-                y = d.by - bh * .47 + abs(x) * .05
-                b.P([(x - .9, y + 1), (x + .9, y + 1), (x + .5, y - 1.0 - .9 * d.fk)], ACC, 9, "spike", keep=True)
-        if t >= 2 and g["f2"] != 3:
-            ws = L * (0, 0, .5, .6, .72)[t] * (1 + .25 * d.ind)
-            membrane_wing(b, L * .18, d.by - bh * .42, ws, z=13)
-            membrane_wing(b, -L * .02, d.by - bh * .45, ws * .85, z=2, mat=ACC, name="farwing")
+        winged = t >= 2 and g["f2"] != 3
+        # feature priority: wings > horns > back spikes; spikes only on wingless dragons, and few of them
+        if t >= 1 and not winged:
+            for k in range(3):
+                x = -L * .15 + k * L * .22
+                y = d.by - bh * .48
+                b.P([(x - 1.0, y + 1.1), (x + 1.0, y + 1.1), (x + .6, y - .8 - 1.0 * d.fk)], ACC, 9, "spike",
+                    keep=True)
+        if winged:
+            ws = L * (0, 0, .48, .58, .68)[t] * (1 + .25 * d.ind)
+            membrane_wing(b, L * .22, d.by - bh * .4, ws, z=3, struts=t >= 3)
+            membrane_wing(b, L * .02, d.by - bh * .42, ws * .8, z=2, mat=ACC, name="farwing", struts=False)
+        d.acc_max = 2
     elif plan == 1:    # upright, heavy-bottomed, big tail mass and wings
         upright(b, g, d, head_k=.88, body_k=1.15, limb_k=1.3, leg_k=1.1, pear=.22, body_hk=1.05)
         hr, hy = d.hr, d.hy
@@ -274,11 +281,13 @@ def draco(b, g, P, t):
         pts = [(8 * k, -1.4 * k), (1.5 * k, -r0 * .9), (-5.5 * k, -2.0 * k), (-7.5 * k, -7 * k), (-2 * k, -10.5 * k),
                (2.5 * k, -14.5 * k * d.lk ** .3)]
         rs = [r0 * .45, r0, r0 * 1.05, r0, r0 * .92, r0 * .82]
-        b.C(pts[:4], rs[:4], BODY, 9, "coil")
+        b.C(pts[:4], rs[:4], BODY, 9, "coil", grp="body")
         b.C(pts[3:], rs[3:], BODY, 10, "body")
         b.C([(x - r * .3, y + r * .2) for (x, y), r in zip(pts[1:], rs[1:])], [r * .5 for r in rs[1:]], BELLY, 11,
             "belly", on=("body", "coil"))
-        b.C([pts[0], (pts[0][0] + 2.5 * k, pts[0][1] - 1.5 * k)], [r0 * .45, .4], BODY, 9, "tail", keep=True)
+        b.C([pts[0], (pts[0][0] + 2.5 * k, pts[0][1] - 1.5 * k)], [r0 * .45, .4], BODY, 9, "tail", keep=True,
+            grp="body")
+        d.no_slots = frozenset({"back", "wrist"})
         d.body(-1, -6 * k, 10 * k, 12 * k)
         hr = lerp(5.0, 3.9, m) * d.hk / lerp(1.55, 1, m)
         hx, hy = pts[-1][0] - .5, pts[-1][1] - hr * .55
@@ -459,18 +468,19 @@ def _mane(b, g, d, cx, cy, R1):
 
 # --- ave ------------------------------------------------------------------------------------------------------
 def _crest(b, g, d, x, y, L, back):
+    """Bird crests are feathers: tapered blades swept back (3/4) or fanned (front); accent-tipped, no stalks."""
     k = g["f1"]
-    if k == 0:
-        for i, dx in enumerate((-1.2, 0, 1.2)):
-            b.C([(x + dx * .5, y + 1.0), (x + dx + back * L * .3, y - L * .7), (x + dx * 1.4 + back * L * .8,
-                                                                                y - L * .9)],
-                [.9, .6, .3], ACC if i == 1 else BODY, 18, "crest", keep=True)
-    elif k == 1:
+    if k == 0:       # three swept blades, the middle one longest
+        for i, (dx, h) in enumerate(((-1.0, .75), (0, 1.0), (1.0, .7))):
+            a = (i - 1) * .45
+            tx = x + dx * .4 + (back * L * .9 if back else math.sin(a) * L)
+            ty = y - (L * h * .55 if back else math.cos(a) * L * h)
+            b.P([(x + dx * .5 - .9, y + 1.0), (x + dx * .5 + .9, y + 1.2), (tx, ty)], MARK if i == 1 else BODY, 18,
+                "crest", keep=True)
+    elif k == 1:     # long single plume blade, swept back
         bb = back if back else 1
-        b.C([(x, y + 1), (x + bb * L * .25, y - L * .6), (x + bb * L * 1.0, y - L * .75), (x + bb * L * 1.4,
-                                                                                         y - L * .4)],
-            [1.3, 1.0, .7, .35], BODY, 18, "crest", keep=True)
-        b.E(x + bb * L * 1.25, y - L * .55, L * .35, L * .3, ACC, 19, "crest", on=("crest",))
+        b.P([(x - 1.0, y + 1.2), (x + 1.2, y + 1.4), (x + bb * L * 1.3, y - L * .55), (x + bb * L * .5, y - L * .5)],
+            MARK, 18, "crest", keep=True)
     elif k == 2:
         n = 3 + (d.t >= 3) * 2
         for i in range(n):
@@ -516,15 +526,18 @@ def ave(b, g, P, t):
             for x, z, mt in ((L * .12, 6, MARK), (-L * .08, 7, ACC)):
                 b.C([(x, by + bh * .3), (x - .3, -.4)], .5 + .2 * m, mt if mt != MARK else ACC, z, "leg", keep=True)
                 b.C([(x - .3, -.35), (x - 1.6, -.35)], .45, ACC, z, "toe", keep=True)
-        if t <= 2 and t >= 1:
-            ws = L * .52
-            b.C([(-L * .2, by - bh * .2), (L * .1, by), (L * .2 + ws * .5, by + bh * .1)], [bh * .36, bh * .3, .5],
-                BODY, 12, "wing", keep=True)
-            b.E(L * .15 + ws * .3, by + bh * .08, ws * .3, bh * .15, ACC, 13, "wingtip", on=("wing",))
-        elif t >= 3:
-            ws = L * (.62 if t == 3 else .75) * (1 + .3 * d.soc)
-            feather_fan(b, -L * .05, by - bh * .3, ws, 40, 95, 3 + (t >= 4), z=13, name="wing", flip=1, width=.3)
-            feather_fan(b, -L * .25, by - bh * .35, ws * .85, 60, 105, 3, z=2, name="farwing", flip=1, width=.3)
+        if t >= 1:
+            ws = L * (0, .5, .55, .62, .7)[t] * (1 + .2 * d.soc)
+            wy = by - bh * (.2 + .05 * max(0, d.soc))
+            b.C([(-L * .22, wy), (L * .08, by + bh * .02), (L * .2 + ws * .55, by + bh * .05)],
+                [bh * .38, bh * .32, .6], BODY, 12, "wing", keep=True)
+            b.E(L * .12 + ws * .35, by + bh * .05, ws * .32, bh * .16, ACC, 13, "wingtip", on=("wing",))
+            for k in range(1 + (t >= 3) + (t >= 4)):          # primaries fan out past the tail
+                y = by + bh * (.02 + .1 * k)
+                b.P([(L * .2 + ws * .3, y - .8), (L * .2 + ws * .3, y + .8), (L * .25 + ws * (.75 + .12 * k), y + .3)],
+                    ACC if k == 0 else BODY, 12.5, "primary", keep=True)
+            if t >= 3:   # far wing peeks above the back
+                b.E(L * .02, by - bh * .5, ws * .38, bh * .22, MARK, 2, "farwing", rot=-.35)
         d.neck = (hx + hr * .2, hy + hr * .85, hr * .8)
     elif plan == 1:    # round owl-like: big face disc, ear tufts, short legs
         bw, bh = lerp(8, 12.5, m) * d.wk, lerp(7.5, 12, m)
@@ -561,6 +574,7 @@ def ave(b, g, P, t):
                 b.E(bw * .2 + x, -.4, .45, .55, ACC, 9, "talon", sym=True, line=False)
         d.neck = (0, hcy + hr * .8, hr * 1.4)
     else:              # in flight: wings spread wide, tail fan below, legs tucked
+        d.no_slots = frozenset({"back"})
         bw, bh = lerp(5, 7, m) * d.wk ** .5, lerp(6, 9.5, m)
         by = -bh / 2 - lerp(1.0, 4.5, m)
         b.E(0, by, bw / 2, bh / 2, BODY, 10, "body")
@@ -616,78 +630,74 @@ def inseto(b, g, P, t):
     d.eyes = ("compound", "beady", "compound")
     d.mouth = "none"
     m = d.m
-    if plan == 0:      # beetle, front view: wide domed shell, small head low in front, six legs
-        bw, bh = lerp(9, 16, m) * d.wk, lerp(6.5, 10, m)
-        ll = lerp(.6, 2.4, m) * d.lk
+    if plan == 0:      # beetle: tall split dome of wing cases, pronotum, small head with horn, short legs
+        bw, bh = lerp(8.5, 15, m) * d.wk, lerp(6, 9.5, m)
+        ll = lerp(.5, 1.6, m)
         by = -ll - bh * .5
-        shell = ACC
-        b.E(0, by, bw / 2, bh / 2, BODY, 10, "body")
-        b.E(0, by - bh * .08, bw * .48, bh * .44, shell, 11, "shell", on=("body",), flat=False)
-        b.C([(0, by - bh * .5), (0, by + bh * .3)], .35 + .1 * m, DARK, 12, "seam", on=("shell", "body"),
-            line=False)
-        if g["mark"] in ("spots", "stripes", "none"):
-            for x, y in ((.25, -.15), (.3, .15), (.1, .25)):
-                b.E(x * bw, by + y * bh, bw * .06 + .2, bw * .06 + .2, DARK, 12, "dot", sym=True, on=("shell",),
-                    line=False)
+        b.E(0, by, bw / 2, bh / 2, MARK, 9, "body")                          # underside / shadow rim
+        for sd in (-1, 1):                                                  # the two elytra
+            b.E(sd * bw * .24, by - bh * .04, bw * .27, bh * .47, ACC, 11, "elytra", rot=sd * .08, grp="shell")
+        b.C([(0, by - bh * .5), (0, by + bh * .4)], .38 + .1 * m, DARK, 12, "seam", on=("elytra",), line=False)
+        for x, y in ((.25, -.2), (.3, .12), (.16, .3)):
+            if g["mark"] != "none" or t >= 2:
+                b.E(x * bw, by + y * bh, bw * .05 + .25, bw * .05 + .25, DARK, 12, "dot", sym=True,
+                    on=("elytra",), line=False)
         d.body(0, by, bw, bh)
-        hr = 3.9 * d.hk
-        hcy = by + bh * .32 - hr * .2
-        b.E(0, hcy, hr * 1.05, hr * .85, BODY, 20, "head")
-        d.head(0, hcy, hr, hr * 1.05, .85)
-        _antennae(b, g, d, hr * .45, hcy - hr * .6, hr * .8 * d.ck + 1.5)
+        hr = lerp(4.6, 3.5, m) * d.hk / lerp(1.55, 1, m)
+        py = by + bh * .32
+        b.E(0, py, bw * .3, bh * .14, BODY, 19, "pronotum")
+        hcy = py + bh * .06
+        b.E(0, hcy, hr * 1.05, hr * .8, BODY, 20, "head")
+        d.head(0, hcy, hr, hr * 1.05, .8)
+        _antennae(b, g, d, hr * .45, hcy - hr * .55, hr * .55 * d.ck + 1.2)
         if t >= 2:
-            Lh = hr * 1.0 * d.fk
-            b.C([(0, hcy - hr * .5), (0, hcy - hr * .8 - Lh * .6), (d.side * Lh * .4, hcy - hr * .8 - Lh)],
-                [1.3, .9, .35], ACC if shell == BODY else BONE, 21, "horn", keep=True)
+            Lh = hr * .8 * d.fk
+            b.C([(0, hcy - hr * .5), (0, hcy - hr * .6 - Lh * .6), (d.side * Lh * .3, hcy - hr * .6 - Lh)],
+                [1.1, .8, .35], BONE, 21, "horn", keep=True)
         if t >= 1:
-            for k, (ax, fx) in enumerate(((.18, .48), (.3, .62), (.4, .74))):
-                y0 = by + bh * (.2 + .08 * k)
-                b.C([(bw * ax, y0), (bw * fx, y0 - .5 - k * .3), (bw * fx + .3, -.4)], .45 + .2 * m, DARK, 6 - k,
-                    "leg", sym=True, keep=True)
+            for k, ax in enumerate((.18, .32, .44)):
+                x0 = bw * ax
+                b.C([(x0, by + bh * .35), (x0 + .6 + .3 * k, -.3)], .55 + .2 * m, DARK, 8 - k, "leg", sym=True,
+                    keep=True)
         if t >= 2:
-            my = hcy + hr * .75
-            b.C([(hr * .35, my - .5), (hr * .45, my + .9), (hr * .12, my + 1.5)], [.7, .55, .3], BONE, 24,
+            my = hcy + hr * .7
+            b.C([(hr * .35, my - .5), (hr * .45, my + .8), (hr * .15, my + 1.3)], [.7, .55, .3], BONE, 24,
                 "mandible", sym=True, keep=True)
-        d.neck = None
-    elif plan == 1:    # mantis/ant, upright: big abdomen behind, thin thorax, raptor arms
-        ab_w, ab_h = lerp(6, 11, m) * d.wk, lerp(4.5, 7.5, m)
-        ll = lerp(.8, 4.5, m) * d.lk
-        ay = -ll - ab_h * .45
-        ax = d.side * ab_w * .42
-        b.E(ax, ay, ab_w / 2, ab_h / 2, BODY, 6, "body", rot=d.side * .35)
-        for k in (-.2, .1, .4):
-            b.C([(ax + d.side * ab_w * k - 1.5, ay - ab_h), (ax + d.side * ab_w * k + 1.5, ay + ab_h)],
-                .35 + .12 * m, MARK, 7, "band", on=("body",), line=False)
-        th = lerp(2.5, 6, m)
-        ty = ay - ab_h * .3
-        b.C([(0, ty), (0, ty - th)], [lerp(1.5, 2.0, m), lerp(1.3, 1.6, m)], BODY, 10, "thorax")
-        if g["belly"]:
-            b.C([(0, ty - .5), (0, ty - th + .5)], .7, BELLY, 11, "belly", on=("thorax",))
+        d.neck = (0, py, bw * .5)
+        d.no_slots = frozenset({"back"})
+    elif plan == 1:    # bee: round fuzzy thorax, big striped abdomen, glassy wings, short legs, stinger
+        ab_w, ab_h = lerp(6.5, 11, m) * d.wk, lerp(5.5, 9, m)
+        ll = lerp(.6, 2.4, m) * d.lk
+        ay = -ll - ab_h * .5
+        b.E(0, ay, ab_w / 2, ab_h / 2, ACC, 8, "body")
+        for k in (-.22, .05, .32):
+            b.C([(-ab_w, ay + ab_h * k), (ab_w, ay + ab_h * k)], .45 + .25 * m, DARK, 9, "stripe", on=("body",),
+                line=False)
+        b.P([(-.8, ay + ab_h * .45), (.8, ay + ab_h * .45), (0, ay + ab_h * .5 + 1.2 + m)], DARK, 7, "sting",
+            keep=True)
+        tw, th = ab_w * .42, lerp(3.2, 5.0, m)
+        ty = ay - ab_h * .42
+        b.E(0, ty, tw, th / 2, BODY, 12, "thorax")
+        b.E(0, ty - th * .2, tw * .9, th * .3, BELLY, 13, "fuzz", on=("thorax",))
         d.body(0, ay, ab_w, ab_h)
-        hr = 4.2 * d.hk
-        hcy = ty - th - hr * .55
-        b.P([(-hr * 1.15, hcy - hr * .5), (hr * 1.15, hcy - hr * .5), (hr * .5, hcy + hr * .8),
-             (-hr * .5, hcy + hr * .8)], BODY, 19, "headbase")
-        b.E(0, hcy - hr * .1, hr * 1.1, hr * .72, BODY, 20, "head")
-        d.head(0, hcy - hr * .1, hr, hr * 1.1, .72)
-        d.eye_dx = hr * .62
-        _antennae(b, g, d, hr * .4, hcy - hr * .7, hr * .8 * d.ck + 1.5)
+        hr = lerp(4.6, 3.8, m) * d.hk / lerp(1.55, 1, m)
+        hcy = ty - th * .45 - hr * .6
+        b.E(0, hcy, hr * 1.05, hr * .9, BODY, 20, "head")
+        d.head(0, hcy, hr, hr * 1.05, .9)
+        _antennae(b, g, d, hr * .4, hcy - hr * .65, hr * .7 * d.ck + 1.5)
+        ws = lerp(2.5, 7.5, m) * (1 + .2 * d.soc)
         if t >= 1:
-            for k, (fx, sy) in enumerate(((ab_w * .55, .2), (ab_w * .3, -.1))):
-                b.C([(1.0, ay + ab_h * sy), (fx * .9, ay + .5 - k), (fx, -.4)], .45 + .15 * m, DARK, 5 - k,
-                    "leg", sym=True, keep=True)
-            ar = lerp(.9, 1.2, m)
-            sx, sy0 = 1.2, ty - th * .8
-            ex, ey = sx + 2.5 + 2 * m, sy0 + 2 + m
-            b.C([(sx, sy0), (ex, ey)], ar, BODY, 14, "arm", sym=True)
-            if t >= 2:
-                b.C([(ex, ey), (ex - .4, ey - 3 * d.fk - 1), (ex - 1.2, ey - 4 * d.fk - 1.4)], [ar, ar * .7, .3],
-                    BONE, 15, "blade", sym=True, keep=True)
+            b.E(tw * .6 + ws * .55, ty - th * .3 - ws * .35, ws * .62, ws * .36, GLASS, 3, "wing", sym=True, rot=-.7,
+                flat=True)
+            b.E(tw * .5 + ws * .4, ty - th * .1, ws * .4, ws * .24, GLASS, 2, "wing2", sym=True, rot=-.25, flat=True)
+            for k, x in enumerate((.25, .42)):
+                b.C([(ab_w * x, ay + ab_h * .3), (ab_w * x + .5, -.3)], .5 + .15 * m, DARK, 6 - k, "leg", sym=True,
+                    keep=True)
+            ex, ey = tw * .9 + .8, ty + th * .15
+            b.C([(tw * .8, ty - th * .1), (ex, ey)], lerp(.7, 1.0, m), DARK, 14, "arm", sym=True, keep=True)
             d.hands = [(ex, ey), (-ex, ey)]
-        if t >= 3:
-            ws = hr * 1.5
-            b.E(ws * .7, ty - th * .2 - ws * .3, ws * .9, ws * .32, GLASS, 2, "wing", sym=True, rot=-.9, flat=True)
-        d.neck = (0, ty - th + .3, 3.0)
+        d.eyes = ("compound", "gem", "compound")
+        d.neck = (0, ty - th * .4, tw * 1.6)
     else:              # butterfly/moth: small segmented body, two pairs of large wings
         bh = lerp(5, 9, m)
         by = -bh / 2 - lerp(1.0, 2.5, m)
@@ -714,6 +724,7 @@ def inseto(b, g, P, t):
                 line=False)
             b.E(ws * .72, by + ws * .4, ws * .15, ws * .15, other, 4, "spot2", sym=True, on=("wing2",))
         d.neck = (0, hcy + hr * .8, hr * 1.4)
+        d.no_slots = frozenset({"back"})
     markings(b, g, d)
     return d
 
@@ -848,6 +859,7 @@ def espirito(b, g, P, t):
         _spirit_crest(b, g, d, 0, cy - R * .9, R)
         d.neck = (0, cy + R * .95, R * 1.6)
     elif plan == 1:    # flame: teardrop body crowned with flame tongues, wisp tail
+        d.no_slots = frozenset({"back", "neck"})
         bw, bh = lerp(7, 10, m) * d.wk, lerp(6.5, 10, m)
         tl = lerp(2, 7, m)
         by = -tl - bh / 2
@@ -939,6 +951,7 @@ def aquatico(b, g, P, t):
     plan = g["plan"]
     m = d.m
     if plan == 0:      # jellyfish: dome bell, scalloped skirt, trailing tentacles
+        d.no_slots = frozenset({"back", "neck", "wrist"})
         d.eyes = ("glow", "gem")
         d.mouth = "o" if g["mouth"] == "fang" else "smile"
         bw = lerp(9, 14, m) * d.wk
@@ -976,6 +989,7 @@ def aquatico(b, g, P, t):
             b.E(d.side * 1.5, cy - bellh * .5 - 3 * d.fk - .8, 1.1, 1.1, GLASS, 18, "lureb")
         d.neck = None
     elif plan == 1:    # fish, 3/4: horizontal body, forked tail, dorsal and side fins, floats
+        d.no_slots = frozenset({"back", "neck", "wrist"})
         d.eyes = ("beady", "gem")
         d.mouth = "o" if g["mouth"] == "fang" else "wide"
         L, bh = lerp(8, 15, m) * d.wk ** .5, lerp(6.5, 9.5, m) * d.wk
@@ -1114,6 +1128,7 @@ def maquina(b, g, P, t):
             d.hands = [(hw_ + 3, -th - hh - 1), (-hw_ - 3, -th - hh - 1)]
         d.neck = (0, hcy + hr * .8, hr * 1.6)
     else:              # hover drone: round core, rotor on top, dangling claw arms, thruster
+        d.no_slots = frozenset({"back", "neck"})
         R = lerp(5, 7.5, m) * d.wk ** .5
         fl = lerp(1.5, 5, m)
         cy = -fl - R
