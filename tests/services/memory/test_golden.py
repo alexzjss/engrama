@@ -76,8 +76,8 @@ def test_m9_constants():
     expected = {
         "EMBED_BATCH": 16, "EMBED_MAX_CHARS": 500, "EMBED_QUERY_TIMEOUT_S": 1.0,
         "EMBED_BATCH_TIMEOUT_S": 10.0, "EMBED_RETRY_S": 60, "EMBED_CHECK_S": 300,
-        "EMBED_DIM_MAX": 4096, "INDEX_EVERY_S": 5, "SEM_MIN_SIM": 0.5, "FACT_MIN_SIM": 0.6,
-        "TOPIC_MIN_SIM": 0.6, "W_SEM": 0.7, "W_WORD": 0.3, "W_IMPORTANCE": 0.35, "W_RECENCY": 0.15,
+        "EMBED_DIM_MAX": 4096, "INDEX_EVERY_S": 5, "SEM_MIN_SIM": 0.42, "FACT_MIN_SIM": 0.46,
+        "TOPIC_MIN_SIM": 0.27, "W_SEM": 0.7, "W_WORD": 0.3, "W_IMPORTANCE": 0.35, "W_RECENCY": 0.15,
         "W_RELEVANCE": 0.5, "VECTOR_RAM_MAX_MB": 16, "SEARCH_BUDGET_MS": 20,
     }
     for name, value in expected.items():
