@@ -1,0 +1,716 @@
+{
+ "version": 1,
+ "note": "Invented content only. fact = index of the line stating the fact; recall = index of the line that should make the creature use it; keywords = words that count as 'fact used' in a reply.",
+ "scripts": [
+  {
+   "id": "baby-pt-a",
+   "stage": "baby",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "bolota",
+    "gato"
+   ],
+   "lines": [
+    "oi!",
+    "o que você é?",
+    "me ajuda com meu código?",
+    "meu gato se chama Bolota",
+    "hoje o dia foi cheio de reunião",
+    "você é meio bobinho, sabia?",
+    "cheguei em casa e tem alguém me esperando na porta",
+    "tchau, vou dormir"
+   ]
+  },
+  {
+   "id": "baby-pt-b",
+   "stage": "baby",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "sexta"
+   ],
+   "lines": [
+    "olá",
+    "quem é você?",
+    "pode escrever uma função em python pra mim?",
+    "eu toco ukulele nas sextas",
+    "hoje choveu o dia todo",
+    "você não serve pra nada, hein",
+    "vou pegar meu instrumento e tocar um pouco",
+    "até mais"
+   ]
+  },
+  {
+   "id": "baby-en-a",
+   "stage": "baby",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "pumpkin",
+    "cat"
+   ],
+   "lines": [
+    "hi!",
+    "what are you?",
+    "can you help me with my code?",
+    "my cat is called Pumpkin",
+    "today was full of meetings",
+    "you're kind of silly, you know?",
+    "i just got home and someone is waiting at the door",
+    "bye, going to sleep"
+   ]
+  },
+  {
+   "id": "baby-en-b",
+   "stage": "baby",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "friday"
+   ],
+   "lines": [
+    "hello",
+    "who are you?",
+    "could you write me a python function?",
+    "i play the ukulele on fridays",
+    "it rained all day today",
+    "you're useless, huh",
+    "i'm going to grab my instrument and play a bit",
+    "see you later"
+   ]
+  },
+  {
+   "id": "child-pt-a",
+   "stage": "child",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "bolota",
+    "gato"
+   ],
+   "lines": [
+    "oi!",
+    "o que você é?",
+    "me ajuda com meu código?",
+    "meu gato se chama Bolota",
+    "hoje o dia foi cheio de reunião",
+    "você é meio bobinho, sabia?",
+    "cheguei em casa e tem alguém me esperando na porta",
+    "tchau, vou dormir"
+   ]
+  },
+  {
+   "id": "child-pt-b",
+   "stage": "child",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "sexta"
+   ],
+   "lines": [
+    "olá",
+    "quem é você?",
+    "pode escrever uma função em python pra mim?",
+    "eu toco ukulele nas sextas",
+    "hoje choveu o dia todo",
+    "você não serve pra nada, hein",
+    "vou pegar meu instrumento e tocar um pouco",
+    "até mais"
+   ]
+  },
+  {
+   "id": "child-en-a",
+   "stage": "child",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "pumpkin",
+    "cat"
+   ],
+   "lines": [
+    "hi!",
+    "what are you?",
+    "can you help me with my code?",
+    "my cat is called Pumpkin",
+    "today was full of meetings",
+    "you're kind of silly, you know?",
+    "i just got home and someone is waiting at the door",
+    "bye, going to sleep"
+   ]
+  },
+  {
+   "id": "child-en-b",
+   "stage": "child",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "friday"
+   ],
+   "lines": [
+    "hello",
+    "who are you?",
+    "could you write me a python function?",
+    "i play the ukulele on fridays",
+    "it rained all day today",
+    "you're useless, huh",
+    "i'm going to grab my instrument and play a bit",
+    "see you later"
+   ]
+  },
+  {
+   "id": "adult-pt-a",
+   "stage": "adult",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "bolota",
+    "gato"
+   ],
+   "lines": [
+    "oi!",
+    "o que você é?",
+    "me ajuda com meu código?",
+    "meu gato se chama Bolota",
+    "hoje o dia foi cheio de reunião",
+    "você é meio bobinho, sabia?",
+    "cheguei em casa e tem alguém me esperando na porta",
+    "tchau, vou dormir"
+   ]
+  },
+  {
+   "id": "adult-pt-b",
+   "stage": "adult",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "sexta"
+   ],
+   "lines": [
+    "olá",
+    "quem é você?",
+    "pode escrever uma função em python pra mim?",
+    "eu toco ukulele nas sextas",
+    "hoje choveu o dia todo",
+    "você não serve pra nada, hein",
+    "vou pegar meu instrumento e tocar um pouco",
+    "até mais"
+   ]
+  },
+  {
+   "id": "adult-en-a",
+   "stage": "adult",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "pumpkin",
+    "cat"
+   ],
+   "lines": [
+    "hi!",
+    "what are you?",
+    "can you help me with my code?",
+    "my cat is called Pumpkin",
+    "today was full of meetings",
+    "you're kind of silly, you know?",
+    "i just got home and someone is waiting at the door",
+    "bye, going to sleep"
+   ]
+  },
+  {
+   "id": "adult-en-b",
+   "stage": "adult",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "friday"
+   ],
+   "lines": [
+    "hello",
+    "who are you?",
+    "could you write me a python function?",
+    "i play the ukulele on fridays",
+    "it rained all day today",
+    "you're useless, huh",
+    "i'm going to grab my instrument and play a bit",
+    "see you later"
+   ]
+  },
+  {
+   "id": "perfect-pt-a",
+   "stage": "perfect",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "bolota",
+    "gato"
+   ],
+   "lines": [
+    "oi!",
+    "o que você é?",
+    "me ajuda com meu código?",
+    "meu gato se chama Bolota",
+    "hoje o dia foi cheio de reunião",
+    "você é meio bobinho, sabia?",
+    "cheguei em casa e tem alguém me esperando na porta",
+    "tchau, vou dormir"
+   ]
+  },
+  {
+   "id": "perfect-pt-b",
+   "stage": "perfect",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "sexta"
+   ],
+   "lines": [
+    "olá",
+    "quem é você?",
+    "pode escrever uma função em python pra mim?",
+    "eu toco ukulele nas sextas",
+    "hoje choveu o dia todo",
+    "você não serve pra nada, hein",
+    "vou pegar meu instrumento e tocar um pouco",
+    "até mais"
+   ]
+  },
+  {
+   "id": "perfect-en-a",
+   "stage": "perfect",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "pumpkin",
+    "cat"
+   ],
+   "lines": [
+    "hi!",
+    "what are you?",
+    "can you help me with my code?",
+    "my cat is called Pumpkin",
+    "today was full of meetings",
+    "you're kind of silly, you know?",
+    "i just got home and someone is waiting at the door",
+    "bye, going to sleep"
+   ]
+  },
+  {
+   "id": "perfect-en-b",
+   "stage": "perfect",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "friday"
+   ],
+   "lines": [
+    "hello",
+    "who are you?",
+    "could you write me a python function?",
+    "i play the ukulele on fridays",
+    "it rained all day today",
+    "you're useless, huh",
+    "i'm going to grab my instrument and play a bit",
+    "see you later"
+   ]
+  },
+  {
+   "id": "final-pt-a",
+   "stage": "final",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "bolota",
+    "gato"
+   ],
+   "lines": [
+    "oi!",
+    "o que você é?",
+    "me ajuda com meu código?",
+    "meu gato se chama Bolota",
+    "hoje o dia foi cheio de reunião",
+    "você é meio bobinho, sabia?",
+    "cheguei em casa e tem alguém me esperando na porta",
+    "tchau, vou dormir"
+   ]
+  },
+  {
+   "id": "final-pt-b",
+   "stage": "final",
+   "lang": "pt",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "sexta"
+   ],
+   "lines": [
+    "olá",
+    "quem é você?",
+    "pode escrever uma função em python pra mim?",
+    "eu toco ukulele nas sextas",
+    "hoje choveu o dia todo",
+    "você não serve pra nada, hein",
+    "vou pegar meu instrumento e tocar um pouco",
+    "até mais"
+   ]
+  },
+  {
+   "id": "final-en-a",
+   "stage": "final",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 80,
+     "sociabilidade": 75,
+     "paciencia": 60,
+     "independencia": 30,
+     "criatividade": 70
+    },
+    "mood": "content",
+    "needs_top": [
+     "carinho"
+    ],
+    "curious": true
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "pumpkin",
+    "cat"
+   ],
+   "lines": [
+    "hi!",
+    "what are you?",
+    "can you help me with my code?",
+    "my cat is called Pumpkin",
+    "today was full of meetings",
+    "you're kind of silly, you know?",
+    "i just got home and someone is waiting at the door",
+    "bye, going to sleep"
+   ]
+  },
+  {
+   "id": "final-en-b",
+   "stage": "final",
+   "lang": "en",
+   "profile": {
+    "traits": {
+     "curiosidade": 25,
+     "sociabilidade": 20,
+     "paciencia": 20,
+     "independencia": 80,
+     "criatividade": 40
+    },
+    "mood": "bored",
+    "needs_top": [
+     "fome",
+     "sono"
+    ],
+    "curious": false
+   },
+   "fact_line": 3,
+   "recall_line": 6,
+   "keywords": [
+    "ukulele",
+    "friday"
+   ],
+   "lines": [
+    "hello",
+    "who are you?",
+    "could you write me a python function?",
+    "i play the ukulele on fridays",
+    "it rained all day today",
+    "you're useless, huh",
+    "i'm going to grab my instrument and play a bit",
+    "see you later"
+   ]
+  }
+ ]
+}
