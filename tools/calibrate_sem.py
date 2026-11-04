@@ -9,7 +9,7 @@ Ollama client (``OllamaClient.embed``) and the same preprocessing the app applie
   document prefix, cut to ``EMBED_MAX_CHARS``; the vector is stored as float16 and read back as float32
   (store/vectors.py ``put_vectors`` / ``_matrix``), so cosine matches the app.
 
-For each kind it sweeps thresholds 0.30..0.90 (step 0.01) and reports precision, recall and F1, the
+For each kind it sweeps thresholds 0.15..0.90 (step 0.01) and reports precision, recall and F1, the
 best-F1 threshold, the lowest threshold with precision >= 0.90 (and its recall), a per-language breakdown
 at those thresholds and at the current app value, and a 10-bin text histogram of cosine for positives
 and negatives.
@@ -44,7 +44,7 @@ from engrama.services.memory.store._util import _unit, _vtext  # noqa: E402
 KINDS = ("episode", "fact", "topic")
 CURRENT = {"episode": SEM_MIN_SIM, "fact": FACT_MIN_SIM, "topic": TOPIC_MIN_SIM}
 LANG_ORDER = ("pt", "en", "cross")
-GRID = tuple(round(0.30 + i * 0.01, 2) for i in range(61))
+GRID = tuple(round(0.15 + i * 0.01, 2) for i in range(76))
 P_TARGET = 0.90
 HIST_EDGES = np.linspace(0.0, 1.0, 11)
 DEFAULT_PAIRS = ROOT / "tools" / "data" / "sem_pairs.jsonl"
