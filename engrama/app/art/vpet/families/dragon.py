@@ -8,7 +8,7 @@ def tail_chain(b, base, length, r0, up=1.0, mat=BODY, z=5, name="tail", s=1):
     x, y = base
     pts = [(x, y), (x + s * length * .45, y + r0 * .6), (x + s * length * .85, y - length * .25 * up),
            (x + s * length, y - length * .6 * up)]
-    b.C(pts, [r0, r0 * .78, r0 * .5, r0 * .3], mat, z, name)
+    b.C(pts, [r0, r0 * .78, r0 * .5, r0 * .3], mat, z, name, role="tail", pivot=base)
     return pts[-1]
 
 
@@ -38,29 +38,31 @@ def membrane_wing(b, sx, sy, ws, z=2, mat=ACC, name="wing", sym=False, flip=1, s
     top, tip = (sx + f * ws * .55, sy - ws * 1.25), (sx + f * ws * 1.3, sy - ws * .9)
     pts = [(sx - f * .4, sy + .8), top, tip, (sx + f * ws * 1.15, sy - ws * .1), (sx + f * ws * .9, sy - ws * .32),
            (sx + f * ws * .72, sy + ws * .12), (sx + f * ws * .45, sy - ws * .08), (sx + f * .6, sy + ws * .35)]
-    b.P(pts, mat, z, name, sym=sym, keep=True)
-    b.C([(sx, sy + .5), top, tip], [.9, .65, .4], BODY, z + .5, name + "arm", sym=sym, keep=True)
+    wk = {"role": "wing", "pivot": (sx, sy)}
+    b.P(pts, mat, z, name, sym=sym, keep=True, **wk)
+    b.C([(sx, sy + .5), top, tip], [.9, .65, .4], BODY, z + .5, name + "arm", sym=sym, keep=True, **wk)
     if struts:                          # finger struts from the wrist to the scallop points
         for q in (pts[4], pts[6]):
-            b.C([top, q], [.5, .3], BODY, z + .4, name + "arm", sym=sym, keep=True)
+            b.C([top, q], [.5, .3], BODY, z + .4, name + "arm", sym=sym, keep=True, **wk)
     b.P([(top[0] - .6, top[1] + .4), (top[0] + .6, top[1] + .2), (top[0] - .2 * f, top[1] - 1.3)], BONE, z + .5,
-        name + "claw", sym=sym, keep=True)
+        name + "claw", sym=sym, keep=True, **wk)
 
 
-def _tail_tip(b, g, d, tip, s):
+def _tail_tip(b, g, d, tip, s, base):
     x, y = tip
     fk = d.fk
+    tk = {"role": "tail", "pivot": base}
     if g["f3"] == 0:
         b.P([(x - s * 1.6, y + .3), (x + s * 1.0, y + 1.0), (x + s * .3, y - 2.4 * fk - .6)], ACC, 6, "tailtip",
-            keep=True)
+            keep=True, **tk)
     elif g["f3"] == 1:
-        b.E(x, y - .8, 1.1 + fk * .7, 1.6 + fk * 1.0, ACC, 6, "tailtip")
+        b.E(x, y - .8, 1.1 + fk * .7, 1.6 + fk * 1.0, ACC, 6, "tailtip", **tk)
     elif g["f3"] == 2:
-        b.E(x, y, 1.2 + fk * .6, 1.2 + fk * .6, BODY, 6, "tailtip")
+        b.E(x, y, 1.2 + fk * .6, 1.2 + fk * .6, BODY, 6, "tailtip", **tk)
         for a in (-.8, .8, 2.3):
             b.P([(x + math.cos(a) * 1.0, y - math.sin(a) * 1.0), (x + math.cos(a + .6), y - math.sin(a + .6)),
                  (x + math.cos(a + .3) * (2.4 + fk), y - math.sin(a + .3) * (2.4 + fk))], BONE, 6, "tailspike",
-                keep=True)
+                keep=True, **tk)
 
 
 def draco(b, g, P, t):
@@ -82,8 +84,9 @@ def draco(b, g, P, t):
         d.mouth_x, d.mouth_y = sn[0] + hr * .1, sn[1] + hr * .12
         horns(b, g, d, hx + hr * .3, hy - hr * .6, hr * .85 * d.fk + .6, hm, back=1)
         tl = (3 + 7 * m) * (1 + .25 * d.ind)
-        tip = tail_chain(b, (L * .4, d.by + bh * .1), tl, bh * .36, up=.9)
-        _tail_tip(b, g, d, tip, 1)
+        tbase = (L * .4, d.by + bh * .1)
+        tip = tail_chain(b, tbase, tl, bh * .36, up=.9)
+        _tail_tip(b, g, d, tip, 1, tbase)
         winged = t >= 2 and g["f2"] != 3
         # feature priority: wings > horns > back spikes; spikes only on wingless dragons, and few of them
         if t >= 1 and not winged:
@@ -108,8 +111,9 @@ def draco(b, g, P, t):
         horns(b, g, d, hr * .5, d.hcy - hr * hy * .72, hr * .85 * d.fk, hm, back=0)
         tl = (3 + 6 * d.m) * (1 + .2 * d.ind)
         s = d.side
-        tip = tail_chain(b, (s * d.bw * .25, d.by + d.bh * .32), tl, d.lr * 1.6 * (1 + .3 * d.m), s=s)
-        _tail_tip(b, g, d, tip, s)
+        tbase = (s * d.bw * .25, d.by + d.bh * .32)
+        tip = tail_chain(b, tbase, tl, d.lr * 1.6 * (1 + .3 * d.m), s=s)
+        _tail_tip(b, g, d, tip, s, tbase)
         if t >= 2 and g["f2"] != 3:
             ws = d.hr * (0, 0, 1.0, 1.35, 1.7)[t] * (1 + .25 * d.ind)
             membrane_wing(b, d.bw * .3, d.btop + .5, ws, sym=True)
@@ -120,7 +124,8 @@ def draco(b, g, P, t):
                     "spike", sym=True, keep=True)
         if t >= 2:
             for x in (.0, .75):
-                b.E(d.footx + d.lr * (x + .1), -.35, .42, .5, BONE, 23, "claw", sym=True, line=False)
+                b.E(d.footx + d.lr * (x + .1), -.35, .42, .5, BONE, 23, "claw", sym=True, line=False, role="leg",
+                pivot=d.hip)
     else:              # wyrm: long coiled body rising from the ground, small arms, frills
         m = d.m
         k = lerp(.55, 1.0, m)
@@ -133,7 +138,7 @@ def draco(b, g, P, t):
         b.C([(x - r * .3, y + r * .2) for (x, y), r in zip(pts[1:], rs[1:])], [r * .5 for r in rs[1:]], BELLY, 11,
             "belly", on=("body", "coil"))
         b.C([pts[0], (pts[0][0] + 2.5 * k, pts[0][1] - 1.5 * k)], [r0 * .45, .4], BODY, 9, "tail", keep=True,
-            grp="body")
+            grp="body", role="tail", pivot=pts[0])
         d.no_slots = frozenset({"back", "wrist"})
         d.body(-1, -6 * k, 10 * k, 12 * k)
         hr = lerp(5.0, 3.9, m) * d.hk / lerp(1.55, 1, m)
@@ -155,8 +160,9 @@ def draco(b, g, P, t):
                     "frill", keep=True)
         if t >= 2:
             ax, ay = pts[4]
-            b.C([(ax - 1, ay + 1), (ax - 3.5 * k, ay + 2.5 * k)], .9, BODY, 14, "arm")
-            b.E(ax - 3.6 * k, ay + 2.6 * k, 1.0, 1.0, BODY, 15, "hand")
+            b.C([(ax - 1, ay + 1), (ax - 3.5 * k, ay + 2.5 * k)], .9, BODY, 14, "arm", role="arm",
+                pivot=(ax - 1, ay + 1))
+            b.E(ax - 3.6 * k, ay + 2.6 * k, 1.0, 1.0, BODY, 15, "hand", role="arm", pivot=(ax - 1, ay + 1))
             d.hands = [(ax - 3.6 * k, ay + 2.6 * k)]
         d.neck = (hx + hr * .3, hy + hr * .85, hr * .9)
     markings(b, g, d)

@@ -31,7 +31,7 @@ def espirito(b, g, P, t):
             a = .5 + .8 * max(0, d.soc)
             for sd in (-1, 1):
                 b.E(sd * (w0 + .8), ay - a * 1.2, lerp(1.2, 2.0, m), lerp(.8, 1.1, m), BODY, 21, "arm",
-                    rot=-sd * a)
+                    rot=-sd * a, role="arm", pivot=(sd * w0, ay), side=sd)
             d.hands = [(w0 + 1.5, ay - a * 1.2), (-w0 - 1.5, ay - a * 1.2)]
         _spirit_crest(b, g, d, 0, cy - R * .9, R)
         d.neck = (0, cy + R * .95, R * 1.6)
@@ -44,7 +44,7 @@ def espirito(b, g, P, t):
         b.E(0, by, bw / 2, bh / 2, BODY, 1, "body", line=False)
         s = d.side
         b.C([(0, by + bh * .3), (s * bw * .2, by + bh * .5 + tl * .5), (s * bw * .5, -0.3)],
-            [bw * .32, bw * .18, .4], BODY, 9, "wisp", keep=True)
+            [bw * .32, bw * .18, .4], BODY, 9, "wisp", keep=True, role="tail", pivot=(0, by + bh * .3))
         d.body(0, by, bw, bh)
         d.head(0, by + bh * .12, bh * .5, bw * .5, .9)
         d.eye_dx = bw * .22
@@ -60,7 +60,8 @@ def espirito(b, g, P, t):
         if t >= 2:
             for sd in (-1, 1):
                 b.C([(sd * bw * .45, by + bh * .1), (sd * bw * .75, by - bh * .05), (sd * bw * .85, by - bh * .3)],
-                    [1.0, .7, .35], BODY, 19, "arm", keep=True)
+                    [1.0, .7, .35], BODY, 19, "arm", keep=True, role="arm", pivot=(sd * bw * .45, by + bh * .1),
+                    side=sd)
             d.hands = [(bw * .85, by - bh * .3), (-bw * .85, by - bh * .3)]
         d.neck = (0, by + bh * .35, bw * .8)
     else:              # hooded wraith: cloak, face in shadow with glowing eyes, floating hands, staff
@@ -88,7 +89,8 @@ def espirito(b, g, P, t):
         if t >= 1:
             for sd in (-1, 1):
                 b.E(sd * (cw * .5 + 1.2), hcy + hr * 1.6 + (sd * .8 * max(0, d.soc)), lerp(1.1, 1.6, m),
-                    lerp(1.1, 1.5, m), BELLY, 23, "hand")
+                    lerp(1.1, 1.5, m), BELLY, 23, "hand", role="arm", pivot=(sd * cw * .3, hcy + hr * 1.2),
+                    side=sd)
             d.hands = [(cw * .5 + 1.2, hcy + hr * 1.6), (-cw * .5 - 1.2, hcy + hr * 1.6)]
         if t >= 2:
             sx = -d.side * (cw * .5 + 1.2)

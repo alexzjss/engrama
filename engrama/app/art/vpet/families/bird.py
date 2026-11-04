@@ -12,7 +12,7 @@ def feather_fan(b, sx, sy, ws, a0, a1, n, z=3, name="wing", sym=False, flip=1, t
         L = ws * (len0 + (len1 - len0) * i / max(1, n - 1))
         dx, dy = math.cos(a) * flip, -math.sin(a)
         b.E(sx + dx * L * .5, sy + dy * L * .5, L * .5, ws * width, tipmat if i == 0 else BODY, z + n - i, name,
-            sym=sym, rot=math.atan2(dy, dx))
+            sym=sym, rot=math.atan2(dy, dx), role="wing", pivot=(sx, sy))
 
 
 def _crest(b, g, d, x, y, L, back):
@@ -69,23 +69,28 @@ def ave(b, g, P, t):
         tl = 2.5 + 6 * m
         for i, a in enumerate((.55, .3, .05)):
             b.C([(L * .35, by - bh * .05), (L * .4 + tl * math.cos(a), by - tl * math.sin(a) * .6)],
-                [1.2, .35], ACC if i == 1 else BODY, 3 + i, "tailf", keep=True)
+                [1.2, .35], ACC if i == 1 else BODY, 3 + i, "tailf", keep=True, role="tail",
+                pivot=(L * .35, by - bh * .05))
         if t >= 1:
             for x, z, mt in ((L * .12, 6, MARK), (-L * .08, 7, ACC)):
-                b.C([(x, by + bh * .3), (x - .3, -.4)], .5 + .2 * m, mt if mt != MARK else ACC, z, "leg", keep=True)
-                b.C([(x - .3, -.35), (x - 1.6, -.35)], .45, ACC, z, "toe", keep=True)
+                lp = (x, by + bh * .3)
+                b.C([(x, by + bh * .3), (x - .3, -.4)], .5 + .2 * m, mt if mt != MARK else ACC, z, "leg", keep=True,
+                    role="leg", pivot=lp)
+                b.C([(x - .3, -.35), (x - 1.6, -.35)], .45, ACC, z, "toe", keep=True, role="leg", pivot=lp)
         if t >= 1:
             ws = L * (0, .5, .55, .62, .7)[t] * (1 + .2 * d.soc)
             wy = by - bh * (.2 + .05 * max(0, d.soc))
             b.C([(-L * .22, wy), (L * .08, by + bh * .02), (L * .2 + ws * .55, by + bh * .05)],
-                [bh * .38, bh * .32, .6], BODY, 12, "wing", keep=True)
-            b.E(L * .12 + ws * .35, by + bh * .05, ws * .32, bh * .16, ACC, 13, "wingtip", on=("wing",))
+                [bh * .38, bh * .32, .6], BODY, 12, "wing", keep=True, role="wing", pivot=(-L * .22, wy))
+            b.E(L * .12 + ws * .35, by + bh * .05, ws * .32, bh * .16, ACC, 13, "wingtip", on=("wing",),
+                role="wing", pivot=(-L * .22, wy))
             for k in range(1 + (t >= 3) + (t >= 4)):          # primaries fan out past the tail
                 y = by + bh * (.02 + .1 * k)
                 b.P([(L * .2 + ws * .3, y - .8), (L * .2 + ws * .3, y + .8), (L * .25 + ws * (.75 + .12 * k), y + .3)],
-                    ACC if k == 0 else BODY, 12.5, "primary", keep=True)
+                    ACC if k == 0 else BODY, 12.5, "primary", keep=True, role="wing", pivot=(-L * .22, wy))
             if t >= 3:   # far wing peeks above the back
-                b.E(L * .02, by - bh * .5, ws * .38, bh * .22, MARK, 2, "farwing", rot=-.35)
+                b.E(L * .02, by - bh * .5, ws * .38, bh * .22, MARK, 2, "farwing", rot=-.35,
+                    role="wing", pivot=(-L * .22, wy))
         d.neck = (hx + hr * .2, hy + hr * .85, hr * .8)
     elif plan == 1:    # round owl-like: big face disc, ear tufts, short legs
         bw, bh = lerp(8, 12.5, m) * d.wk, lerp(7.5, 12, m)
@@ -116,10 +121,13 @@ def ave(b, g, P, t):
         if t >= 1:
             sp = 1 if t < 3 else 1.25
             b.C([(bw * .42, by - bh * .3), (bw * .5 * sp, by + bh * .05), (bw * .42 * sp, by + bh * .42)],
-                [bw * .14, bw * .15, .5], BODY, 14, "wing", sym=True, keep=True)
-            b.E(bw * .46 * sp, by + bh * .22, bw * .08, bh * .14, ACC, 15, "wingtip", sym=True, on=("wing",))
+                [bw * .14, bw * .15, .5], BODY, 14, "wing", sym=True, keep=True, role="wing",
+                pivot=(bw * .42, by - bh * .3))
+            b.E(bw * .46 * sp, by + bh * .22, bw * .08, bh * .14, ACC, 15, "wingtip", sym=True, on=("wing",),
+                role="wing", pivot=(bw * .42, by - bh * .3))
             for x in (-.6, 0, .6):
-                b.E(bw * .2 + x, -.4, .45, .55, ACC, 9, "talon", sym=True, line=False)
+                b.E(bw * .2 + x, -.4, .45, .55, ACC, 9, "talon", sym=True, line=False, role="leg",
+                    pivot=(bw * .2, by + bh * .4))
         d.neck = (0, hcy + hr * .8, hr * 1.4)
     else:              # in flight: wings spread wide, tail fan below, legs tucked
         d.no_slots = frozenset({"back"})
@@ -141,14 +149,15 @@ def ave(b, g, P, t):
         _crest(b, g, d, 0, hcy - hr * .85, hr * .7 * d.fk + .6, 0)
         ws = lerp(4, 10.5, m) * (1 + .2 * d.soc)
         if t == 0:
-            b.E(bw * .55, by - .5, 1.6, 1.0, BODY, 9, "wing", sym=True, rot=-.4)
+            b.E(bw * .55, by - .5, 1.6, 1.0, BODY, 9, "wing", sym=True, rot=-.4, role="wing",
+                pivot=(bw * .38, by - bh * .3))
         else:
             feather_fan(b, bw * .38, by - bh * .3, ws, -15, 50, 4 + (t >= 3), z=3, name="wing", sym=True,
                         len0=1.25, len1=.95, width=.19)
         tl = 2 + 4 * m
         for i, a in enumerate((-.45, 0, .45)):
             b.C([(0, by + bh * .3), (math.sin(a) * tl * .8, by + bh * .4 + tl)], [1.0, .4], ACC if i == 1 else BODY,
-                2, "tailf", keep=True)
+                2, "tailf", keep=True, role="tail", pivot=(0, by + bh * .3))
         d.neck = (0, hcy + hr * .8, hr * 1.2)
     markings(b, g, d)
     return d
