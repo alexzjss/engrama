@@ -67,7 +67,7 @@ SCRIPT = {"id": "child-pt-x", "stage": "child", "lang": "pt", "profile": {"mood"
 
 @pytest.mark.parametrize("replies,rejected,assistant_raw", [
     (["oi! tudo bem?", "que lindo nome!", "a Bolota te espera!"], 0, 0),
-    (["como posso ajudar?", "em que posso ajudar?", "oi"], 1, 1),
+    (["como posso ajudar?", "em que posso ajudar?", "oi", "e aí"], 1, 1),   # distinct: repeat guard (M13)
 ])
 def test_run_script_metrics(tmp_path, replies, rejected, assistant_raw):
     cfg = Config(data_dir=tmp_path)
@@ -92,7 +92,7 @@ def test_run_script_metrics(tmp_path, replies, rejected, assistant_raw):
 def test_length_and_aggregate(tmp_path):
     long = "um dois tres quatro cinco seis sete oito nove dez onze doze treze quatorze"
     cfg = Config(data_dir=tmp_path)
-    r = smoke_llm.run_script(SCRIPT, FakeClient([long]), FakeServer(), cfg, tmp_path, sync=True)
+    r = smoke_llm.run_script(SCRIPT, FakeClient([long, "zero " + long, "meio " + long]), FakeServer(), cfg, tmp_path, sync=True)
     assert r["lines"][0]["length_ok"] is False and r["lines"][0]["words"] == 14
     assert len(r["lines"][0]["clean"].split()) == 12                       # clean_reply truncates
     agg = smoke_llm.aggregate([r])

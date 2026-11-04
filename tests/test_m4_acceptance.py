@@ -60,7 +60,8 @@ class ScriptedClient:
             return json.dumps(self.facts)
         if head.startswith(REFLECT_HEADS):
             return json.dumps(self.reflection)
-        return "oi, e ai"
+        # varied lines: the M13 repeat guard rejects the same reply as one of the last three
+        return ["oi, e ai", "tudo bem?", "fala ai", "opa, beleza?", "que legal"][len(self.chats) % 5]
 
     def tags(self):
         return {"qwen3:1.7b"}

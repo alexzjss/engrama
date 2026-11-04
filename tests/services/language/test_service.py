@@ -412,3 +412,34 @@ def test_busy_true_during_chat_call(tmp_path):
     finally:
         client.release.set()
         svc.shutdown()
+
+
+class SeqClient(FakeClient):
+    def __init__(self, replies):
+        super().__init__()
+        self.seq = list(replies)
+
+    def chat(self, model, messages, num_predict, temperature, timeout=45):
+        self.chats.append(messages)
+        return self.seq.pop(0) if len(self.seq) > 1 else self.seq[0]
+
+
+def test_repeat_of_recent_reply_is_rejected_then_retried(tmp_path):
+    svc, _, _ = make(tmp_path, client=SeqClient(["oi amigo", "oi amigo!", "tudo bem hoje"]))
+    svc.request("oi")
+    svc.pump()
+    assert get(svc).text == "oi amigo"
+    svc.request("e aí")
+    svc.pump()
+    r = get(svc)       # first attempt repeats the stock line, the retry at 0.9 is new
+    assert r.source == "llm" and r.text == "tudo bem hoje"
+
+
+def test_repeat_twice_falls_back_to_babble(tmp_path):
+    svc, _, _ = make(tmp_path, client=SeqClient(["oi amigo"]))
+    svc.request("oi")
+    svc.pump()
+    assert get(svc).source == "llm"
+    svc.request("e aí")
+    svc.pump()
+    assert get(svc).source == "babble"

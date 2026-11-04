@@ -19,7 +19,7 @@ from typing import Callable
 from engrama.services.language.client import LLMOffline, LLMTimeout, strip_think
 from engrama.services.language.lang import detect_lang
 from engrama.services.language.persona import (build_farewell_messages, farewell_babble, OPINION_PROMPT, build_file_messages, REFLECT_PROMPT, SPEECH, SPONTANEOUS_PROMPT,
-                                               PersonaState, apply_recall, babble, build_messages, clean_reply,
+                                               PersonaState, apply_recall, babble, build_messages, clean_reply, is_repeat,
                                                strip_emoji, valence)
 from engrama.services.memory import CONVERSATION_GAP_S, EMBED_BATCH, INDEX_EVERY_S
 from engrama.services.memory.opinions import stance_word
@@ -587,6 +587,8 @@ class LanguageService:
         try:
             for temp in (0.8, 0.9):
                 out = clean_reply(self.client.chat(self.cfg.model, msgs, num_predict, temp), max_words)
+                if out and is_repeat(out, self.working.messages()):
+                    out = None            # same stock line as one of the last replies: retry, then babble
                 if out:
                     break
         except LLMOffline:
