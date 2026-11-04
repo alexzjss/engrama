@@ -206,6 +206,12 @@ class WinDesktop(Desktop):
         try:
             import pygame
 
+            # On Wayland (and the dummy driver) get_wm_info() segfaults or has no native handle: no HWND.
+            try:
+                if pygame.display.get_driver() in ("wayland", "dummy"):
+                    return 0
+            except Exception:
+                pass
             return int(pygame.display.get_wm_info().get("window", 0))
         except Exception:
             return 0

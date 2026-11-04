@@ -515,3 +515,15 @@ def test_f11_wayland_notice():
     assert w.mode == "terrarium"
     assert w._notice[0] == i18n.t("ui.overlay.unavailable_wayland")
     w.frame(1.0)
+
+
+# ------------------------------------------------------------------ M12: no get_wm_info on Wayland / dummy
+@pytest.mark.parametrize("driver", ["dummy", "wayland"])
+def test_hwnd_is_zero_without_wm_info_on_dummy_or_wayland(monkeypatch, driver):
+    w, _, _ = overlay_window()
+
+    calls = []   # the production code swallows exceptions, so record the call instead of raising
+    monkeypatch.setattr(pygame.display, "get_driver", lambda: driver)
+    monkeypatch.setattr(pygame.display, "get_wm_info", lambda: calls.append(driver) or {"window": 99})
+    assert w.overlay._hwnd() == 0
+    assert calls == []
