@@ -11,7 +11,8 @@ import pytest
 from engrama.services.memory import (MAX_EPISODES, MAX_FACTS, MAX_TOPICS, SEARCH_BUDGET_MS,
                                      SEM_MIN_SIM, VECTOR_RAM_MAX_MB, W_IMPORTANCE, W_RECENCY,
                                      W_RELEVANCE, W_SEM, W_WORD)
-from engrama.services.memory import store as store_mod
+from engrama.services.memory.store import base as store_base_mod
+from engrama.services.memory.store import generations as store_gen_mod
 from engrama.services.memory.store import MemoryStore, VECTOR_KINDS
 from tests.services.fake_embedder import FakeEmbedder
 
@@ -130,7 +131,7 @@ def test_migrate_v2_failure_rolls_back(tmp_path, monkeypatch):
     path = tmp_path / "memory.sqlite"
     shutil.copy(FIXTURE, path)
     before = _dump(path)
-    monkeypatch.setattr(store_mod, "_V3_STATEMENTS", ("CREATE TABLE vectors(x)", "NOT SQL"))
+    monkeypatch.setattr(store_base_mod, "_V3_STATEMENTS", ("CREATE TABLE vectors(x)", "NOT SQL"))
     with pytest.raises(sqlite3.Error):
         MemoryStore(path, now_fn=Clock())
     assert _dump(path) == before
@@ -371,9 +372,9 @@ def test_every_delete_path_drops_vectors(tmp_path, monkeypatch, path):
             s.bump_topic(f"assunto{i}", 0.1)
         index_all(s)
         before = set(vec_rows(s))
-        monkeypatch.setattr(store_mod, "MAX_EPISODES", 3)
-        monkeypatch.setattr(store_mod, "MAX_FACTS", 3)
-        monkeypatch.setattr(store_mod, "MAX_TOPICS", 3)
+        monkeypatch.setattr(store_gen_mod, "MAX_EPISODES", 3)
+        monkeypatch.setattr(store_gen_mod, "MAX_FACTS", 3)
+        monkeypatch.setattr(store_gen_mod, "MAX_TOPICS", 3)
     gone = path(s, clock)
     assert_no_orphans(s)
     if path is _caps:
