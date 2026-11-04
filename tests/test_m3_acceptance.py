@@ -228,6 +228,7 @@ def test_rest_mode_unloads_llm_and_drops_fps(tmp_path):
     mem.close()
 
 
+@pytest.mark.perf
 def test_core_budget(tmp_path):
     out = subprocess.run([sys.executable, str(ROOT / "tools" / "bench.py"), "--app", "--seconds", "30",
                           "--data-dir", str(tmp_path / "bench")], capture_output=True, text=True,
