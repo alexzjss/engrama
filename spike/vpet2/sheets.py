@@ -1,4 +1,4 @@
-"""Review sheets: python -m spike.vpet2.sheets [outdir]"""
+"""Review sheets for the M11 art (engrama.app.art.vpet): python -m spike.vpet2.sheets [outdir] [sheet ...]"""
 import os
 import sys
 import time
@@ -8,9 +8,32 @@ import numpy as np
 import pygame
 
 from engrama.app.art.sprites import ANIMS
-from .anim import frame_arrays
-from .gen import STAGES, SIZES, sprite, idle
-from .genes import FAMILIES, FAMILY_PT, TRAITS, family_of, rng
+from engrama.app.art.vpet import gen as vgen
+from engrama.app.art.vpet.anim import frame_arrays
+from engrama.app.art.vpet.face import stamp_face
+from engrama.app.art.vpet.gen import SIZES, STAGES
+from engrama.app.art.vpet.genes import FAMILIES, FAMILY_PT, TRAITS, family_of, rng
+from engrama.app.art.vpet.genes import genes as _genes
+from engrama.kernel.genome import Genome
+
+
+def hue(seed):
+    """The genome's main colour, as the app passes it (Look.palette[1])."""
+    return tuple(Genome.from_seed(seed).palette[1])
+
+
+def sprite(seed, stage, **kw):
+    kw.setdefault("hue_rgb", hue(seed))
+    return vgen.sprite(seed, stage, **kw)
+
+
+def idle(seed, stage, **kw):
+    sp = sprite(seed, stage, **kw)
+    return stamp_face(sp.body.copy(), sp.face)
+
+
+def genes(seed):
+    return _genes(seed, hue(seed))
 
 BG = (40, 38, 54)
 OUT_DIR = sys.argv[1] if len(sys.argv) > 1 else "/home/alex/Documentos/codes/engrama/art-review"
@@ -33,10 +56,27 @@ def label(sheet, font, text, x, y, col=(220, 220, 235)):
 
 
 def egg(seed, sc):
-    from engrama.app.art import sprites
-    from engrama.kernel.genome import Genome
-    s = sprites.frames(sprites.Look.from_dict(Genome.from_seed(seed).to_dict()), "egg", "idle")[0]
-    return pygame.transform.scale(s, (16 * sc, 16 * sc))
+    return surf(vgen.egg(seed, hue(seed)), sc)
+
+
+def plan_seeds(fam, n=4):
+    """Seeds covering each sub-plan of a family (plan 0, 1, 2, then extra)."""
+    out, seen = [], set()
+    for s in range(1, 2000):
+        if family_of(s) != fam:
+            continue
+        p = genes(s)["plan"]
+        if p not in seen:
+            seen.add(p); out.append(s)
+        if len(seen) == 3:
+            break
+    out.sort(key=lambda s: genes(s)["plan"])
+    for s in range(1, 2000):
+        if len(out) >= n:
+            break
+        if family_of(s) == fam and s not in out:
+            out.append(s)
+    return out
 
 
 def lineages(path, seeds=range(1, 17), sc=4):
@@ -58,24 +98,34 @@ def lineages(path, seeds=range(1, 17), sc=4):
     pygame.image.save(sheet, path)
 
 
-def families(path, sc=6, per=4):
+def families(path, sc=6, per=4, stage="adult", silhouette=False):
     font = pygame.font.Font(None, 26)
-    cell = 40 * sc + 12
+    n = SIZES[stage]
+    cell = n * sc + 12
     lw = 120
     sheet = pygame.Surface((lw + cell * per, cell * len(FAMILIES)))
-    sheet.fill(BG)
+    sheet.fill((235, 235, 240) if silhouette else BG)
     for row, fam in enumerate(FAMILIES):
-        seeds = [s for s in range(1, 400) if family_of(s) == fam][:per]
-        label(sheet, font, FAMILY_PT[fam], 8, row * cell + cell // 2)
-        for col, seed in enumerate(seeds):
-            im = surf(idle(seed, "adult", lineage=demo_lineage(seed)[:1]), sc)
-            sheet.blit(im, (lw + col * cell + 6, row * cell + 6))
+        label(sheet, font, FAMILY_PT[fam], 8, row * cell + cell // 2, (40, 40, 50) if silhouette else (220, 220, 235))
+        for col, seed in enumerate(plan_seeds(fam, per)):
+            a = idle(seed, stage, lineage=() if silhouette else demo_lineage(seed)[:2])
+            if silhouette:
+                a = a.copy(); a[a[:, :, 3] > 0, :3] = 20
+            im = surf(a, sc)
+            sheet.blit(im, (lw + col * cell + 6, row * cell + 6 + (n * sc - im.get_height())))
+            if not silhouette:
+                label(sheet, pygame.font.Font(None, 18), f"#{seed} p{genes(seed)['plan']}", lw + col * cell + 8,
+                      row * cell + 4, (150, 150, 170))
     pygame.image.save(sheet, path)
+
+
+def silhouettes(path):
+    families(path, sc=4, stage="final", silhouette=True)
 
 
 def personality(path, sc=5):
     font = pygame.font.Font(None, 22)
-    seeds = [next(s for s in range(1, 400) if family_of(s) == f) for f in ("draco", "fera", "ave", "maquina")]
+    seeds = [plan_seeds(f)[i] for f, i in (("draco", 0), ("fera", 1), ("ave", 0), ("maquina", 2))]
     cases = [("neutro", None, ()), ]
     for k in TRAITS:
         tr = {kk: .5 for kk in TRAITS}; tr[k] = 1.0
@@ -131,7 +181,7 @@ def bench():
 if __name__ == "__main__":
     pygame.init()
     os.makedirs(OUT_DIR, exist_ok=True)
-    which = sys.argv[2:] or ["lineages", "families", "personality", "anims"]
+    which = sys.argv[2:] or ["lineages", "families", "silhouettes", "personality", "anims"]
     for w in which:
         globals()[w](os.path.join(OUT_DIR, w + ".png"))
     print("ms/sprite %.2f" % bench())

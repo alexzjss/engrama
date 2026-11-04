@@ -1,14 +1,17 @@
-"""Genes, family, persona and palette: pure functions of the seed (+ lineage for the lived persona)."""
+"""Genes, family, plan, persona and palette: pure functions of the seed and the genome colour (+ lineage for the
+lived persona). No Genome fields are added; saves stay compatible."""
 import colorsys
 import hashlib
 import random
+
+from engrama.vocab import NEGLECT_BRANCHES, TRAIT_KEYS
 
 from .core import palette, _toward, ACC, MARK
 
 FAMILIES = ("draco", "fera", "ave", "inseto", "planta", "espirito", "aquatico", "maquina")
 FAMILY_PT = {"draco": "dragão", "fera": "fera", "ave": "ave", "inseto": "inseto", "planta": "planta",
              "espirito": "espírito", "aquatico": "aquático", "maquina": "máquina"}
-TRAITS = ("curiosidade", "sociabilidade", "paciencia", "independencia", "criatividade")
+TRAITS = TRAIT_KEYS
 
 # lived persona: each branch in the lineage pushes the traits it rewards (mirrors kernel/branches.py scores)
 BRANCH_PUSH = {
@@ -24,11 +27,11 @@ BRANCH_PUSH = {
     "mestre": dict(paciencia=.2, independencia=.1), "eco": dict(criatividade=.2, sociabilidade=.1),
     "sombra": dict(independencia=.3, sociabilidade=-.3),
 }
-NEGLECT = frozenset({"arisco", "sombrio", "rebelde", "sombra"})
+NEGLECT = NEGLECT_BRANCHES
 
 
 def rng(seed, tag):
-    h = hashlib.sha256(f"vpet2:{seed}:{tag}".encode()).digest()
+    h = hashlib.sha256(f"vpet2:{seed}:{tag}".encode()).digest()   # salt kept: it fixes the designs
     return random.Random(int.from_bytes(h[:8], "big"))
 
 
@@ -57,14 +60,10 @@ def persona(seed: int, lineage=(), traits=None) -> dict:
     return p
 
 
-def _genome_hue(seed):
-    try:
-        from engrama.kernel.genome import Genome
-        c = Genome.from_seed(seed).palette[1]
-        return colorsys.rgb_to_hsv(c[0] / 255, c[1] / 255, c[2] / 255)
-    except Exception:
-        r = random.Random(seed)
-        return r.random(), .6, .9
+def _seed_hue(seed):
+    """Fallback when the genome colour is unknown (the app always passes Look.palette[1])."""
+    r = random.Random(seed)
+    return r.random(), .6, .9
 
 
 FAM_COL = {  # family -> (target hue or None, pull, sat mul, val mul)
@@ -81,7 +80,7 @@ def genes(seed: int, hue_rgb=None) -> dict:
     if hue_rgb is not None:
         h, s, v = colorsys.rgb_to_hsv(*(c / 255 for c in hue_rgb))
     else:
-        h, s, v = _genome_hue(seed)
+        h, s, v = _seed_hue(seed)
     th, pull, sm, vm = FAM_COL[fam]
     if th is not None:
         h = _toward(h, th, pull)
@@ -105,6 +104,7 @@ def genes(seed: int, hue_rgb=None) -> dict:
              belly=r.random() < .8,
              f1=r.randrange(4), f2=r.randrange(4), f3=r.randrange(4), f4=r.randrange(4),
              side=1 if r.random() < .5 else -1,
-             hy=r.uniform(.86, .96), bodyk=r.uniform(.92, 1.1), limbk=r.uniform(.9, 1.12))
+             hy=r.uniform(.86, .96), bodyk=r.uniform(.92, 1.1), limbk=r.uniform(.9, 1.12),
+             plan=rng(seed, "plan").randrange(3), eye_pick=r.random())
     g["pal"] = palette(h, sat, val, acc_h)
     return g

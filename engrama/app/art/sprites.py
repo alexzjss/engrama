@@ -1,7 +1,8 @@
-"""Procedural pixel sprites: the egg (index grids) and the original V-Pet style creatures (engrama.app.art.vpet).
+"""Procedural pixel sprites: the original V-Pet style creatures and eggs of engrama.app.art.vpet (M11).
 
-Creatures are 14 archetypes x 4 poses with signature genes, drawn per (look, stage, lineage) and animated by
-whole-sprite transforms plus eye templates. All drawing is cached (bounded LRU), never per frame.
+Each creature belongs to one of 8 families with 3 body plans, fixed for life by the seed; stages grow the same body,
+branches add accessories that accumulate. Animations are whole-sprite transforms plus face stamps. All drawing is
+cached (bounded LRU), never per frame.
 """
 import colorsys
 import random
@@ -12,6 +13,8 @@ import numpy as np
 import pygame
 
 from engrama.app.art import vpet
+from engrama.app.art.vpet import anim as vpet_anim
+from engrama.app.art.vpet import core as vpet_core
 
 
 @dataclass(frozen=True)
@@ -86,129 +89,30 @@ _CACHE_MAX = 400
 _cache: "OrderedDict[tuple, list[pygame.Surface]]" = OrderedDict()
 
 
-class _Grid:
-    def __init__(self, n: int):
-        self.n = n
-        self.a = np.zeros((n, n), dtype=np.uint8)
-        self.part = np.zeros((n, n), dtype=np.uint8)  # 1 head, 2 body/torso, 3 other
-
-    def set(self, x: int, y: int, c: int, part: int = 3) -> None:
-        if 0 <= x < self.n and 0 <= y < self.n:
-            self.a[y, x] = c
-            if part:
-                self.part[y, x] = part
-
-    def setm(self, x: int, y: int, c: int) -> None:
-        self.set(x, y, c, 0)
-        self.set(self.n - 1 - x, y, c, 0)
-
-    def ellipse(self, cx, cy, rx, ry, p, pear, part, c=2) -> None:
-        for y in range(self.n):
-            for x in range(self.n):
-                w = rx * (1 + pear * (y - cy) / ry)
-                if w > 0 and (abs(x - cx) / w) ** p + (abs(y - cy) / ry) ** p <= 1:
-                    self.set(x, y, c, part)
-
-    def top(self, x: int) -> int | None:
-        ys = np.nonzero(self.a[:, x])[0]
-        return int(ys[0]) if len(ys) else None
-
-    def bottom(self, x: int) -> int | None:
-        ys = np.nonzero(self.a[:, x])[0]
-        return int(ys[-1]) if len(ys) else None
-
-    def row_extent(self, y: int) -> tuple[int, int] | None:
-        xs = np.nonzero(self.a[y])[0]
-        return (int(xs[0]), int(xs[-1])) if len(xs) else None
-
-    def shade_bottoms(self) -> None:
-        for x in range(self.n):
-            b = self.bottom(x)
-            if b is not None and self.a[b, x] == 2:
-                self.a[b, x] = 3
-
-    def outline(self) -> None:
-        m = self.a != 0
-        near = np.zeros_like(m)
-        near[1:] |= m[:-1]
-        near[:-1] |= m[1:]
-        near[:, 1:] |= m[:, :-1]
-        near[:, :-1] |= m[:, 1:]
-        self.a[near & ~m] = 1
-
-
-def _rgb(c) -> tuple[int, int, int]:
-    return int(c[0]), int(c[1]), int(c[2])
-
-
-def _to_surface(grid: _Grid, palette, tint: bool = False, extra=None, bright: float = 0.0,
-                gray: float = 0.0, fade: float = 1.0) -> pygame.Surface:
-    """extra: {9: rgb, 10: rgb, 11: rgb|rgba} branch accessory colours; bright/gray/fade are animation effects."""
-    lut = np.zeros((15, 4), dtype=np.uint8)
-    cols = {1: palette[0], 2: palette[1], 3: palette[2], 4: palette[3],
-            5: (250, 250, 250), 6: palette[0], 7: palette[0], 8: (120, 190, 255)}
-    for i, c in (extra or {}).items():
-        cols[i] = c
-    for i, c in cols.items():
-        alpha = int(c[3]) if len(c) > 3 else 255
-        c = _rgb(c)
-        if tint and i in (2, 3, 4):
-            c = tuple(int(v * 0.55 + g * 0.45) for v, g in zip(c, (130, 190, 100)))
-        if gray:
-            c = tuple(int(v * (1 - gray) + 140 * gray) for v in c)
-        if bright:
-            c = tuple(int(v + (255 - v) * bright) for v in c)
-        lut[i] = (*c, int(alpha * fade))
-    rgba = lut[grid.a]  # (h, w, 4)
-    surf = pygame.Surface((grid.n, grid.n), pygame.SRCALPHA)
-    rgb = pygame.surfarray.pixels3d(surf)
-    rgb[:] = rgba[:, :, :3].swapaxes(0, 1)
-    del rgb
-    alpha = pygame.surfarray.pixels_alpha(surf)
-    alpha[:] = rgba[:, :, 3].swapaxes(0, 1)
-    del alpha
-    return surf
-
-
-# --- egg --------------------------------------------------------------------------------------------------
+# --- egg ----------------------------------------------------------------------------------------------------
 CRACKS = [[(7, 3), (8, 4), (7, 5)],
           [(6, 6), (7, 7), (6, 8), (7, 9)],
           [(9, 5), (10, 6), (9, 7), (10, 8), (5, 9), (4, 10), (5, 11)]]
 
 
-def _egg_grid(genome, dx: int = 0, crack: int = 0) -> _Grid:
-    n = 16
-    g = _Grid(n)
-    cx, cy, ry = 7.5 + dx, 8.2, 6.2
-    rx = 5.0 + 0.3 * (genome.body % 3)
-    for y in range(n):
-        for x in range(n):
-            w = rx * (1 - 0.18 * max(0.0, cy - y) / ry)
-            if (abs(x - cx) / w) ** 2 + ((y - cy) / ry) ** 2 <= 1:
-                g.set(x, y, 2, 2)
-    rng = random.Random(f"egg:{genome.seed}")
-    for _ in range(3 + genome.pattern % 2):
-        x, y = rng.randrange(3, 8), rng.randrange(4, 13)
-        for sx in range(x, x + 1 + rng.randrange(2)):
-            mx = 15 + 2 * dx - sx  # mirror about the (shifted) centre
-            for px in (sx, mx):
-                if 0 <= px < n and g.a[y, px] == 2:
-                    g.a[y, px] = 4
-    g.shade_bottoms()
-    g.outline()
+def _egg_array(genome, dx: int = 0, crack: int = 0, fx: dict | None = None) -> np.ndarray:
+    a = vpet.egg_array(genome, dx).copy()
     for lv in range(crack):
         for x, y in CRACKS[lv]:
-            g.set(x + dx, y, 6, 0)
+            x += dx
+            if 0 <= x < 16 and a[y, x, 3]:
+                a[y, x] = (*vpet_core.OUT, 255)
     if crack >= 3:  # shell chipped open at the top
         for x in (7, 8):
-            g.set(x + dx, 2, 5, 0)
-    return g
+            a[2, x + dx] = (250, 250, 250, 255)
+    if fx:
+        a = vpet_anim._color(a, fx)
+    return a
 
 
 def make_egg_crack(genome, level: int) -> pygame.Surface:
     level = max(0, min(3, int(level)))
-    return _to_surface(_egg_grid(genome, 0, level), genome.palette)
-
+    return _surface(_egg_array(genome, 0, level))
 
 
 def _surface(arr: np.ndarray) -> pygame.Surface:
@@ -216,35 +120,38 @@ def _surface(arr: np.ndarray) -> pygame.Surface:
     return pygame.image.frombuffer(np.ascontiguousarray(arr).tobytes(), (n, n), "RGBA")
 
 
-def _key(look, stage: str, anim: str, bid: str, lineage: tuple) -> tuple:
-    return (look.seed, look.body, look.eyes, look.ears, look.tail, look.pattern, tuple(look.palette[1]),
-            stage, anim, bid, lineage)
+def _key(look, stage: str, anim: str, lineage: tuple) -> tuple:
+    return (look.seed, tuple(look.palette[1]), stage, anim, lineage)
 
 
 def frames(look, stage: str, anim: str) -> list[pygame.Surface]:
     """2-4 transparent frames for (look, stage, anim). Cached (bounded LRU); callers must not mutate the surfaces.
 
-    The branch that applies is the one of look.branch / look.lineage that belongs to `stage`; unknown ids draw as base."""
+    Only the look's seed, main colour (palette[1]), branch and lineage matter; unknown branch ids are ignored."""
     if anim not in ANIMS:
         raise ValueError(f"unknown anim {anim!r}")
     if stage not in SIZES:
         raise ValueError(f"unknown stage {stage!r}")
     branch = getattr(look, "branch", "base") or "base"
-    lineage = vpet.known_lineage(getattr(look, "lineage", ()) or ())
-    bid = vpet.branch_at(stage, branch, lineage)
-    key = _key(look, stage, anim, bid, lineage)
+    lin = vpet.full_lineage(branch, getattr(look, "lineage", ()) or ())
+    if stage != "egg":   # only the branches up to this stage can change the drawing
+        upto = vpet.STAGES.index(stage)
+        lin = tuple(b for b in lin if vpet.gen.BRANCH_STAGE[b] <= upto)
+    else:
+        lin = ()
+    key = _key(look, stage, anim, lin)
     hit = _cache.get(key)
     if hit is not None:
         _cache.move_to_end(key)
         return hit
     if stage == "egg":
         if anim in EGG_FX:
-            out = [_to_surface(_egg_grid(look, 0), look.palette, **p) for p in EGG_FX[anim]]
+            out = [_surface(_egg_array(look, 0, fx=p)) for p in EGG_FX[anim]]
         else:
             wobble = [0, 1, 0, -1] if anim == "idle" else [0, 1]
-            out = [_to_surface(_egg_grid(look, dx), look.palette) for dx in wobble]
+            out = [_surface(_egg_array(look, dx)) for dx in wobble]
     else:
-        out = [_surface(a) for a in vpet.creature_frames(look, stage, anim, branch, lineage)]
+        out = [_surface(a) for a in vpet.creature_frames(look, stage, anim, "base", lin)]
     _cache[key] = out
     while len(_cache) > _CACHE_MAX:
         _cache.popitem(last=False)

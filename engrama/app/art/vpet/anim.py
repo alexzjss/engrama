@@ -1,8 +1,10 @@
-"""Animations: eye/mouth templates plus whole-sprite transforms (shift, squash, lean, tint, fade, lie). No limb animation."""
+"""Animations: face stamps (face.py) plus whole-sprite transforms (shift, squash, lean, tint, fade, lie). No limb
+animation."""
 import numpy as np
 
 from .core import OUT
-from .render import Sprite
+from .face import stamp_face
+from .gen import Sprite
 
 # per-frame params: eyes (normal|closed|happy|sad|sick|dead), mouth (normal|none|open|chew|line|smile|frown|wavy),
 # tear (0-2), dy (px, up is negative), sq (vertical scale), lean (px at the top), tint, gray, bright, fade, lie, z (0-2)
@@ -140,8 +142,7 @@ def _color(a, p):
 def frame_arrays(sp: Sprite, anim: str) -> list:
     out = []
     for p in ANIM_FRAMES[anim]:
-        a = sp.body.copy()
-        sp.canvas.face(a, p.get("eyes", "normal"), p.get("mouth", "normal"), p.get("tear", 0), sp.ox, sp.oy)
+        a = stamp_face(sp.body.copy(), sp.face, p.get("eyes", "normal"), p.get("mouth", "normal"), p.get("tear", 0))
         if p.get("sq"):
             a = _squash(a, p["sq"])
         if p.get("lean"):
