@@ -87,3 +87,26 @@ def test_prompt_includes_memory_without_digits():
     st2 = apply_recall(PersonaState(), RecallContext(["a: b"], ["ep"], ["t"], ["p"], "op"))
     assert (st2.facts, st2.memories, st2.current_topics, st2.past_topics, st2.opinion) == (
         ["a: b"], ["ep"], ["t"], ["p"], "op")
+
+
+def test_m13_system_prompt_no_digimon_no_offer_of_help():
+    from engrama.services.language.persona import FEWSHOT
+    for lang, anti in (("pt", "nunca ofereça ajuda"), ("en", "never offer help")):
+        system = build_messages(PersonaState(stage="adult"), [], "oi", lang)[0]["content"]
+        assert "digimon" not in system.lower()
+        assert anti in system and ("nunca escreva código" in system or "never write code" in system)
+    pt = build_messages(PersonaState(stage="adult", needs_top=["tedio", "curiosidade"]), [], "oi", "pt")[0]["content"]
+    assert "entediada" in pt and "curiosa" in pt and "tranquilo" not in pt
+
+
+def test_m13_every_fewshot_answer_is_a_clean_in_character_line():
+    from engrama.services.language.persona import FEWSHOT
+    for (style, lang), shots in FEWSHOT.items():
+        limit = SPEECH[{"full": "adult"}.get(style, style)][0]
+        for _, answer in shots:
+            out = clean_reply(answer, limit)
+            assert out is not None, answer           # would be rejected by ASSISTANT_RE
+            assert len(answer.split()) <= limit
+            assert not re.search(r"assistente|assistant", answer, re.I)
+    for lang in ("pt", "en"):                         # child few-shots stay short (~8 words)
+        assert all(len(a.split()) <= 8 for _, a in FEWSHOT[("child", lang)])
