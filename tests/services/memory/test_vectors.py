@@ -596,8 +596,7 @@ def test_archive_has_no_vectors(tmp_path):
 
 # ---- RAM and speed ---------------------------------------------------------------------------------
 
-@pytest.mark.slow
-def test_vector_ram_and_search_budget(tmp_path):
+def _vector_store(tmp_path):
     s, _ = make(tmp_path)
     dim = 768
     rng = np.random.default_rng(1)
@@ -620,10 +619,25 @@ def test_vector_ram_and_search_budget(tmp_path):
                        [(kind, r, MODEL, dim, "h", mat[i].tobytes(), now) for i, r in enumerate(refs)])
     db.commit()
     q = rng.standard_normal(dim).astype(np.float32)
+    return s, q
+
+
+@pytest.mark.slow
+def test_vector_ram_within_budget(tmp_path):
+    s, q = _vector_store(tmp_path)
     for kind in ("episode", "fact", "topic"):
         s.similar(q, kind, 5, 0.0)
     cached = sum(v[2].nbytes for v in s._vec_cache.values())
     assert cached <= VECTOR_RAM_MAX_MB * 1024 * 1024
+    s.close()
+
+
+@pytest.mark.slow
+@pytest.mark.perf
+def test_vector_search_budget(tmp_path):
+    s, q = _vector_store(tmp_path)
+    for kind in ("episode", "fact", "topic"):
+        s.similar(q, kind, 5, 0.0)
     times = []
     for _ in range(20):
         t0 = time.perf_counter()

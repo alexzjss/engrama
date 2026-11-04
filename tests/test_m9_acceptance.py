@@ -495,6 +495,7 @@ def test_thirty_days_bounded(tmp_path):
 
 # ---- 10: fast -------------------------------------------------------------------------------------------------
 @pytest.mark.slow
+@pytest.mark.perf
 def test_search_budget(tmp_path):
     mem = MemoryStore(tmp_path / "m.sqlite", now_fn=Clock())
     mem.set_vector_model("embeddinggemma")

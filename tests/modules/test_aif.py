@@ -174,7 +174,12 @@ def test_recipe_runs_clean():
     rec = kit.recipe("aif-v1")
     assert [m.type for m in rec.modules].count("policy.aif") == 1
     kit.run_clean(rec, 3, "attentive")
-    rt = kit.run_clean(rec, 5, "neglectful")
+    kit.run_clean(rec, 5, "neglectful")
+
+
+@pytest.mark.perf
+def test_recipe_mean_ms_within_budget():
+    rt = kit.run_clean(kit.recipe("aif-v1"), 5, "neglectful")
     assert kit.mean_ms(rt, "policy.aif") <= B.EXP_BUDGET_MS
 
 

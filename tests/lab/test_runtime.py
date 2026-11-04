@@ -94,6 +94,7 @@ def test_simuser_profiles_differ():
 
 
 @pytest.mark.slow
+@pytest.mark.perf
 def test_30_days_under_2_minutes(tmp_path):
     t0 = time.perf_counter()
     m = run_days(RECIPE, 30, "attentive", 1, 60.0, tmp_path / "m1.db")

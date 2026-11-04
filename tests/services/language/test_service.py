@@ -3,6 +3,8 @@ import re
 import threading
 import time
 
+import pytest
+
 from engrama.config import Config
 from engrama.services.language.client import LLMOffline
 from engrama.services.language.persona import PersonaState
@@ -286,6 +288,7 @@ def test_pull_failure_reports_minus_one(tmp_path):
     assert seen[0][0] == -1 and "boom" in seen[0][1]
 
 
+@pytest.mark.perf
 def test_shutdown_is_fast_even_when_worker_blocked(tmp_path):
     gate = threading.Event()
     client = FakeClient(gate=gate)

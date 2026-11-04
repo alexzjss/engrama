@@ -145,6 +145,7 @@ def test_ctrnn_routine_no_worse(seed):
 
 @pytest.mark.slow
 @pytest.mark.parametrize("name", NEW)
+@pytest.mark.perf
 def test_budget_headless_each_recipe(name):
     r = _bench("--recipe", name)
     tol = 1.5 if os.getloadavg()[0] > (os.cpu_count() or 1) * 0.7 else 1.0   # same loaded-machine tolerance
@@ -154,6 +155,7 @@ def test_budget_headless_each_recipe(name):
 
 
 @pytest.mark.slow
+@pytest.mark.perf
 def test_budget_app_shadow_all(tmp_path):
     r = _bench("--app", "--recipe", "lab-shadow-all-v1", "--data-dir", str(tmp_path / "bench"))
     assert r["alive"], "the app exited during the bench"
@@ -163,6 +165,7 @@ def test_budget_app_shadow_all(tmp_path):
     assert r["mean_cpu_percent"] <= 2.0 * tol
 
 
+@pytest.mark.perf
 @pytest.mark.parametrize("name", NEW)
 def test_new_modules_mean_ms(name):
     rt = K.run_clean(K.recipe(name), 0.25)

@@ -226,6 +226,7 @@ def test_no_pixel_uses_the_overlay_colour_key():
                 assert not ((a == COLORKEY).all(axis=1) & (al > 0)).any(), (seed, st)
 
 
+@pytest.mark.perf
 def test_sprite_cost_is_small():
     t0 = time.perf_counter()
     n = 0
@@ -315,6 +316,7 @@ def test_accessories_accumulate_up_to_three():
     assert raw(a) != raw(b)
 
 
+@pytest.mark.perf
 def test_draw_budget():
     times = []
     for seed in range(1, 41):
