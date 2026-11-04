@@ -251,11 +251,26 @@ EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF☀-➿⬀-⯿️‍]")
 ASSISTANT_RE = re.compile(
     r"posso ajudar|em que posso|como posso|estou aqui para|assistente|modelo de linguagem|"
     r"how can i (help|assist)|how may i|as an ai|i'?m here to (help|assist)|language model|assistant|"
-    r"let me know if", re.I)
+    r"let me know (if|what|how)|vou (te )?ajudar|pronto para (te )?ajudar|(para|pra) (te )?ajudar|i'?d love to help|"
+    r"i can help|happy to help|how i can assist|what kind of (code|help)|what specific task|o que você precisa|"
+    r"here'?s a |aqui está uma função|```|^\s*def |"
+    r"posso (te |lhe )?ajudar|possa (te )?ajudar|precis(ar|a) de ajuda|se quiser,? posso (te )?(ouvir|ver|escrever|mostrar|explicar|fazer)|dizer o que precisa|"
+    r"if you need (any )?help|if you want,? i can", re.I | re.M)
 
 
 def strip_emoji(text: str) -> str:
     return EMOJI_RE.sub("", text)
+
+
+def _norm_line(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s]", " ", (text or "").lower()).split())
+
+
+def is_repeat(text: str, history: list[dict], n: int = 3) -> bool:
+    """True when text equals (case/punctuation-insensitive) one of the creature's last n replies."""
+    last = [m["content"] for m in history if m.get("role") == "assistant"][-n:]
+    key = _norm_line(text)
+    return bool(key) and any(_norm_line(x) == key for x in last)
 
 
 def clean_reply(text: str, max_words: int) -> str | None:
