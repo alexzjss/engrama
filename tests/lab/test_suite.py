@@ -1,6 +1,5 @@
 import json
 from pathlib import Path
-import numpy as np
 import pytest
 from engrama.lab.cli import main
 from engrama.lab.suite import (MD_METRICS, PRESETS, RoutineUser, RunSpec, run_one, run_suite, specs_from,

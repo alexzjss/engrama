@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from engrama.services.memory import (MAX_EPISODES, MAX_FACTS, MAX_TOPICS, SEARCH_BUDGET_MS,
+from engrama.services.memory import (SEARCH_BUDGET_MS,
                                      SEM_MIN_SIM, VECTOR_RAM_MAX_MB, W_IMPORTANCE, W_RECENCY,
                                      W_RELEVANCE, W_SEM, W_WORD)
 from engrama.services.memory.store import base as store_base_mod

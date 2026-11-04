@@ -1,6 +1,5 @@
 import re
 
-from engrama.services.language.persona import PersonaState
 from engrama.services.perception.files import FileGlimpse
 from tests.services.language.test_service import FakeClient, get, make
 

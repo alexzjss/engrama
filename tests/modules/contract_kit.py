@@ -14,7 +14,6 @@ import pytest
 from engrama import balance as B
 from engrama.lab.runtime import Runtime
 from engrama.lab.simuser import PROFILES, SimUser
-from engrama.mind import registry
 from engrama.mind.recipe import Recipe, load_recipe
 from engrama.services.persistence import load_run, save_run
 from engrama.vocab import ACTIONS

@@ -1,6 +1,5 @@
 import math
 import numpy as np
-from engrama import balance as B
 from engrama.lab.runtime import Runtime
 from engrama.mind.contracts import Experience, Observation
 from engrama.modules.world.model import WorldModel, features, targets, N_IN, N_OUT

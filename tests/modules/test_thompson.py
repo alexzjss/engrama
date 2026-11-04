@@ -1,5 +1,4 @@
 """policy.thompson: Q-learning bayesiano simplificado (M10, Tarefa 3)."""
-from pathlib import Path
 
 import numpy as np
 import pytest

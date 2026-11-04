@@ -1,6 +1,5 @@
 import hashlib
 import re
-from types import SimpleNamespace
 import pygame
 from engrama.app import i18n
 from engrama.app.snapshot import Snapshot
