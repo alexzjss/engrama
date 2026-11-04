@@ -12,7 +12,7 @@ dependencies = ["pygame-ce", "numpy", "psutil"]
 engrama = "engrama.app.host:main"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pytest-xdist"]
 
 [tool.setuptools.packages.find]
 include = ["engrama*"]
