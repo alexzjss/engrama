@@ -32,10 +32,20 @@ def horns(b, g, d, x, y, L, mat, back=1):
             sym=not d.facing)
 
 
-def membrane_wing(b, sx, sy, ws, z=2, mat=ACC, name="wing", sym=False, flip=1, struts=True):
-    """Bat-like wing rising up-right from (sx, sy); flip=-1 mirrors it."""
+def membrane_wing(b, sx, sy, ws, z=2, mat=ACC, name="wing", sym=False, flip=1, struts=True, simple=False,
+                  arm=True):
+    """Bat-like wing rising up-right from (sx, sy); flip=-1 mirrors it. `simple`: one scallop and no claw (the
+    quadruped, whose wing sits against the head); `arm=False`: membrane only (far wing)."""
     f = flip
     top, tip = (sx + f * ws * .55, sy - ws * 1.25), (sx + f * ws * 1.3, sy - ws * .9)
+    if simple:
+        pts = [(sx - f * .4, sy + .8), top, tip, (sx + f * ws * 1.05, sy - ws * .08), (sx + f * ws * .78, sy - ws * .3),
+               (sx + f * ws * .62, sy + ws * .12), (sx + f * .6, sy + ws * .35)]
+        wk = {"role": "wing", "pivot": (sx, sy)}
+        b.P(pts, mat, z, name, sym=sym, keep=True, **wk)
+        if arm:
+            b.C([(sx, sy + .5), top, tip], [.9, .65, .4], BODY, z + .5, name + "arm", sym=sym, keep=True, **wk)
+        return
     pts = [(sx - f * .4, sy + .8), top, tip, (sx + f * ws * 1.15, sy - ws * .1), (sx + f * ws * .9, sy - ws * .32),
            (sx + f * ws * .72, sy + ws * .12), (sx + f * ws * .45, sy - ws * .08), (sx + f * .6, sy + ws * .35)]
     wk = {"role": "wing", "pivot": (sx, sy)}
@@ -97,8 +107,9 @@ def draco(b, g, P, t):
                     keep=True)
         if winged:
             ws = L * (0, 0, .48, .58, .68)[t] * (1 + .25 * d.ind)
-            membrane_wing(b, L * .22, d.by - bh * .4, ws, z=3, struts=t >= 3)
-            membrane_wing(b, L * .02, d.by - bh * .42, ws * .8, z=2, mat=ACC, name="farwing", struts=False)
+            membrane_wing(b, L * .22, d.by - bh * .4, ws, z=3, simple=True)
+            if t >= 3:                  # the far wing only from the perfect stage, membrane only
+                membrane_wing(b, L * .02, d.by - bh * .42, ws * .8, z=2, name="farwing", simple=True, arm=False)
         d.acc_max = 2
     elif plan == 1:    # upright, heavy-bottomed, big tail mass and wings
         upright(b, g, d, head_k=.88, body_k=1.15, limb_k=1.3, leg_k=1.1, pear=.22, body_hk=1.05)
