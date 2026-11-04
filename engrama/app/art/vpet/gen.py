@@ -3,7 +3,7 @@
 Everything is a pure function of (seed, genome colour, stage, lineage[, traits]): family and sub-plan are fixed by
 the seed for life, the lineage adds persona and accumulated branch accessories."""
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -22,12 +22,25 @@ MAX_ACC = 3
 
 
 @dataclass
+class Build:
+    """Everything needed to re-render a sprite with a pose (rest builder after accessories and flip)."""
+    builder: Builder
+    n: int
+    fill: float
+    pal: np.ndarray
+    n_base: int
+    s: float          # px per design unit of the rest render
+    drop: int         # rest "stand on the bottom row" shift, re-used by posed renders
+
+
+@dataclass
 class Sprite:
     body: np.ndarray
     face: dict
     n: int
     family: str
     plan: int
+    _build: Build = field(default=None, compare=False, repr=False)
 
 
 def branch_at(t: int, lineage) -> str:
@@ -275,7 +288,8 @@ def sprite(seed: int, stage: str, lineage=(), traits=None, hue_rgb=None, family=
             d.mouth_x = -d.mouth_x
     body, info = render(b, N, FILL[t], pal=g["pal"], n_base=nb)
     face = _face(d, info, t, g, P, branch_at(t, lin) in NEGLECT)
-    return Sprite(body, face, N, g["family"], g["plan"])
+    return Sprite(body, face, N, g["family"], g["plan"],
+                  Build(b, N, FILL[t], g["pal"], nb, info["s"], info["drop"]))
 
 
 def idle(seed, stage, **kw):

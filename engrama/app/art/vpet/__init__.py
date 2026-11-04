@@ -10,11 +10,11 @@ import numpy as np
 
 from engrama.vocab import BRANCHES
 
-from .anim import ANIM_FRAMES, frame_arrays
+from .anim import ANIM_FRAMES, POSES, frame_arrays, poses_for
 from .gen import MAX_ACC, SIZES, STAGES, Sprite, branch_at, egg, sprite
 from .genes import FAMILIES, FAMILY_PT, family_of, genes
 
-__all__ = ["ANIM_FRAMES", "FAMILIES", "FAMILY_PT", "MAX_ACC", "PX", "STAGES", "Sprite", "branch_at", "build_sprite",
+__all__ = ["ANIM_FRAMES", "FAMILIES", "FAMILY_PT", "MAX_ACC", "POSES", "PX", "STAGES", "Sprite", "branch_at", "build_sprite",
            "creature_frames", "egg_array", "family_of", "full_lineage", "genes", "known_lineage", "plan_of"]
 
 PX = tuple(SIZES[s] for s in STAGES)
@@ -65,7 +65,8 @@ def build_sprite(look, stage: str, branch: str = "base", lineage=()) -> Sprite:
 
 def creature_frames(look, stage: str, anim: str, branch: str = "base", lineage=()) -> list:
     """RGBA uint8 arrays (N, N, 4), 2-4 per anim."""
-    return frame_arrays(build_sprite(look, stage, branch, lineage), anim)
+    sp = build_sprite(look, stage, branch, lineage)
+    return frame_arrays(sp, anim, poses_for(sp, anim))
 
 
 def egg_array(look, dx: int = 0):

@@ -2,7 +2,7 @@
 animation."""
 import numpy as np
 
-from .core import OUT
+from .core import OUT, posed, render
 from .face import stamp_face
 from .gen import Sprite
 
@@ -138,10 +138,36 @@ def _color(a, p):
     return out
 
 
-def frame_arrays(sp: Sprite, anim: str) -> list:
+# M14 pose data, filled by the family modules: key (family, plan) or family -> {anim: [pose per frame]}.
+# A pose is {role: {"rot", "dx", "dy", "alt"}} (see core.posed); {} = rest.
+POSES: dict = {}
+
+
+def poses_for(sp: Sprite, anim: str):
+    """Resolution order: (family, plan) -> family -> None."""
+    for key in ((sp.family, sp.plan), sp.family):
+        got = POSES.get(key, {}).get(anim)
+        if got:
+            return got
+    return None
+
+
+def _body(sp: Sprite, pose):
+    if not pose:
+        return sp.body
+    bd = sp._build
+    return render(posed(bd.builder, pose, bd.s), bd.n, bd.fill, pal=bd.pal, n_base=bd.n_base, drop=bd.drop)[0]
+
+
+def frame_arrays(sp: Sprite, anim: str, poses=None) -> list:
+    """`poses`: None or one pose per frame of ANIM_FRAMES[anim] (empty pose = rest body, bit-identical)."""
+    frames = ANIM_FRAMES[anim]
+    if poses is not None and len(poses) != len(frames):
+        raise ValueError(f"{anim}: {len(poses)} poses for {len(frames)} frames")
     out = []
-    for p in ANIM_FRAMES[anim]:
-        a = stamp_face(sp.body.copy(), sp.face, p.get("eyes", "normal"), p.get("mouth", "normal"), p.get("tear", 0))
+    for i, p in enumerate(frames):
+        a = stamp_face(_body(sp, poses[i] if poses else None).copy(), sp.face, p.get("eyes", "normal"),
+                       p.get("mouth", "normal"), p.get("tear", 0))
         if p.get("sq"):
             a = _squash(a, p["sq"])
         if p.get("lean"):
