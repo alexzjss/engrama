@@ -55,12 +55,29 @@ def palette(hue, sat, val, acc_hue, acc_sat=.85):
 
 
 class Part:
-    __slots__ = ("kind", "a", "mat", "z", "name", "on", "line", "flat", "keep", "grp")
+    """One vector shape. M14 adds the optional pose metadata:
+    role  -- None | "leg" | "arm" | "tail" | "wing" | "fin" | "ear" | "antenna" (parts without a role never move);
+    pivot -- (x, y) joint in design space (None: centre of the part's bbox);
+    side  -- +1 original, -1 mirrored copy made by `sym=True`, 0 when not symmetric. It belongs to the physical
+             limb and is NOT swapped by Builder.flip()."""
+    __slots__ = ("kind", "a", "mat", "z", "name", "on", "line", "flat", "keep", "grp", "role", "pivot", "side")
 
-    def __init__(self, kind, a, mat, z, name, on=None, line=True, flat=False, keep=False, grp=None):
+    def __init__(self, kind, a, mat, z, name, on=None, line=True, flat=False, keep=False, grp=None,
+                 role=None, pivot=None, side=0):
         self.kind, self.a, self.mat, self.z, self.name = kind, a, mat, z, name
         self.on, self.line, self.flat, self.keep = on, line, flat, keep
         self.grp = grp or name          # parts of one group never get an inner line between them
+        self.role, self.pivot, self.side = role, (tuple(pivot) if pivot is not None else None), side
+
+    def copy(self):
+        """Independent copy (geometry containers are rebuilt, so mutating either never touches the other)."""
+        k, a = self.kind, self.a
+        if k == "C":
+            a = (list(a[0]), list(a[1]))
+        elif k == "P":
+            a = list(a)
+        return Part(k, a, self.mat, self.z, self.name, self.on, self.line, self.flat, self.keep, self.grp,
+                    self.role, self.pivot, self.side)
 
     def bbox(self):
         k, a = self.kind, self.a
@@ -85,10 +102,16 @@ class Builder:
     def __init__(self):
         self.parts = []
         self.anchor = {}
+        self.flipped = False     # toggled by flip(); posed() then mirrors poses so they stay authored "unflipped"
+        self.rest = None         # posed builders: the rest builder whose bboxes fix the render fit
 
     def flip(self):
-        """Mirror the whole creature (3/4 plans face left by default)."""
+        """Mirror the whole creature (3/4 plans face left by default). Pivots are mirrored too; `side` stays with
+        the physical limb (so alternating phases stay consistent) and `flipped` is toggled."""
+        self.flipped = not self.flipped
         for p in self.parts:
+            if p.pivot is not None:
+                p.pivot = (-p.pivot[0], p.pivot[1])
             k, a = p.kind, p.a
             if k == "E":
                 p.a = (-a[0], a[1], a[2], a[3], -a[4])
@@ -100,9 +123,12 @@ class Builder:
                 p.a = (-a[2], a[1], -a[0], a[3], a[4])
 
     def _add(self, kind, a, mat, z, name, sym, mirror_fn, **kw):
-        self.parts.append(Part(kind, a, mat, z, name, **kw))
+        self.parts.append(Part(kind, a, mat, z, name, side=1 if sym else 0, **kw))
         if sym:
-            self.parts.append(Part(kind, mirror_fn(a), mat, z, name, **kw))
+            mkw = dict(kw)
+            if kw.get("pivot") is not None:
+                mkw["pivot"] = (-kw["pivot"][0], kw["pivot"][1])
+            self.parts.append(Part(kind, mirror_fn(a), mat, z, name, side=-1, **mkw))
 
     def E(self, cx, cy, rx, ry, mat=BODY, z=10, name="", sym=False, rot=0.0, **kw):
         self._add("E", (cx, cy, rx, ry, rot), mat, z, name, sym, lambda a: (-a[0], a[1], a[2], a[3], -a[4]), **kw)
@@ -119,6 +145,71 @@ class Builder:
     def R(self, x0, y0, x1, y1, r=0.0, mat=BODY, z=10, name="", sym=False, **kw):
         kw.setdefault("flat", True)
         self._add("R", (x0, y0, x1, y1, r), mat, z, name, sym, lambda a: (-a[2], a[1], -a[0], a[3], a[4]), **kw)
+
+
+# --- poses --------------------------------------------------------------------------------------------------
+def _pivot(p):
+    if p.pivot is not None:
+        return p.pivot
+    x0, y0, x1, y1 = p.bbox()
+    return ((x0 + x1) / 2, (y0 + y1) / 2)
+
+
+def pose_in_px(pose, s):
+    """Express a pose whose dx/dy are FINAL PIXELS in design units (divide by the render scale `s`, info["s"]).
+    Design units -> pixels is x * s (about 1.5-2.5 px per unit for 24-48 px sprites; adult 40 px ~ 1.7)."""
+    return {r: {**v, "dx": v.get("dx", 0.) / s, "dy": v.get("dy", 0.) / s} for r, v in pose.items()}
+
+
+def posed(b: Builder, pose, s=None) -> Builder:
+    """New Builder with the parts of `b` moved by `pose`; `b` is never mutated.
+
+    pose = {role: {"rot": degrees, "dx": units, "dy": units, "alt": bool, "px": bool}}
+      rot  positive = clockwise on screen (y grows down); E's own `rot` (radians in the part) grows by it.
+      dx, dy  design units (render scale s = info["s"] px per unit); with "px": True they are final pixels and
+              `s` must be given.
+      alt  parts with side == -1 get the opposite phase (rot, dx, dy negated): alternating legs.
+    Poses are authored for the unflipped creature: if `b` was flipped, rot and dx are mirrored.
+    E: centre rotated about the pivot, rot added; C/P: points rotated about the pivot, radii unchanged; R: only
+    translated. Pivot default: bbox centre. Only parts whose `role` is in the pose move; an empty pose copies.
+    The result carries `rest` so render() keeps the rest fit."""
+    nb = Builder()
+    nb.anchor = dict(b.anchor)
+    nb.flipped = b.flipped
+    nb.rest = b.rest if b.rest is not None else b
+    nb.parts = [p.copy() for p in b.parts]
+    for p in nb.parts:
+        spec = pose.get(p.role) if p.role is not None else None
+        if not spec:
+            continue
+        rot, dx, dy = math.radians(spec.get("rot", 0.)), spec.get("dx", 0.), spec.get("dy", 0.)
+        if spec.get("px"):
+            dx, dy = dx / s, dy / s
+        if nb.flipped:
+            rot, dx = -rot, -dx
+        if spec.get("alt") and p.side == -1:
+            rot, dx, dy = -rot, -dx, -dy
+        if not (rot or dx or dy):
+            continue
+        px, py = _pivot(p)
+        c, sn = math.cos(rot), math.sin(rot)
+
+        def mv(x, y):
+            vx, vy = x - px, y - py
+            return px + vx * c - vy * sn + dx, py + vx * sn + vy * c + dy
+        k, a = p.kind, p.a
+        if k == "E":
+            cx, cy = mv(a[0], a[1])
+            p.a = (cx, cy, a[2], a[3], a[4] + rot)
+        elif k == "C":
+            p.a = ([mv(x, y) for x, y in a[0]], a[1])
+        elif k == "P":
+            p.a = [mv(x, y) for x, y in a]
+        else:                                    # R: axis-aligned, translate only
+            p.a = (a[0] + dx, a[1] + dy, a[2] + dx, a[3] + dy, a[4])
+        if p.pivot is not None:
+            p.pivot = (p.pivot[0] + dx, p.pivot[1] + dy)
+    return nb
 
 
 # --- rasterisation ------------------------------------------------------------------------------------------
@@ -238,9 +329,12 @@ def _n4(m):
 T_HI, T_SH, T_SPEC = .80, .36, .965
 
 
-def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None, n_base=None):
-    """Rasterise builder `b` into an (N, N, 4) uint8 RGBA array. Returns (rgba, info)."""
-    base = b.parts[:n_base] if n_base else b.parts
+def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None, n_base=None, drop=None):
+    """Rasterise builder `b` into an (N, N, 4) uint8 RGBA array. Returns (rgba, info).
+    A posed builder (`b.rest` set) is fitted/centred with the REST bboxes so the scale and offset never change
+    between frames. `drop` forces the "stand on the bottom row" shift (info["drop"] of the rest render)."""
+    fit = b.rest.parts if b.rest is not None else b.parts
+    base = fit[:n_base] if n_base else fit
     parts = sorted(b.parts, key=lambda p: p.z)   # stable
     bbs = [p.bbox() for p in base if p.on is None]
     x0 = min(q[0] for q in bbs); y0 = min(q[1] for q in bbs)
@@ -248,7 +342,7 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
     avail = N - 4
     s = min(fill * avail / (y1 - y0), avail / (x1 - x0))
     # accessories never shrink the body more than a little (they may not leave the canvas, though)
-    allb = [p.bbox() for p in parts if p.on is None]
+    allb = [p.bbox() for p in fit if p.on is None]
     ax0 = min(q[0] for q in allb); ay0 = min(q[1] for q in allb); ax1 = max(q[2] for q in allb)
     s = min(s, (N - 3) / (y1 - ay0) if ay0 < y0 else s, avail / max(x1 - x0, ax1 - ax0) * 1.08)
     x0, x1 = min(x0, ax0), max(x1, ax1)
@@ -375,7 +469,8 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
     a[ring, 3] = 255
     # stand on the bottom row even if cleanup removed the lowest pixels
     rows = np.nonzero(a[:, :, 3].any(axis=1))[0]
-    drop = (N - 1 - int(rows[-1])) if len(rows) else 0
+    if drop is None:
+        drop = (N - 1 - int(rows[-1])) if len(rows) else 0
     if drop > 0:
         a[drop:] = a[:N - drop].copy()
         a[:drop] = 0
@@ -383,4 +478,4 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
 
     def to_px(x, y):
         return x * s + ox, y * s + oy
-    return a, dict(s=s, ox=ox, oy=oy, to_px=to_px, pid=pid, names=names, occ=occ)
+    return a, dict(drop=drop, s=s, ox=ox, oy=oy, to_px=to_px, pid=pid, names=names, occ=occ)
