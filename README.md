@@ -6,7 +6,7 @@
 
 ![Linhagens: ovo até a forma final, seis criaturas](docs/images/lineages.png)
 
-<sub>Nova arte (protótipo M11, ainda não integrada ao app; ver [Arte](#arte)). Seis linhagens, do ovo à forma final.</sub>
+<sub>Arte do M11 ([Arte](#arte)): seis linhagens, do ovo à forma final.</sub>
 
 Engrama é um companheiro virtual no estilo tamagotchi/V-Pet que mora no seu computador. Ela nasce de um ovo, tem fome, sono, tédio e carinho, evolui por ramos conforme o jeito como você cuida dela, adoece, envelhece, morre e renasce como um ovo que herda um pouco da vida anterior. Conversa com você por um modelo de linguagem **local** (Ollama), lembra do que você contou, nota (se você deixar) o que você está fazendo no PC e comenta, e pode andar sobre a sua barra de tarefas. **Nada sai da sua máquina.** Funciona no Windows e no Linux.
 
@@ -203,21 +203,21 @@ O que a sessão não oferece fica inerte, sem erro. No Windows nada mudou.
 
 ## Arte
 
-> **Nova arte: protótipo M11.** As imagens abaixo vêm de `spike/vpet2/` e **ainda não estão no app**, que hoje usa a arte do M6. A integração está planejada (ver [roadmap](#estado-do-mvp-e-roadmap)).
-
 Todos os sprites são **procedurais e originais**, no estilo V-Pet: contorno escuro de 1 px, rampa curta de tons, olhos grandes. Nada vem de arquivo de imagem: cada criatura é gerada da semente.
 
 ![Uma forma adulta de cada família](docs/images/families.png)
 
-- **Oito famílias, três planos de corpo cada** (fixos pela vida toda, definidos pela semente): dragão (quadrúpede, bípede, serpente), fera (quadrúpede, sentada, bípede), ave (empoleirada, coruja, em voo), inseto (besouro, louva-a-deus, mariposa), planta (bulbo, flor, cacto), espírito (lençol, chama, encapuzado), aquático (água-viva, peixe, anfíbio), máquina (bípede, tanque, drone).
+- **Oito famílias, três planos de corpo cada** (fixos pela vida toda, definidos pela semente): dragão (quadrúpede, bípede, serpente), fera (quadrúpede, sentada, bípede), ave (empoleirada, coruja, em voo), inseto (besouro, abelha, mariposa), planta (bulbo, flor, cacto), espírito (lençol, chama, encapuzado), aquático (água-viva, peixe, anfíbio), máquina (bípede, tanque, drone).
 - **Coesão:** o plano de corpo só muda de proporção por estágio (bebê = cabeça enorme; adulto, perfeito e final alongam). Chifres, orelhas, caudas, nadadeiras e asas crescem com o estágio. Os genes da semente (tipo de chifre/orelha, marcações, estilo dos olhos, proporções finas) são os mesmos em todos os estágios, então dá para reconhecer a criatura ao crescer. Os olhos variam por família e semente (fenda, facetado, aceso, visor...).
 - **Personalidade e ramo aparecem no desenho:** curiosidade aumenta cabeça e olhos; sociabilidade abre os braços; paciência alarga o corpo; independência afina e alonga. Cada ramo dá um acessório (cachecol, óculos, boina, capa, coroa...) que continua nos estágios seguintes (até 3, o mais recente em destaque), e os de negligência dão olhos vermelhos.
 - **Paleta:** 3 tons de corpo com deslocamento de matiz, 1 acento, contorno quente fixo; o matiz base é o do genoma e se mantém a vida inteira.
+- **Ovo:** já nasce na cor da família, com um motivo pequeno (zigue-zague, manchas, broto, rebites...).
+- **Saves antigos** continuam valendo: família, plano e genes saem da semente e da linhagem já salvas; nenhum campo novo no genoma.
 - **Animações** (as mesmas do app: `idle`, `walk`, `eat`, `sleep`, `happy`, `sad`, `sick`, `evolve`, `old`, `dead`):
 
 ![Quadros de idle, happy, eat, sleep e sad](docs/images/anims.png)
 
-Para regenerar as imagens: `SDL_VIDEODRIVER=dummy python -m spike.vpet2.showcase` (grava em `docs/images/`). Detalhes e limitações no [README do protótipo](spike/vpet2/README.md).
+O gerador mora em `engrama/app/art/vpet/`. Para regenerar as imagens: `SDL_VIDEODRIVER=dummy python -m spike.vpet2.showcase` (usa a API do app e grava em `docs/images/`); folhas de revisão: `python -m spike.vpet2.sheets <pasta>`. Detalhes e limitações no [README da arte](spike/vpet2/README.md).
 
 ## Para desenvolvedores
 
@@ -303,7 +303,7 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 | M8 | Linux (X11 e Wayland) | feito |
 | M9 | Busca por significado (embeddings, opcional) | feito |
 | M10 | Experimentos de ML como receitas opcionais + relatório | feito |
-| M11 | Arte nova coesa (protótipo em `spike/vpet2/`) | **em andamento** |
+| M11 | Arte V-Pet coesa: 8 famílias × 3 planos, ovos da família, acessórios que acumulam | feito |
 
 **Limitações conhecidas**
 
@@ -311,15 +311,14 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 - Sem calibração com modelo real: os limiares da busca por significado (`SEM_MIN_SIM`, `FACT_MIN_SIM`, `TOPIC_MIN_SIM`) estão nos valores iniciais do plano.
 - Overlay não funciona em Wayland (só X11 e Windows).
 - No Wayland, KDE e GNOME não expõem app em foco/título/tela cheia à percepção.
-- A arte no app ainda é a do M6; a arte nova (acima) é um protótipo: só vista frontal, sem animação de membros, ovo ainda do M6, partes mais "ruidosas" nas asas da ave e na carapaça do inseto.
+- A arte não tem animação de membros (só transformações do sprite inteiro e troca de rosto); o dragão quadrúpede adulto ainda é o desenho mais carregado.
 - Os experimentos de ML não foram promovidos: o padrão continua sendo `default-v1`.
 - O orçamento de 2% de CPU é por núcleo; em notebooks de baixo consumo o número medido pode ser maior que no PC de referência.
 
 **Próximos passos**
 
-1. Integrar a arte do M11 em `engrama/app/art` (a API pública `sprites.frames(...)` e os saves não mudam; plano no README do protótipo).
-2. Revisar a arte (rodada 3: dragão quadrúpede carregado no adulto, asas erguidas da ave, acessórios de costas em serpente/água-viva).
-3. Smokes manuais pendentes e calibração com modelos reais.
+1. Smokes manuais pendentes e calibração com modelos reais.
+2. Arte: animação de membros e poses por família.
 
 Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs/superpowers/).
 
@@ -336,7 +335,7 @@ Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs
 
 ![Lineages: egg to final form, six creatures](docs/images/lineages.png)
 
-<sub>New art (M11 prototype, not yet integrated into the app; see [Art](#art)). Six lineages, from egg to final form.</sub>
+<sub>M11 art ([Art](#art)): six lineages, from egg to final form.</sub>
 
 Engrama is a tamagotchi/V-Pet-style virtual companion that lives on your computer. It hatches from an egg, gets hungry, sleepy, bored and lonely, evolves along branches depending on how you care for it, falls ill, grows old, dies and is reborn as an egg that inherits a little of the previous life. It talks to you through a **local** language model (Ollama), remembers what you told it, notices (if you allow it) what you are doing on your PC and comments on it, and can walk along your taskbar. **Nothing leaves your machine.** It runs on Windows and Linux.
 
@@ -533,21 +532,21 @@ What the session does not offer stays inert, without error. Nothing changed on W
 
 ## Art
 
-> **New art: M11 prototype.** The images below come from `spike/vpet2/` and are **not in the app yet**, which still uses the M6 art. Integration is planned (see the [roadmap](#mvp-status-and-roadmap)).
-
 All sprites are **procedural and original**, in the V-Pet style: 1 px dark outline, short tone ramp, big eyes. Nothing comes from an image file: each creature is generated from its seed.
 
 ![One adult form per family](docs/images/families.png)
 
-- **Eight families, three body plans each** (fixed for life, set by the seed): dragon (quadruped, biped, serpent), beast (quadruped, sitting, biped), bird (perching, owl, in flight), insect (beetle, mantis, moth), plant (bulb, flower, cactus), spirit (sheet, flame, hooded), aquatic (jellyfish, fish, amphibian), machine (biped, tank, drone).
+- **Eight families, three body plans each** (fixed for life, set by the seed): dragon (quadruped, biped, serpent), beast (quadruped, sitting, biped), bird (perching, owl, in flight), insect (beetle, bee, moth), plant (bulb, flower, cactus), spirit (sheet, flame, hooded), aquatic (jellyfish, fish, amphibian), machine (biped, tank, drone).
 - **Cohesion:** the body plan only changes proportions per stage (baby = huge head; adult, perfect and final stretch out). Horns, ears, tails, fins and wings grow with the stage. The seed's genes (horn/ear type, markings, eye style, fine proportions) are the same at every stage, so you recognise the creature as it grows. Eyes vary by family and seed (slit, compound, glowing, visor...).
 - **Personality and branch show in the drawing:** curiosity enlarges head and eyes; sociability opens the arms; patience widens the body; independence slims and lengthens. Each branch adds an accessory (scarf, glasses, beret, cape, crown...) that carries over to later stages (up to 3, the latest most prominent), and the neglect branches give red eyes.
 - **Palette:** 3 body tones with hue shift, 1 accent, a fixed warm outline; the base hue is the genome's and stays the same for life.
+- **Egg:** already in the family colour, with a small motif (zigzag, spots, sprout, rivets...).
+- **Old saves** still work: family, plan and genes come from the saved seed and lineage; no new genome fields.
 - **Animations** (the same ones the app uses: `idle`, `walk`, `eat`, `sleep`, `happy`, `sad`, `sick`, `evolve`, `old`, `dead`):
 
 ![idle, happy, eat, sleep and sad frames](docs/images/anims.png)
 
-To regenerate the images: `SDL_VIDEODRIVER=dummy python -m spike.vpet2.showcase` (writes to `docs/images/`). Details and limitations in the [prototype README](spike/vpet2/README.md) (Portuguese).
+The generator lives in `engrama/app/art/vpet/`. To regenerate the images: `SDL_VIDEODRIVER=dummy python -m spike.vpet2.showcase` (uses the app API, writes to `docs/images/`); review sheets: `python -m spike.vpet2.sheets <dir>`. Details and limitations in the [art README](spike/vpet2/README.md) (Portuguese).
 
 ## For developers
 
@@ -633,7 +632,7 @@ The bench measures the steady state (first run already answered, all permissions
 | M8 | Linux (X11 and Wayland) | done |
 | M9 | Semantic search (embeddings, optional) | done |
 | M10 | ML experiments as optional recipes + report | done |
-| M11 | New cohesive art (prototype in `spike/vpet2/`) | **in progress** |
+| M11 | Cohesive V-Pet art: 8 families × 3 plans, family eggs, accumulating accessories | done |
 
 **Known limitations**
 
@@ -641,15 +640,14 @@ The bench measures the steady state (first run already answered, all permissions
 - No calibration with a real model: the semantic-search thresholds (`SEM_MIN_SIM`, `FACT_MIN_SIM`, `TOPIC_MIN_SIM`) are at the plan's initial values.
 - The overlay does not work on Wayland (X11 and Windows only).
 - On Wayland, KDE and GNOME do not expose focused app/title/fullscreen to perception.
-- The art in the app is still the M6 art; the new art (above) is a prototype: front view only, no limb animation, egg still from M6, noisier parts in the bird's open wings and the insect's shell.
+- The art has no limb animation (only whole-sprite transforms and face swaps); the adult quadruped dragon is still the busiest drawing.
 - The ML experiments were not promoted: the default is still `default-v1`.
 - The 2% CPU budget is per core; on low-power laptops the measured number may be higher than on the reference PC.
 
 **Next steps**
 
-1. Integrate the M11 art into `engrama/app/art` (the public `sprites.frames(...)` API and the saves do not change; plan in the prototype README).
-2. Review the art (round 3: cluttered adult quadruped dragon, raised bird wings, back accessories on serpent/jellyfish).
-3. Pending manual smokes and calibration with real models.
+1. Pending manual smokes and calibration with real models.
+2. Art: limb animation and per-family poses.
 
 Specs, plans and reports of each milestone: [`docs/superpowers/`](docs/superpowers/).
 

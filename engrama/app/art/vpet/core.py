@@ -1,378 +1,387 @@
-"""Core: palette, canvas (28-grid coords), shading, outline, eyes. Original procedural V-Pet style art."""
+"""Core: palette, vector parts, rasteriser with directional shading, cleanup and outline.
+
+Design space: x centred on 0 (front view, mirrored pairs), y grows downwards, ground at y = 0.
+A creature is a list of Part; `render` fits it to an N x N canvas and returns an RGBA array plus anchors.
+"""
 import colorsys
 import math
-import random
-import zlib
 
 import numpy as np
 
-OUT = (42, 26, 18)
-STAGES = ("baby", "child", "adult", "perfect", "final")
-PX = (24, 32, 40, 44, 48)  # canvas size per stage index
+OUT = (46, 26, 22)                 # fixed warm dark outline
+LIGHT = np.array((-.48, -.66, .58))
+LIGHT = LIGHT / np.linalg.norm(LIGHT)
+
+# material ids
+BODY, BELLY, ACC, MARK, BONE, DARK, GLASS, GOLD = range(8)
 
 
-def toward(h, t, f):
+def _hsv(h, s, v):
+    r, g, b = colorsys.hsv_to_rgb(h % 1, max(0., min(1., s)), max(0., min(1., v)))
+    return np.array((round(r * 255), round(g * 255), round(b * 255)), np.uint8)
+
+
+def _toward(h, t, f):
     d = ((t - h + .5) % 1) - .5
     return (h + d * f) % 1
 
 
-def hsv(h, s, v):
-    r, g, b = colorsys.hsv_to_rgb(h % 1, max(0, min(1, s)), max(0, min(1, v)))
-    return (round(r * 255), round(g * 255), round(b * 255))
-
-
 def ramp(h, s, v):
-    base = hsv(h, s, v)
-    sh = hsv(toward(h, .74, .14), s * 1.05 + .1, v * .64)
-    hl = hsv(toward(h, .13, .2), s * .55, min(1, v * 1.08 + .1))
-    return (base, hl, sh)  # tone 0 base, 1 highlight, 2 shade
+    """(highlight, base, shade) with hue shift: light toward warm yellow, shade toward cool violet."""
+    hi = _hsv(_toward(h, .14, .12), s * .62, min(1, v * 1.1 + .1))
+    base = _hsv(h, s, v)
+    sh = _hsv(_toward(h, .72, .16), min(1, s * 1.1 + .1), v * .62)
+    return hi, base, sh
 
 
-ARCH_COL = {  # arch: (target hue, mix, s mul, v mul)
-    "plant": (.31, .6, 1.0, .95), "ghost": (None, 0, .5, 1.0), "stack": (.55, .35, .6, 1.0),
-    "robot": (None, 0, .6, .95), "golem": (.55, .2, .5, .9), "fish": (.55, .3, 1.0, 1.0),
-    "serpent": (.3, .25, 1.0, .98),
-}
-
-
-def mkpal(g, branch, arch, shift=0.0):
-    h, s, v = g["hue"], g["sat"], g["val"]
-    h = (h + shift) % 1
-    if branch == "sombrio": h = toward(h, .78, .3); s = min(1, s * .95); v *= .66
-    elif branch == "lendario": s *= .8; v = min(1, v * 1.05 + .05)
-    elif branch == "companheiro": h = toward(h, .05, .2)
-    elif branch == "tecnico": h = toward(h, .55, .35); s *= .85
-    elif branch == "artista": s = min(1, s * 1.1)
-    elif branch == "explorador": h = toward(h, .1, .15)
-    ov = ARCH_COL.get(arch)
-    if ov:
-        th, mix, sm, vm = ov
-        if th is not None: h = toward(h, th, mix)
-        s = min(1, s * sm); v = min(1, v * vm)
-    off = (1 / 3 if g.get("tri") else .5) * (1 if g["seed"] % 2 else -1)
-    acc_h = {"sombrio": .96, "lendario": .12, "companheiro": .0, "tecnico": .5, "explorador": .62}.get(branch, h + off)
-    P = {}
-    P["body"] = ramp(h, s, v)
-    P["body2"] = ramp(h + .03, min(1, s + .1), v * .7)
-    P["belly"] = ramp(toward(h, acc_h, .25), .32 if arch != "ghost" else .18, 1.0)
-    P["acc"] = ramp(acc_h, .88, 1.0 if branch != "sombrio" else .9)
-    P["acc2"] = ramp(h + (.33 if off > 0 else -.33), .8, 1.0)
-    P["glow"] = ramp(acc_h, .5, 1.0)
-    P["metal"] = ramp(toward(h, .6, .5), .24, .86)
-    P["bone"] = ramp(.11, .25, 1.0)
-    P["gold"] = ramp(.13, .9, 1.0)
-    P["dark"] = ramp(h, .5, .34)
-    P["white"] = ((250, 250, 245), (255, 255, 255), (196, 204, 240))
-    P["leaf"] = ramp(.30, .75, .78)
-    P["wood"] = ramp(.07, .7, .6)
-    P["red"] = ramp(0.0, .85, .92)
-    P["ice"] = ramp(.55, .3, 1.0)
+def palette(hue, sat, val, acc_hue, acc_sat=.85):
+    """Material -> 3 tones. Body: 3 tones; belly = lighter tones of the same hue; mark = darker body; accent: 1 hue."""
+    hi, base, sh = ramp(hue, sat, val)
+    light = _hsv(_toward(hue, .14, .2), sat * .32, 1.0)
+    deep = _hsv(_toward(hue, .72, .2), min(1, sat * 1.1 + .1), val * .48)
+    a_hi, a, a_sh = ramp(acc_hue, acc_sat, .97)
+    P = np.zeros((8, 4, 3), np.uint8)
+    P[BODY, :3] = (hi, base, sh)
+    P[BELLY, :3] = (light, _hsv(_toward(hue, .14, .2), sat * .45, .97), hi)
+    P[ACC, :3] = (a_hi, a, a_sh)
+    P[MARK, :3] = (base, sh, deep)
+    P[BONE, :3] = (_hsv(.12, .06, 1), _hsv(.11, .14, .96), _hsv(.08, .26, .78))
+    P[DARK, :3] = (sh, deep, np.array(OUT, np.uint8))
+    P[GLASS, :3] = (_hsv(acc_hue, .12, 1), _hsv(acc_hue, .3, 1), _hsv(_toward(acc_hue, .66, .1), .45, .9))
+    P[GOLD, :3] = (_hsv(.15, .35, 1), _hsv(.12, .8, 1), _hsv(.07, .85, .78))
+    # tone 3: specular glint, a near-white tint of the material's highlight
+    P[:, 3] = (P[:, 0].astype(np.int16) + 2 * 255) // 3
     return P
 
 
-class V:  # variation bundle
-    def __init__(s, g, t, branch, arch, bid="base"):
-        s.g = g; s.t = t; s.branch = branch; s.arch = arch; s.bid = bid
-        s.ears = g["ears"]; s.tail = g["tail"]; s.body = g["body"]; s.pat = g["pattern"]; s.eyes = g["eyes"]
-        s.rng = random.Random(g["seed"] * 31 + zlib.crc32(arch.encode()) % 977 + t)
+class Part:
+    __slots__ = ("kind", "a", "mat", "z", "name", "on", "line", "flat", "keep", "grp")
+
+    def __init__(self, kind, a, mat, z, name, on=None, line=True, flat=False, keep=False, grp=None):
+        self.kind, self.a, self.mat, self.z, self.name = kind, a, mat, z, name
+        self.on, self.line, self.flat, self.keep = on, line, flat, keep
+        self.grp = grp or name          # parts of one group never get an inner line between them
+
+    def bbox(self):
+        k, a = self.kind, self.a
+        if k == "E":
+            cx, cy, rx, ry, rot = a
+            r = max(rx, ry) if rot else None
+            return (cx - (r or rx), cy - (r or ry), cx + (r or rx), cy + (r or ry))
+        if k == "C":
+            pts, rs = a
+            return (min(p[0] - r for p, r in zip(pts, rs)), min(p[1] - r for p, r in zip(pts, rs)),
+                    max(p[0] + r for p, r in zip(pts, rs)), max(p[1] + r for p, r in zip(pts, rs)))
+        if k == "P":
+            xs = [p[0] for p in a]; ys = [p[1] for p in a]
+            return min(xs), min(ys), max(xs), max(ys)
+        if k == "R":
+            return a[:4]
 
 
-class Canvas:
-    def __init__(s, N, pal, v):
-        s.N = N; s.f = N / 28; s.pal = pal; s.v = v
-        s.pid = np.full((N, N), -1, np.int16); s.ov = np.full((N, N), -1, np.int16)
-        s.parts = []; s.pk = []
-        s.keys = list(pal.keys())
-        s.yy, s.xx = np.mgrid[0:N, 0:N].astype(float) + .5
-        s.eyes = []; s.marks = []; s.mouths = []
-        s.head = (14, 8, 5, 5); s.neck = (14, 13, 8)
-        s.eyekind = None; s.eyeiris = None
-        s.sx = s.sy = 1.0
+class Builder:
+    """Collects parts. `sym` adds the mirrored copy (x -> -x)."""
 
-    # ---- masks (28-grid coordinates)
-    def tx(s, x): return 14 + (x - 14) * s.sx
-    def ty(s, y): return 26.5 - (26.5 - y) * s.sy
+    def __init__(self):
+        self.parts = []
+        self.anchor = {}
 
-    def mE(s, cx, cy, rx, ry, rot=0, hole=0, clip=None, clipx=None):
-        cx, cy, rx, ry = s.tx(cx), s.ty(cy), rx * s.sx, ry * s.sy
-        if clip is not None: clip = s.ty(clip)
-        if clipx is not None: clipx = s.tx(clipx)
-        f = s.f; dx = s.xx - cx * f; dy = s.yy - cy * f
+    def flip(self):
+        """Mirror the whole creature (3/4 plans face left by default)."""
+        for p in self.parts:
+            k, a = p.kind, p.a
+            if k == "E":
+                p.a = (-a[0], a[1], a[2], a[3], -a[4])
+            elif k == "C":
+                p.a = ([(-x, y) for x, y in a[0]], a[1])
+            elif k == "P":
+                p.a = [(-x, y) for x, y in a]
+            elif k == "R":
+                p.a = (-a[2], a[1], -a[0], a[3], a[4])
+
+    def _add(self, kind, a, mat, z, name, sym, mirror_fn, **kw):
+        self.parts.append(Part(kind, a, mat, z, name, **kw))
+        if sym:
+            self.parts.append(Part(kind, mirror_fn(a), mat, z, name, **kw))
+
+    def E(self, cx, cy, rx, ry, mat=BODY, z=10, name="", sym=False, rot=0.0, **kw):
+        self._add("E", (cx, cy, rx, ry, rot), mat, z, name, sym, lambda a: (-a[0], a[1], a[2], a[3], -a[4]), **kw)
+
+    def C(self, pts, rs, mat=BODY, z=10, name="", sym=False, **kw):
+        if not isinstance(rs, (list, tuple)):
+            rs = [rs] * len(pts)
+        self._add("C", (list(pts), list(rs)), mat, z, name, sym,
+                  lambda a: ([(-x, y) for x, y in a[0]], a[1]), **kw)
+
+    def P(self, pts, mat=BODY, z=10, name="", sym=False, **kw):
+        self._add("P", list(pts), mat, z, name, sym, lambda a: [(-x, y) for x, y in a], **kw)
+
+    def R(self, x0, y0, x1, y1, r=0.0, mat=BODY, z=10, name="", sym=False, **kw):
+        kw.setdefault("flat", True)
+        self._add("R", (x0, y0, x1, y1, r), mat, z, name, sym, lambda a: (-a[2], a[1], -a[0], a[3], a[4]), **kw)
+
+
+# --- rasterisation ------------------------------------------------------------------------------------------
+def _mask_normal(p, X, Y, s, need_n=True):
+    """Boolean mask and (nx, ny, nz) normals for one part. s = px per design unit (for min sizes)."""
+    k, a = p.kind, p.a
+    half = .5 / s                    # half a pixel in design units
+    if k == "E":
+        cx, cy, rx, ry, rot = a
+        rx = max(rx, half * 1.05); ry = max(ry, half * 1.05)
+        dx, dy = X - cx, Y - cy
         if rot:
-            c, sn = math.cos(rot), math.sin(rot); dx, dy = dx * c + dy * sn, -dx * sn + dy * c
-        q = (dx / (rx * f)) ** 2 + (dy / (ry * f)) ** 2
-        m = q <= 1.06
-        if hole: m &= q >= hole * hole
-        if clip is not None: m &= s.yy <= clip * f
-        if clipx is not None: m &= s.xx <= clipx * f
-        return m
-
-    def mR(s, x0, y0, x1, y1, r=0):
-        x0, x1, y0, y1 = s.tx(x0), s.tx(x1), s.ty(y0), s.ty(y1); r *= (s.sx + s.sy) / 2
-        f = s.f; cx, cy = (x0 + x1) / 2 * f, (y0 + y1) / 2 * f
-        hx, hy = (x1 - x0) / 2 * f, (y1 - y0) / 2 * f
-        r = min(r * f, hx, hy)
-        if r <= 0:
-            return (np.abs(s.xx - cx) <= hx) & (np.abs(s.yy - cy) <= hy)
-        dx = np.maximum(np.abs(s.xx - cx) - hx + r, 0); dy = np.maximum(np.abs(s.yy - cy) - hy + r, 0)
-        return (dx * dx + dy * dy) <= r * r + .6
-
-    def mP(s, pts):
-        pts = [(s.tx(x), s.ty(y)) for x, y in pts]
-        f = s.f; P = [(x * f, y * f) for x, y in pts]; m = np.zeros((s.N, s.N), bool)
-        for i in range(len(P)):
-            x0, y0 = P[i]; x1, y1 = P[(i + 1) % len(P)]
-            if y0 == y1: continue
-            cond = ((y0 <= s.yy) & (s.yy < y1)) | ((y1 <= s.yy) & (s.yy < y0))
-            xi = x0 + (s.yy - y0) * (x1 - x0) / (y1 - y0)
-            m ^= cond & (s.xx < xi)
-        return m
-
-    def mL(s, x0, y0, x1, y1, w0, w1=None):
-        x0, x1, y0, y1 = s.tx(x0), s.tx(x1), s.ty(y0), s.ty(y1); k = (s.sx + s.sy) / 2
-        f = s.f; w1 = w0 if w1 is None else w1; w0 *= k; w1 *= k
-        ax, ay, bx, by = x0 * f, y0 * f, x1 * f, y1 * f
-        dx, dy = bx - ax, by - ay; L2 = dx * dx + dy * dy + 1e-9
-        t = np.clip(((s.xx - ax) * dx + (s.yy - ay) * dy) / L2, 0, 1)
-        d = np.hypot(s.xx - (ax + t * dx), s.yy - (ay + t * dy))
-        return d <= (w0 + (w1 - w0) * t) * f / 2 + .12
-
-    def put(s, m, key, line=True):
-        i = len(s.parts); s.parts.append((key, line)); s.pk.append(s.keys.index(key)); s.pid[m] = i
-
-    def paint(s, m, key, only=None):
-        pk = np.array(s.pk + [-1])
-        cur = np.where(s.ov >= 0, s.ov, pk[s.pid])
-        ok = m & (s.pid >= 0)
-        if only is not None: ok &= (cur == s.keys.index(only))
-        s.ov[ok] = s.keys.index(key)
-
-    def _emit(s, m, key, line, paint, only):
-        s.paint(m, key, only) if paint else s.put(m, key, line)
-
-    def E(s, cx, cy, rx, ry, key, mir=False, mx=14, line=True, paint=False, only=None, **kw):
-        for sgn in ((1, -1) if mir else (1,)):
-            x = cx if sgn == 1 else 2 * mx - cx
-            k = dict(kw)
-            if sgn == -1 and "rot" in k: k["rot"] = -k["rot"]
-            s._emit(s.mE(x, cy, rx, ry, **k), key, line, paint, only)
-
-    def R(s, x0, y0, x1, y1, key, mir=False, mx=14, line=True, paint=False, only=None, r=0):
-        for sgn in ((1, -1) if mir else (1,)):
-            a, b = (x0, x1) if sgn == 1 else (2 * mx - x1, 2 * mx - x0)
-            s._emit(s.mR(a, y0, b, y1, r), key, line, paint, only)
-
-    def P(s, pts, key, mir=False, mx=14, line=True, paint=False, only=None):
-        for sgn in ((1, -1) if mir else (1,)):
-            p = pts if sgn == 1 else [(2 * mx - x, y) for x, y in pts]
-            s._emit(s.mP(p), key, line, paint, only)
-
-    def L(s, x0, y0, x1, y1, w, key, w1=None, mir=False, mx=14, line=True, paint=False, only=None):
-        for sgn in ((1, -1) if mir else (1,)):
-            a, b = (x0, x1) if sgn == 1 else (2 * mx - x0, 2 * mx - x1)
-            s._emit(s.mL(a, y0, b, y1, w, w1), key, line, paint, only)
-
-    def chain(s, pts, key, mir=False, mx=14, line=True, paint=False, only=None):
-        """pts: [(x,y,w)...] thick polyline; drawn as one merged part"""
-        m = np.zeros((s.N, s.N), bool)
-        for sgn in ((1, -1) if mir else (1,)):
-            m = np.zeros((s.N, s.N), bool)
-            for a, b in zip(pts, pts[1:]):
-                ax, bx = (a[0], b[0]) if sgn == 1 else (2 * mx - a[0], 2 * mx - b[0])
-                m |= s.mL(ax, a[1], bx, b[1], a[2], b[2])
-            s._emit(m, key, line, paint, only)
-
-    # ---- face
-    def eyepair(s, cx, cy, half, big=True):
-        cx, cy, half = s.tx(cx), s.ty(cy), half * s.sx
-        s.eyes.append((cx - half, cy, -1, big)); s.eyes.append((cx + half, cy, 1, big))
-
-    def eye1(s, x, y, side=-1, big=True):
-        x, y = s.tx(x), s.ty(y)
-        s.eyes.append((x, y, side, big))
-
-    def mouth(s, x, y, w):
-        s.mouths.append((s.tx(x), s.ty(y), w * s.sx))
-
-    def mark(s, x, y, key="dark", tone=0):
-        x, y = s.tx(x), s.ty(y)
-        s.marks.append((x, y, key, tone))
-
-    # ---- render
-    def render(s):
-        """Body only (no eyes/mouth/marks): see face()."""
-        N = s.N; pid = s.pid; filled = pid >= 0
-        pk = np.array(s.pk + [0])
-        keyg = np.where(s.ov >= 0, s.ov, pk[pid]); keyg = np.where(filled, keyg, -1)
-        pl = np.array([p[1] for p in s.parts] + [False])
-
-        def sh(a, dx, dy, fill):  # value at (x+dx, y+dy)
-            out = np.full_like(a, fill)
-            ys0, ys1 = max(0, -dy), N - max(0, dy); xs0, xs1 = max(0, -dx), N - max(0, dx)
-            out[ys0:ys1, xs0:xs1] = a[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx]
-            return out
-        P = lambda dx, dy: sh(pid, dx, dy, -1)
-        exp = lambda dx, dy: (P(dx, dy) < pid)         # empty or behind
-        front = lambda dx, dy: (P(dx, dy) > pid)
-        cnt = np.bincount(pid[filled], minlength=len(s.parts) + 1).astype(float)
-        sx = np.bincount(pid[filled], weights=s.xx[filled], minlength=len(s.parts) + 1)
-        sy = np.bincount(pid[filled], weights=s.yy[filled], minlength=len(s.parts) + 1)
-        cx = (sx / np.maximum(cnt, 1))[pid]; cy = (sy / np.maximum(cnt, 1))[pid]
-        big = (cnt[pid] > 40)
-        lowr = (s.xx + s.yy) > (cx + cy) + .5
-        upl = (s.xx + s.yy) <= (cx + cy) - .5
-        hl = filled & upl & (exp(0, -1) | exp(-1, 0))
-        shd = filled & lowr & (exp(0, 1) | exp(1, 0) | (big & exp(1, 1)))
-        shd |= filled & (front(0, -1) | front(-1, 0)) & ~upl
-        if N >= 40:
-            shd |= filled & lowr & big & exp(2, 2); hl |= filled & upl & big & exp(-1, -1)
-        hl &= ~shd
-        tone = np.where(shd, 2, np.where(hl, 1, 0))
-        for _ in range(2):  # remove isolated tone pixels
-            same = np.zeros((N, N), int)
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    if dx or dy:
-                        same += ((sh(tone, dx, dy, -9) == tone) & (P(dx, dy) == pid)).astype(int)
-            tone = np.where(filled & (tone > 0) & (same == 0), 0, tone)
-        rgb = np.zeros((N, N, 4), np.uint8)
-        for ki, kname in enumerate(s.keys):
-            m = filled & (keyg == ki)
-            for t in range(3):
-                mm = m & (tone == t)
-                if mm.any(): rgb[mm, :3] = s.pal[kname][t]; rgb[mm, 3] = 255
-        ln = np.zeros((N, N), bool)  # internal lines
-        for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
-            nb = P(dx, dy)
-            ln |= filled & (nb > pid) & pl[pid] & pl[np.clip(nb, 0, None)] & (cnt[pid] > 7)
-        rgb[ln, :3] = OUT
-        outl = ~filled & (sh(filled, 1, 0, False) | sh(filled, -1, 0, False) | sh(filled, 0, 1, False) | sh(filled, 0, -1, False))
-        rgb[outl, :3] = OUT; rgb[outl, 3] = 255
-        return rgb
-
-
-    # ---- face (eyes, mouth, marks) drawn over the body render; modes change eyes/mouth for animations
-    T = {
-        ("cute", "t"): ["WK", "KK"], ("cute", "s"): ["WK", "KK", "KK"], ("cute", "l"): ["WKK", "KKK", "KKK"],
-        ("white", "t"): ["WK", "KK"], ("white", "s"): ["WW", "WK", "WK"], ("white", "l"): ["WWW", "WKK", "WKK"],
-        ("round", "t"): ["WK", "WK"], ("round", "s"): ["WWK", "WKK", "WWK"], ("round", "l"): [".WW.", "WKKW", "WKKW", ".WW."],
-        ("fierce", "t"): ["BB", "WI"], ("fierce", "s"): ["BB.", "WIB", "WI."], ("fierce", "l"): ["BBB.", "WIIB", "WIK."],
-        ("led", "t"): ["LL"], ("led", "s"): ["LLL", "LLL"], ("led", "l"): ["LLLL", "LLLL"],
-        ("cute", "x"): ["WWKK", "WKKK", "KKKK", "KKKK", ".KK."], ("white", "x"): ["WWWW", "WKKW", "WKKK", "WKKK", ".WW."],
-        ("round", "x"): [".WWW.", "WWKKW", "WKKKW", "WWKKW", ".WWW."], ("fierce", "x"): ["BBBB.", "WIIIB", "WIKKB", "WIKI.", ".WI.."],
-        ("led", "x"): ["LLLLL", "LLLLL"],
-    }
-
-    def eye_cells(s):
-        """Eye centres in pixels (x, y, side, big) of the canvas, for visibility checks."""
-        return [(int(x * s.f), int(y * s.f), side, big) for x, y, side, big in s.eyes]
-
-    def _rows(s, kind, big, mode):
-        N = s.N
-        key = ("x" if N >= 40 else ("l" if N >= 32 else "s")) if big else ("s" if N >= 40 else "t")
-        rows = s.T[(kind, key)]
-        w = len(rows[0])
-        if mode == "closed":
-            return ["K" * w]
-        if mode == "happy":
-            if w == 2:
-                return ["KK"]
-            return ["." + "K" * (w - 2) + ".", "K" + "." * (w - 2) + "K"]
-        if mode == "sad":
-            r = ["B" * w] + [x for x in rows[1:]] if len(rows) > 1 else ["B" * w, "K" * w]
-            return r
-        if mode == "sick":
-            r = ["B" * w] + [x.replace("W", "S") for x in rows[1:]] if len(rows) > 1 else ["B" * w, "S" * w]
-            return r
-        if mode == "dead":
-            return ["K.K", ".K.", "K.K"]
-        return rows
-
-    def face(s, rgb, mode="normal", mouth="normal", tear=0, ox=0, oy=0):
-        """Draw eyes/mouth/marks onto rgb (modified in place). ox/oy: pixel offset of the body inside the canvas."""
-        N = s.N; v = s.v
-        kind = s.eyekind or ["cute", "white", "round", "fierce"][v.eyes]
-        if v.branch == "sombrio" and kind != "led": kind = "fierce"
-        if v.branch == "companheiro" and kind == "fierce": kind = "cute"
-        iris = s.eyeiris or {"sombrio": (255, 70, 50), "lendario": (255, 200, 40)}.get(v.branch, s.pal["acc"][2])
-        cols = {"K": (30, 18, 36), "W": (255, 255, 255), "B": OUT, "I": iris, "L": s.pal["acc"][1],
-                "S": (190, 215, 130)}
-        lum = lambda c: .3 * c[0] + .59 * c[1] + .11 * c[2]
-
-        def put(xx, yy, c):
-            if 0 <= xx < N and 0 <= yy < N:
-                rgb[yy, xx, :3] = c; rgb[yy, xx, 3] = 255
-
-        for x, y, side, big in s.eyes:
-            ex, ey = int(x * s.f) + ox, int(y * s.f) + oy
-            kk = kind
-            win = rgb[max(0, ey - 2):ey + 3, max(0, ex - 3):ex + 4]
-            opq = win[:, :, 3] > 0
-            dark = bool(opq.any()) and lum(win[opq][:, :3].mean(axis=0)) < 105
-            if dark and kind == "cute":
-                kk = "white"
-            if dark and mode in ("happy", "closed", "dead"):
-                cols["K"] = (245, 245, 252)   # dark body: ink lines drawn light so the eyes stay visible
-            tp = s._rows(kk, big, mode)
-            h = len(tp); w = len(tp[0])
-            px = int(round(x * s.f - w / 2)) + ox; py = int(round(y * s.f - h / 2)) + oy
-            for j, row in enumerate(tp):
-                r = row if side == -1 else row[::-1]
-                for i, ch in enumerate(r):
-                    if ch not in " .":
-                        put(px + i, py + j, cols[ch])
-            if mode == "sad" and tear:
-                tx = px + (0 if side == -1 else w - 1)
-                put(tx, py + h + tear - 1, (130, 200, 255))
-                if N >= 40: put(tx, py + h + tear, (130, 200, 255))
-            cols["K"] = (30, 18, 36)
-        mk = v.g.get("mouth", 0)
-        mouths = s.mouths
-        if not mouths and mouth != "normal" and s.head:
-            hx, hy, rx, ry = s.head
-            mouths = [(hx, hy + ry * .55, max(2.4, rx * .8))]
-        red, wh = (200, 50, 70), (255, 255, 255)
-        for x, y, w in mouths:
-            x0 = int(round((x - w / 2) * s.f)) + ox; x1 = int(round((x + w / 2) * s.f)) + ox; yy = int(round(y * s.f)) + oy
-            if x1 - x0 < 2: x1 = x0 + 2
-            if mouth == "none":
+            c, sn = math.cos(rot), math.sin(rot)
+            dx, dy = dx * c + dy * sn, -dx * sn + dy * c
+        u, v = dx / rx, dy / ry
+        q = u * u + v * v
+        m = q <= 1.0
+        nz = np.sqrt(np.clip(1 - q, 0, 1))
+        if rot:
+            c, sn = math.cos(rot), math.sin(rot)
+            u, v = u * c - v * sn, u * sn + v * c
+        return m, (u, v, nz)
+    if k == "C" and len(a[0]) > 4:          # long chains (rings, tentacles): evaluate each segment in its own box
+        pts, rs = a
+        xs, ys = X[0], Y[:, 0]
+        E = np.full(X.shape, np.inf, np.float32)
+        U = np.zeros(X.shape, np.float32); V = np.zeros(X.shape, np.float32)
+        for i in range(len(pts) - 1):
+            (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+            r0, r1 = max(rs[i], half), max(rs[i + 1], half)
+            rm = max(r0, r1)
+            c0 = int(np.searchsorted(xs, min(x0, x1) - rm)); c1 = int(np.searchsorted(xs, max(x0, x1) + rm)) + 1
+            q0 = int(np.searchsorted(ys, min(y0, y1) - rm)); q1 = int(np.searchsorted(ys, max(y0, y1) + rm)) + 1
+            if c0 >= c1 or q0 >= q1:
                 continue
-            if mouth == "open":      # eating: wide dark mouth with a red tongue
-                for xx in range(x0, x1):
-                    put(xx, yy, OUT); put(xx, yy + 1, red); put(xx, yy + 2, OUT)
-                put(x0, yy + 1, OUT); put(x1 - 1, yy + 1, OUT)
+            Xs, Ys = X[q0:q1, c0:c1], Y[q0:q1, c0:c1]
+            ddx, ddy = x1 - x0, y1 - y0
+            L2 = ddx * ddx + ddy * ddy + 1e-9
+            t = np.clip(((Xs - x0) * ddx + (Ys - y0) * ddy) / L2, 0, 1)
+            px, py = Xs - (x0 + t * ddx), Ys - (y0 + t * ddy)
+            r = r0 + (r1 - r0) * t
+            e = np.sqrt(px * px + py * py) - r
+            sub = E[q0:q1, c0:c1]
+            w = e < sub
+            sub[w] = e[w]
+            if need_n:
+                U[q0:q1, c0:c1][w] = (px / r)[w]; V[q0:q1, c0:c1][w] = (py / r)[w]
+        m = E <= 0
+        if not need_n:
+            return m, None
+        nz = np.sqrt(np.clip(1 - U * U - V * V, 0, 1))
+        return m, (U, V, nz)
+    if k == "C":
+        pts, rs = a
+        es, us, vs = [], [], []
+        for i in range(len(pts) - 1):
+            (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+            r0, r1 = max(rs[i], half), max(rs[i + 1], half)
+            ddx, ddy = x1 - x0, y1 - y0
+            L2 = ddx * ddx + ddy * ddy + 1e-9
+            t = np.clip(((X - x0) * ddx + (Y - y0) * ddy) / L2, 0, 1)
+            px, py = X - (x0 + t * ddx), Y - (y0 + t * ddy)
+            r = r0 + (r1 - r0) * t
+            es.append(np.sqrt(px * px + py * py) - r)
+            if need_n:
+                us.append(px / r); vs.append(py / r)
+        if len(es) == 1:
+            e = es[0]
+            if not need_n:
+                return e <= 0, None
+            u, v = us[0], vs[0]
+        else:
+            E = np.stack(es)
+            if not need_n:
+                return E.min(axis=0) <= 0, None
+            j = E.argmin(axis=0)[None]
+            e = np.take_along_axis(E, j, 0)[0]
+            u = np.take_along_axis(np.stack(us), j, 0)[0]
+            v = np.take_along_axis(np.stack(vs), j, 0)[0]
+        m = e <= 0
+        nz = np.sqrt(np.clip(1 - u * u - v * v, 0, 1))
+        return m, (u, v, nz)
+    if k == "P":
+        m = np.zeros(X.shape, bool)
+        n = len(a)
+        for i in range(n):
+            x0, y0 = a[i]; x1, y1 = a[(i + 1) % n]
+            if y0 == y1:
                 continue
-            if mouth == "chew":      # small bite
-                for xx in range(x0 + 1, x1 - 1): put(xx, yy, OUT); put(xx, yy + 1, red) if x1 - x0 > 3 else None
-                continue
-            if mouth == "frown":
-                for xx in range(x0 + 1, x1 - 1): put(xx, yy, OUT)
-                put(x0, yy + 1, OUT); put(x1 - 1, yy + 1, OUT)
-                continue
-            if mouth == "wavy":
-                for i, xx in enumerate(range(x0, x1)): put(xx, yy + (i % 2), OUT)
-                continue
-            if mouth == "smile":
-                mk2 = 0
-            elif mouth == "line":
-                mk2 = 9
-            else:
-                mk2 = mk
-            if mk2 == 0:    # smile
-                for xx in range(x0 + 1, x1 - 1): put(xx, yy, OUT)
-                put(x0, yy - 1, OUT); put(x1 - 1, yy - 1, OUT)
-            elif mk2 == 1:  # fangs
-                for xx in range(x0, x1): put(xx, yy, OUT)
-                put(x0 + 1, yy + 1, wh); put(x1 - 2, yy + 1, wh)
-            elif mk2 == 2:  # open
-                for xx in range(x0 + 1, x1 - 1):
-                    put(xx, yy, OUT); put(xx, yy + 1, red)
-                if N >= 40: put(x0 + 1, yy - 1, wh)
-            elif mk2 == 9:
-                for xx in range(x0, x1): put(xx, yy, OUT)
-            else:          # flat with tooth
-                for xx in range(x0, x1): put(xx, yy, OUT)
-                put(x0 + 1, yy + 1, wh)
-        for x, y, key, tone in s.marks:
-            xx, yy = int(round(x * s.f - .5)) + ox, int(round(y * s.f - .5)) + oy
-            put(xx, yy, OUT if key == "dark" else s.pal[key][tone])
+            cond = ((y0 <= Y) & (Y < y1)) | ((y1 <= Y) & (Y < y0))
+            xi = x0 + (Y - y0) * (x1 - x0) / (y1 - y0)
+            m ^= cond & (X < xi)
+        return m, None
+    if k == "R":
+        x0, y0, x1, y1, r = a
+        cx, cy, hx, hy = (x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2, (y1 - y0) / 2
+        r = min(r, hx, hy)
+        ddx = np.maximum(np.abs(X - cx) - hx + r, 0); ddy = np.maximum(np.abs(Y - cy) - hy + r, 0)
+        return (ddx * ddx + ddy * ddy) <= r * r + 1e-6, None
+    raise ValueError(k)
+
+
+def _sh(m, dx, dy, fill=False):
+    """value of m at (x+dx, y+dy)."""
+    out = np.full_like(m, fill)
+    H, W = m.shape
+    ys0, ys1 = max(0, -dy), min(H, H - dy)
+    xs0, xs1 = max(0, -dx), min(W, W - dx)
+    out[ys0:ys1, xs0:xs1] = m[ys0 + dy:ys1 + dy, xs0 + dx:xs1 + dx]
+    return out
+
+
+def _n4(m):
+    return (_sh(m, 1, 0).astype(np.int8) + _sh(m, -1, 0) + _sh(m, 0, 1) + _sh(m, 0, -1))
+
+
+T_HI, T_SH, T_SPEC = .80, .36, .965
+
+
+def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None, n_base=None):
+    """Rasterise builder `b` into an (N, N, 4) uint8 RGBA array. Returns (rgba, info)."""
+    base = b.parts[:n_base] if n_base else b.parts
+    parts = sorted(b.parts, key=lambda p: p.z)   # stable
+    bbs = [p.bbox() for p in base if p.on is None]
+    x0 = min(q[0] for q in bbs); y0 = min(q[1] for q in bbs)
+    x1 = max(q[2] for q in bbs); y1 = max(q[3] for q in bbs)
+    avail = N - 4
+    s = min(fill * avail / (y1 - y0), avail / (x1 - x0))
+    # accessories never shrink the body more than a little (they may not leave the canvas, though)
+    allb = [p.bbox() for p in parts if p.on is None]
+    ax0 = min(q[0] for q in allb); ay0 = min(q[1] for q in allb); ax1 = max(q[2] for q in allb)
+    s = min(s, (N - 3) / (y1 - ay0) if ay0 < y0 else s, avail / max(x1 - x0, ax1 - ax0) * 1.08)
+    x0, x1 = min(x0, ax0), max(x1, ax1)
+    ox = int(round(N / 2 - s * (x0 + x1) / 2))
+    # keep exact mirror symmetry when the bbox is only slightly off-centre
+    if abs(ox - N / 2) <= 2 and (N / 2 + s * x1) <= N - 2 and (N / 2 + s * x0) >= 2:
+        ox = N // 2
+    oy = N - 1 - s * y1   # lowest point lands on the row above the bottom outline
+    yy, xx = np.mgrid[0:N, 0:N].astype(np.float32)
+    X = ((xx + .5 - ox) / s).astype(np.float32)
+    Y = ((yy + .5 - oy) / s).astype(np.float32)
+
+    mat = np.full((N, N), -1, np.int8)
+    tone = np.ones((N, N), np.int8)
+    pid = np.full((N, N), -1, np.int16)
+    keep = np.zeros((N, N), bool)
+    names = []
+    grps = []
+    lines = []
+    name_ids = {}
+    for i, p in enumerate(parts):
+        # rasterise only inside the part's pixel bbox (+2 px for the rim tests)
+        bx0, by0, bx1, by1 = p.bbox()
+        px0 = max(0, int(ox + bx0 * s) - 2); px1 = min(N, int(ox + bx1 * s) + 3)
+        py0 = max(0, int(oy + by0 * s) - 2); py1 = min(N, int(oy + by1 * s) + 3)
+        if px0 >= px1 or py0 >= py1:
+            names.append(p.name); grps.append(p.grp)
+            continue
+        win = (slice(py0, py1), slice(px0, px1))
+        ms, nrm = _mask_normal(p, X[win], Y[win], s, need_n=p.on is None and not p.flat)
+        pidw, tonew, matw, keepw = pid[win], tone[win], mat[win], keep[win]   # views
+        if p.on is not None:          # patch: recolour pixels already owned by the named parts
+            ids = [j for j, nm in enumerate(names) if nm in p.on]
+            msk = ms & np.isin(pidw, ids)
+            matw[msk] = p.mat
+            if p.flat:
+                tonew[msk] = 1
+            names.append(p.name); grps.append(p.grp)
+            continue
+        if not ms.any():
+            names.append(p.name); grps.append(p.grp)
+            continue
+        ts = np.ones(ms.shape, np.int8)
+        if nrm is None or p.flat:
+            ts[ms & ~_sh(ms, 1, 1)] = 2          # bottom-right rim
+            ts[ms & ~_sh(ms, -1, -1) & _sh(ms, 1, 1)] = 0  # top-left rim
+        else:
+            u, v, nz = nrm
+            d = u * LIGHT[0] + v * LIGHT[1] + nz * LIGHT[2]
+            ts[d > T_HI] = 0
+            ts[d < T_SH] = 2
+            if p.kind == "E" and min(p.a[2], p.a[3]) * s >= 3.5 and p.mat != DARK:
+                ts[(d > T_SPEC) & ms] = 3
+        matw[ms] = p.mat
+        tonew[ms] = ts[ms]
+        pidw[ms] = i
+        keepw[ms] = p.keep
+        names.append(p.name); grps.append(p.grp)
+        if p.line:
+            lines.append(i)
+    occ = mat >= 0
+    # contact shadow: pixels right under a part drawn in front of theirs
+    above = _sh(pid, 0, -1, -1)
+    tone[(pid >= 0) & (above > pid)] = 2
+
+    # --- cleanup: orphans and 1px slivers (except parts marked keep, e.g. horn tips)
+    for _ in range(2):
+        n4 = _n4(occ)
+        kill = occ & (n4 == 0) | (occ & (n4 <= 1) & ~keep)
+        if not kill.any():
+            break
+        occ &= ~kill
+        mat[kill] = -1; pid[kill] = -1
+    hole = ~occ & (_n4(occ) >= 3)
+    if hole.any():                       # pinholes: take the upper/left neighbour's material
+        for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)):
+            src = hole & (_sh(mat, dx, dy, -1) >= 0)
+            mat[src] = _sh(mat, dx, dy, -1)[src]
+            tone[src] = _sh(tone, dx, dy, 1)[src]
+            pid[src] = _sh(pid, dx, dy, -1)[src]
+            hole &= ~src
+        occ = mat >= 0
+
+    # --- tone cleanup: lonely highlight/shade pixels revert to base
+    for tv in (0, 2):
+        tm = occ & (tone == tv)
+        same = (_sh(tm, 1, 0).astype(np.int8) + _sh(tm, -1, 0) + _sh(tm, 0, 1) + _sh(tm, 0, -1))
+        tone[tm & (same == 0)] = 1
+
+    rgb = np.zeros((N, N, 3), np.uint8)
+    mo = np.where(occ, mat, 0)
+    rgb[:] = pal[mo, tone]
+
+    # --- selective inner lines: edge of a front part where it overlaps a different, earlier part
+    nparts = len(names)
+    uniq = {}
+    name_id = np.array([uniq.setdefault(nm, len(uniq)) for nm in grps] + [-1])
+    is_line = np.zeros(nparts + 1, bool)
+    is_line[lines] = True
+    counts = np.bincount(pid[pid >= 0].ravel(), minlength=nparts + 1)
+    is_line &= np.append(counts[:nparts] >= 6, False)
+    pp = np.where(pid >= 0, pid, nparts)          # -1 -> sentinel index
+    front = is_line[pp]
+    inner = np.zeros((N, N), bool)
+    same = {}
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        o = _sh(pid, dx, dy, -1)
+        oo = np.where(o >= 0, o, nparts)
+        same[(dx, dy)] = o == pid
+        inner |= front & (o >= 0) & (o < pid) & ((_sh(mat, dx, dy, -1) != mat) | (name_id[oo] != name_id[pp]))
+    thick = same[(1, 0)] & same[(-1, 0)] | same[(0, 1)] & same[(0, -1)]
+    inner &= thick
+    if inner.any():
+        # darker of the two tones, pulled toward the outline: a softer line than the silhouette
+        base = pal[mo, 2].astype(np.int16)
+        mix = (base * 4 + np.array(out_rgb) * 6) // 10
+        rgb[inner] = mix[inner].astype(np.uint8)
+
+    # --- silhouette outline (4-neighbour)
+    ring = ~occ & (_n4(occ) > 0)
+    a = np.zeros((N, N, 4), np.uint8)
+    a[occ, :3] = rgb[occ]
+    a[occ, 3] = 255
+    a[ring, :3] = out_rgb
+    a[ring, 3] = 255
+    # stand on the bottom row even if cleanup removed the lowest pixels
+    rows = np.nonzero(a[:, :, 3].any(axis=1))[0]
+    drop = (N - 1 - int(rows[-1])) if len(rows) else 0
+    if drop > 0:
+        a[drop:] = a[:N - drop].copy()
+        a[:drop] = 0
+        oy += drop
+
+    def to_px(x, y):
+        return x * s + ox, y * s + oy
+    return a, dict(s=s, ox=ox, oy=oy, to_px=to_px, pid=pid, names=names, occ=occ)

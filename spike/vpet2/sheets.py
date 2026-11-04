@@ -1,4 +1,4 @@
-"""Review sheets: python -m spike.vpet2.sheets [outdir]"""
+"""Review sheets for the M11 art (engrama.app.art.vpet): python -m spike.vpet2.sheets [outdir] [sheet ...]"""
 import os
 import sys
 import time
@@ -8,9 +8,32 @@ import numpy as np
 import pygame
 
 from engrama.app.art.sprites import ANIMS
-from .anim import frame_arrays
-from .gen import STAGES, SIZES, sprite, idle
-from .genes import FAMILIES, FAMILY_PT, TRAITS, family_of, rng
+from engrama.app.art.vpet import gen as vgen
+from engrama.app.art.vpet.anim import frame_arrays
+from engrama.app.art.vpet.face import stamp_face
+from engrama.app.art.vpet.gen import SIZES, STAGES
+from engrama.app.art.vpet.genes import FAMILIES, FAMILY_PT, TRAITS, family_of, rng
+from engrama.app.art.vpet.genes import genes as _genes
+from engrama.kernel.genome import Genome
+
+
+def hue(seed):
+    """The genome's main colour, as the app passes it (Look.palette[1])."""
+    return tuple(Genome.from_seed(seed).palette[1])
+
+
+def sprite(seed, stage, **kw):
+    kw.setdefault("hue_rgb", hue(seed))
+    return vgen.sprite(seed, stage, **kw)
+
+
+def idle(seed, stage, **kw):
+    sp = sprite(seed, stage, **kw)
+    return stamp_face(sp.body.copy(), sp.face)
+
+
+def genes(seed):
+    return _genes(seed, hue(seed))
 
 BG = (40, 38, 54)
 OUT_DIR = sys.argv[1] if len(sys.argv) > 1 else "/home/alex/Documentos/codes/engrama/art-review"
@@ -33,13 +56,11 @@ def label(sheet, font, text, x, y, col=(220, 220, 235)):
 
 
 def egg(seed, sc):
-    from .gen import egg as egg_rgba
-    return surf(egg_rgba(seed), sc)
+    return surf(vgen.egg(seed, hue(seed)), sc)
 
 
 def plan_seeds(fam, n=4):
     """Seeds covering each sub-plan of a family (plan 0, 1, 2, then extra)."""
-    from .genes import genes
     out, seen = [], set()
     for s in range(1, 2000):
         if family_of(s) != fam:
@@ -78,7 +99,6 @@ def lineages(path, seeds=range(1, 17), sc=4):
 
 
 def families(path, sc=6, per=4, stage="adult", silhouette=False):
-    from .genes import genes
     font = pygame.font.Font(None, 26)
     n = SIZES[stage]
     cell = n * sc + 12

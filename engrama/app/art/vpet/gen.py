@@ -1,8 +1,13 @@
-"""Public prototype entry: sprite(seed, stage, ...) -> Sprite; egg(seed) -> RGBA; idle(...) -> RGBA."""
+"""Creature generator: sprite(seed, stage, ...) -> Sprite (eyeless body + face data); egg(seed) -> RGBA (16x16).
+
+Everything is a pure function of (seed, genome colour, stage, lineage[, traits]): family and sub-plan are fixed by
+the seed for life, the lineage adds persona and accumulated branch accessories."""
 import math
 from dataclasses import dataclass
 
 import numpy as np
+
+from engrama.vocab import BRANCHES
 
 from .core import BODY, BELLY, ACC, MARK, BONE, DARK, GLASS, GOLD, Builder, render
 from .face import eye_size, stamp_face
@@ -12,9 +17,7 @@ from .genes import NEGLECT, genes, persona, temperament
 STAGES = ("baby", "child", "adult", "perfect", "final")
 SIZES = {"egg": 16, "baby": 24, "child": 32, "adult": 40, "perfect": 44, "final": 48}
 FILL = (.74, .84, .92, .96, 1.0)
-BRANCH_STAGE = {"brincalhao": 1, "curioso": 1, "sonhador": 1, "arisco": 1, "companheiro": 2, "explorador": 2,
-                "artista": 2, "tecnico": 2, "sombrio": 2, "guardiao": 3, "sabio": 3, "virtuoso": 3,
-                "aventureiro": 3, "rebelde": 3, "lendario": 4, "mestre": 4, "eco": 4, "sombra": 4}
+BRANCH_STAGE = {b: STAGES.index(st) for st, bs in BRANCHES.items() for b in bs}
 MAX_ACC = 3
 
 
@@ -223,9 +226,10 @@ def _face(d, info, t, g, P, red):
     ex = ox + (d.head_cx - d.eye_dx) * s
     ey = oy + d.eye_y * s
     hx0 = ox + (d.head_cx - d.hw) * s
-    x0 = int(round(ex - w / 2))
-    x0 = min(x0, cxp - w - 1)
-    x0 = max(x0, int(math.ceil(hx0)) + 1)
+    lo = int(math.ceil(hx0)) + 1                 # stay on the head
+    while w > 2 and lo > cxp - w - 1:             # narrow head: slimmer eyes rather than merged ones
+        w -= 1
+    x0 = max(min(int(round(ex - w / 2)), cxp - w - 1), min(lo, cxp - w - 1))
     y0 = int(round(ey - h / 2))
     mouth = d.mouth
     if mouth not in ("none", "grille"):
@@ -256,7 +260,7 @@ def sprite(seed: int, stage: str, lineage=(), traits=None, hue_rgb=None, family=
         g["family"] = family
     if plan is not None:
         g["plan"] = plan
-    lin = tuple(lineage or ())
+    lin = tuple(b for b in (lineage or ()) if BRANCH_STAGE.get(b, 99) <= t)   # later branches never apply
     P = persona(seed, lin, traits) if t >= 1 else temperament(seed)
     b = Builder()
     d = FAMILY_FN[g["family"]](b, g, P, t)

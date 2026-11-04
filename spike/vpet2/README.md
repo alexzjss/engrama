@@ -1,4 +1,8 @@
-# spike/vpet2 — sprites V-Pet coesos (M11, protótipo, rodada 2)
+# Arte V-Pet do M11 (engrama/app/art/vpet)
+
+O gerador saiu deste spike e agora está no app, em `engrama/app/art/vpet/` (`core`, `face`, `genes`,
+`families`, `gen`, `anim`). Aqui ficam só as ferramentas de revisão (`sheets.py`) e de imagens do README
+(`showcase.py`), que usam o código do app.
 
 Estilo de referência: sprites de V-Pet (contorno escuro de 1 px, rampa curta, olhos grandes). **Todo desenho é
 original**; nenhuma forma, nome ou visual de personagem existente.
@@ -105,15 +109,14 @@ rebites + antena (máquina).
 - Dragão quadrúpede adulto ainda é o plano mais denso; besouro lê mais como "joaninha de frente".
 - Babies de planos diferentes da mesma família às vezes se parecem (bolha + traço da família).
 
-## Integração em `engrama/app/art`
+## Integração no app (feita no M11)
 
-1. Mover `core/face/genes/families/gen` para `engrama/app/art/vpet/` (substituindo `archetypes.py`/`plan.py`);
-   `anim.py` do M6 continua (o protótipo já reusa as transformações).
-2. `sprites.frames(look, stage, anim)` segue sendo a API pública: `vpet.creature_frames` chama
-   `gen.sprite(look.seed, stage, lineage=known_lineage(lineage)+(branch,), hue_rgb=look.palette[1])`; o ovo passa a
-   usar `gen.egg` (com o tremor/rachaduras do `make_egg_crack` por cima). `Look`, `look_of`, `ANIMS`, `SIZES`,
-   `food_icon`, `contact_sheet` não mudam.
-3. **Saves**: nada novo no `Genome`. Família, plano, genes, temperamento e paleta saem da semente; a persona
-   vivida e os acessórios saem da linhagem já salva. Chave de cache = (seed, palette[1], stage, anim, linhagem).
-4. Testes a criar: tamanhos; determinismo; família e plano constantes entre estágios; olhos visíveis em todo
-   `idle`; área do final > adulto; ramo desconhecido → base; ≤3 acessórios; custo; LRU limitado.
+- `engrama/app/art/vpet/` substitui `archetypes.py`, `plan.py` e `render.py` do M6; `anim.py` continua (transformações
+  do sprite inteiro), agora carimbando o rosto de `face.py`.
+- API pública intacta: `sprites.Look/look_of/ANIMS/SIZES/frames/make_frames/make_egg_crack/food_icon/contact_sheet`,
+  `vpet.build_sprite/creature_frames/known_lineage`. Só `look.seed`, `look.palette[1]`, `look.branch` e
+  `look.lineage` importam; `body/eyes/ears/tail/pattern` do genoma continuam lidos mas não mudam o desenho.
+- Ovos: `vpet.egg_array` (cor e motivo da família), com o tremor e as rachaduras de `make_egg_crack` por cima.
+- Saves antigos carregam: nada novo no `Genome`; ramos desconhecidos são ignorados; ramos de estágios posteriores
+  nunca mudam um estágio anterior (e a chave do cache só inclui os ramos até o estágio).
+- Testes: `tests/app/test_sprites_m11.py` (invariantes do M6 reescritos + regras do M11).
