@@ -9,7 +9,7 @@ import pytest
 
 from engrama import balance as B
 from engrama.app.host import Host, to_viz
-from engrama.app.snapshot import ModuleView, ProposalView, Snapshot, Viz
+from engrama.app.snapshot import ModuleView, ProposalView, Viz
 from engrama.clock import SimClock
 from engrama.config import Config
 from engrama.kernel.kernel import Kernel

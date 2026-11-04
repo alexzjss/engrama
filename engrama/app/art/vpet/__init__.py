@@ -11,7 +11,7 @@ import numpy as np
 from engrama.vocab import BRANCHES
 
 from .anim import ANIM_FRAMES, frame_arrays
-from .gen import MAX_ACC, SIZES, STAGES, Sprite, accessories, branch_at, egg, sprite
+from .gen import MAX_ACC, SIZES, STAGES, Sprite, branch_at, egg, sprite
 from .genes import FAMILIES, FAMILY_PT, family_of, genes
 
 __all__ = ["ANIM_FRAMES", "FAMILIES", "FAMILY_PT", "MAX_ACC", "PX", "STAGES", "Sprite", "branch_at", "build_sprite",

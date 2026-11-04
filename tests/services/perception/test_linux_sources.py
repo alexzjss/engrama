@@ -1,11 +1,9 @@
-import types
 
 import pytest
 
 import engrama.services.perception.sources as S
 from engrama.osapi import ActiveWindow
 from engrama.osapi.session import detect
-from engrama.services.perception.categories import Categorizer
 from engrama.services.perception.sources import LinuxSources, NullSources, make_sources
 from tests.services.perception.test_service import FakeCfg, make, run
 

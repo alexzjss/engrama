@@ -9,7 +9,7 @@ import numpy as np
 
 from engrama.vocab import BRANCHES
 
-from .core import BODY, BELLY, ACC, MARK, BONE, DARK, GLASS, GOLD, Builder, render
+from .core import BODY, ACC, MARK, BONE, DARK, GLASS, GOLD, Builder, render
 from .face import eye_size, stamp_face
 from .families import FAMILY_FN
 from .genes import NEGLECT, genes, persona, temperament

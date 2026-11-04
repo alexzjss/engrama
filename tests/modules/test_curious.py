@@ -47,7 +47,6 @@ def pipeline(cur, wm, steps, seed=0, hot="explore"):
     bb = Blackboard()
     ch = chans()
     bb.write("world.error", [0.0])
-    prev = None
     for _ in range(steps):
         act = ACTIONS[int(rng.integers(0, len(ACTIONS)))]
         evs = tuple(k for k in ("click", "pet", "message", "food", "answered") if rng.random() < 0.5) \

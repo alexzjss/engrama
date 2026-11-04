@@ -51,7 +51,6 @@ def test_win_desktop_work_area_and_overlay_safe():
 
 
 # ------------------------------------------------------------------ M8: X11 / Wayland
-import numpy as np  # noqa: E402
 import pygame  # noqa: E402
 
 from engrama.app import desktop as dk  # noqa: E402

@@ -6,7 +6,7 @@ from engrama.app import i18n
 from engrama.app.desktop import COLORKEY, FakeDesktop, NullDesktop
 from engrama.app.snapshot import Snapshot
 from engrama.app.ui import Window
-from engrama.app.ui.overlay import SCALE, Strip, strip_from_work_area
+from engrama.app.ui.overlay import Strip, strip_from_work_area
 from engrama.config import Config
 
 LOOK = {"seed": 3, "body": 1, "eyes": 1, "ears": 1, "tail": 1, "pattern": 1}

@@ -1,4 +1,3 @@
-import queue
 import re
 import threading
 import time

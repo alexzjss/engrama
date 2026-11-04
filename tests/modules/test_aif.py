@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from engrama import balance as B
 from engrama.mind.contracts import ASK_ACTION, Blackboard, Experience
-from engrama.modules.policy.aif import (FACTORS, ActiveInferencePolicy, efe, log_pref, outcome_vector)
+from engrama.modules.policy.aif import (ActiveInferencePolicy, efe, log_pref, outcome_vector)
 from engrama.modules.policy.qlearning import state_index
 from engrama.vocab import ACTIONS, REWARD_KEYS
 from tests.modules import contract_kit as kit
