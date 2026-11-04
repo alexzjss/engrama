@@ -4,12 +4,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 from engrama import balance as B
-from engrama.lab.explog import ExperienceLog, read_log
 from engrama.lab.metrics import compute_metrics
 from engrama.lab.runtime import Runtime, _Collector, run_days
 from engrama.lab.simuser import PROFILES, SimUser
 from engrama.mind.recipe import load_recipe
-from engrama.vocab import FOOD_IDS, TRAIT_KEYS, INITIAL_TRAITS
+from engrama.vocab import TRAIT_KEYS, INITIAL_TRAITS
 
 RECIPES = Path(__file__).resolve().parents[1] / "recipes"
 DEFAULT, MINIMAL = RECIPES / "default-v1.toml", RECIPES / "minimal-v1.toml"

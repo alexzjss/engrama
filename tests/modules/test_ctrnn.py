@@ -169,6 +169,7 @@ def test_no_global_rng(monkeypatch):
     K.assert_no_global_rng(monkeypatch, K.recipe("ctrnn-v1"))
 
 
+@pytest.mark.perf
 def test_step_within_budget():
     rt = K.run_clean(K.recipe("ctrnn-v1"), 0.25)
     ms = K.mean_ms(rt, "temporal.ctrnn")

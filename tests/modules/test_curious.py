@@ -47,7 +47,6 @@ def pipeline(cur, wm, steps, seed=0, hot="explore"):
     bb = Blackboard()
     ch = chans()
     bb.write("world.error", [0.0])
-    prev = None
     for _ in range(steps):
         act = ACTIONS[int(rng.integers(0, len(ACTIONS)))]
         evs = tuple(k for k in ("click", "pet", "message", "food", "answered") if rng.random() < 0.5) \
@@ -143,9 +142,16 @@ def test_recipe_save_load_identical(name, tmp_path):
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_recipe_state_roundtrip_and_budget(name, tmp_path, monkeypatch):
+def test_recipe_state_roundtrip(name, tmp_path, monkeypatch):
     rt = K.run_clean(K.recipe(name), 0.5)
     for mod in ("policy.curious", "world.model"):
         K.assert_state_roundtrip(rt.scheduler.modules()[mod], tmp_path / mod)
-        assert K.mean_ms(rt, mod) <= B.EXP_BUDGET_MS
     K.assert_no_global_rng(monkeypatch, K.recipe(name))
+
+
+@pytest.mark.perf
+@pytest.mark.parametrize("name", NAMES)
+def test_recipe_mean_ms_budget(name):
+    rt = K.run_clean(K.recipe(name), 0.5)
+    for mod in ("policy.curious", "world.model"):
+        assert K.mean_ms(rt, mod) <= B.EXP_BUDGET_MS

@@ -9,7 +9,7 @@ from engrama.app import i18n
 from engrama.app.art import sprites
 from engrama.app.art.sprites import Look
 from engrama.app.ui.hud import draw_text
-from engrama.app.ui.menus import draw_frame, panel_rect
+from engrama.app.ui.menus import draw_frame
 
 STAGE_BY_LINEAGE_LEN = ("baby", "child", "adult", "perfect", "final")
 ROW_H = 60

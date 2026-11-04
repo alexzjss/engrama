@@ -221,12 +221,32 @@ O gerador mora em `engrama/app/art/vpet/`. Para regenerar as imagens: `SDL_VIDEO
 
 ## Para desenvolvedores
 
+### Ambiente e testes
+
+```
+python -m venv .venv                     # Python 3.13
+source .venv/bin/activate                # Windows: .venv\Scripts\activate
+pip install -e .[dev]                    # pytest, pytest-xdist, ruff
+```
+
+```
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m pytest -n auto
+$env:SDL_VIDEODRIVER="dummy"; $env:SDL_AUDIODRIVER="dummy"; python -m pytest -n auto   # Windows (PowerShell)
+python -m pytest -n auto -m "not perf"   # sem os testes de orçamento de tempo
+python -m pytest -m perf                 # só os testes de orçamento (tempo, CPU, FPS)
+ruff check .                             # lint
+```
+
+- Uma execução completa e serial leva cerca de 40 min; `-n auto` (pytest-xdist) é bem mais rápido.
+- **Golden de sprites:** `tests/app/test_sprite_golden.py` compara o hash de cada sprite com `tests/fixtures/m12_sprite_hashes.json`, e pega mudança de arte que você não queria. Quando a mudança for intencional, regenere com `ENGRAMA_REGEN_GOLDEN=1 python -m pytest tests/app/test_sprite_golden.py` (PowerShell: `$env:ENGRAMA_REGEN_GOLDEN="1"`) e commite o JSON junto com a arte.
+- **CI** (`.github/workflows/ci.yml`), em cada PR: lint com ruff e testes funcionais (`-m "not perf"`, bloqueantes) em Ubuntu e Windows, Python 3.13. Os testes `perf` rodam depois, só informativos.
+
 ### Arquitetura
 
 - `engrama/kernel`: corpo determinístico (mesma semente, mesmo resultado; uma simulação completa também é determinística, pois o laboratório não rebaixa módulos por tempo real, ver `--enforce-budgets`).
 - `engrama/mind`, `engrama/modules`: contratos, registro e módulos da mente.
 - `engrama/lab`: runtime de simulação, log de experiência (SQLite), replay, métricas e CLI.
-- `engrama/app`: o app (interface, arte, host, serviços de percepção, memória, LLM).
+- `engrama/app`: o app (interface, arte, host, `cli.py` para a linha de comando, serviços de percepção, memória, LLM).
 - `recipes/`: receitas TOML que escolhem os módulos e seus pesos; `docs/superpowers/` guarda especificações, planos e relatórios de cada marco.
 
 Regra de dependência (verificada por `tests/test_architecture.py`): `kernel` não importa `mind`, `modules`, `lab` nem `services`; `mind` não importa `kernel` nem `modules`; um módulo só importa `engrama.mind`, `engrama.vocab`, `engrama.balance`, a própria família, numpy e a stdlib.
@@ -280,7 +300,6 @@ Perfis (`--profile`): `attentive`, `absent`, `night_owl`, `gamer`. Outras flags:
 ### Testes e bench
 
 ```
-python -m pytest -q                      # inclui testes lentos (marcador slow)
 python tools/bench.py --seconds 120      # (--profile, --seed) JSON: pico de RSS, CPU médio, mean_ms por módulo
 python tools/bench.py --app --seconds 60 --fake-perception   # o app inteiro com fontes de percepção falsas
 python tools/bench.py --app --seconds 60 --threads           # CPU por thread (Linux, via /proc)
@@ -288,7 +307,7 @@ python tools/bench.py --app --seconds 60 --first-use         # mede a tela de pr
 python tools/bench.py --overlay --seconds 30                 # overlay com desktop e cursor falsos
 ```
 
-O bench mede o estado estável (primeiro uso já respondido, todas as permissões desligadas); o limite é de 150 MB e 2% de CPU médio, em qualquer plataforma. Testes de interface usam `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`.
+O bench mede o estado estável (primeiro uso já respondido, todas as permissões desligadas); o limite é de 150 MB e 2% de CPU médio, em qualquer plataforma. Para os testes, veja [Ambiente e testes](#ambiente-e-testes).
 
 ## Estado do MVP e roadmap
 
@@ -304,6 +323,7 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 | M9 | Busca por significado (embeddings, opcional) | feito |
 | M10 | Experimentos de ML como receitas opcionais + relatório | feito |
 | M11 | Arte V-Pet coesa: 8 famílias × 3 planos, ovos da família, acessórios que acumulam | feito |
+| M12 | Saúde do projeto: CI Linux/Windows, lint, testes paralelos, divisão dos arquivos grandes, bench no Wayland | feito |
 
 **Limitações conhecidas**
 
@@ -315,10 +335,11 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 - Os experimentos de ML não foram promovidos: o padrão continua sendo `default-v1`.
 - O orçamento de 2% de CPU é por núcleo; em notebooks de baixo consumo o número medido pode ser maior que no PC de referência.
 
-**Próximos passos**
+**Próximos passos** (ciclo seguinte; detalhes no [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
 
-1. Smokes manuais pendentes e calibração com modelos reais.
-2. Arte: animação de membros e poses por família.
+1. **M13:** calibração com modelos reais (smokes manuais e limiares da busca por significado).
+2. **M14:** animação de membros e poses por família.
+3. **M15:** distribuição: pastas de dados por sistema operacional, builds e início automático.
 
 Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs/superpowers/).
 
@@ -550,12 +571,32 @@ The generator lives in `engrama/app/art/vpet/`. To regenerate the images: `SDL_V
 
 ## For developers
 
+### Environment and tests
+
+```
+python -m venv .venv                     # Python 3.13
+source .venv/bin/activate                # Windows: .venv\Scripts\activate
+pip install -e .[dev]                    # pytest, pytest-xdist, ruff
+```
+
+```
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m pytest -n auto
+$env:SDL_VIDEODRIVER="dummy"; $env:SDL_AUDIODRIVER="dummy"; python -m pytest -n auto   # Windows (PowerShell)
+python -m pytest -n auto -m "not perf"   # skip the wall-clock budget tests
+python -m pytest -m perf                 # only the budget tests (time, CPU, FPS)
+ruff check .                             # lint
+```
+
+- A full serial run takes about 40 min; `-n auto` (pytest-xdist) is much faster.
+- **Sprite golden:** `tests/app/test_sprite_golden.py` compares the hash of each sprite with `tests/fixtures/m12_sprite_hashes.json`, and catches art changes you did not intend. When a change is intended, regenerate with `ENGRAMA_REGEN_GOLDEN=1 python -m pytest tests/app/test_sprite_golden.py` (PowerShell: `$env:ENGRAMA_REGEN_GOLDEN="1"`) and commit the JSON along with the art.
+- **CI** (`.github/workflows/ci.yml`), on each PR: ruff lint and functional tests (`-m "not perf"`, blocking) on Ubuntu and Windows, Python 3.13. The `perf` tests run afterwards, informational only.
+
 ### Architecture
 
 - `engrama/kernel`: deterministic body (same seed, same outcome; a full simulation is deterministic too, because the lab does not demote modules on wall-clock time, see `--enforce-budgets`).
 - `engrama/mind`, `engrama/modules`: contracts, registry and mind modules.
 - `engrama/lab`: simulation runtime, experience log (SQLite), replay, metrics and CLI.
-- `engrama/app`: the app (UI, art, host, perception services, memory, LLM).
+- `engrama/app`: the app (UI, art, host, `cli.py` for the command line, perception services, memory, LLM).
 - `recipes/`: TOML recipes that choose the modules and their weights; `docs/superpowers/` holds the specs, plans and reports of each milestone.
 
 Dependency rule (checked by `tests/test_architecture.py`): `kernel` does not import `mind`, `modules`, `lab` or `services`; `mind` does not import `kernel` or `modules`; a module only imports `engrama.mind`, `engrama.vocab`, `engrama.balance`, its own family, numpy and the stdlib.
@@ -609,7 +650,6 @@ Profiles (`--profile`): `attentive`, `absent`, `night_owl`, `gamer`. Other flags
 ### Tests and bench
 
 ```
-python -m pytest -q                      # includes slow tests (slow marker)
 python tools/bench.py --seconds 120      # (--profile, --seed) JSON: peak RSS, mean CPU, mean_ms per module
 python tools/bench.py --app --seconds 60 --fake-perception   # the whole app with fake perception sources
 python tools/bench.py --app --seconds 60 --threads           # CPU per thread (Linux, via /proc)
@@ -617,7 +657,7 @@ python tools/bench.py --app --seconds 60 --first-use         # measures the firs
 python tools/bench.py --overlay --seconds 30                 # overlay with fake desktop and cursor
 ```
 
-The bench measures the steady state (first run already answered, all permissions off); the limit is 150 MB and 2% mean CPU, on any platform. UI tests use `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy`.
+The bench measures the steady state (first run already answered, all permissions off); the limit is 150 MB and 2% mean CPU, on any platform. For the tests, see [Environment and tests](#environment-and-tests).
 
 ## MVP status and roadmap
 
@@ -633,6 +673,7 @@ The bench measures the steady state (first run already answered, all permissions
 | M9 | Semantic search (embeddings, optional) | done |
 | M10 | ML experiments as optional recipes + report | done |
 | M11 | Cohesive V-Pet art: 8 families × 3 plans, family eggs, accumulating accessories | done |
+| M12 | Project health: Linux/Windows CI, lint, parallel tests, split of large files, bench on Wayland | done |
 
 **Known limitations**
 
@@ -644,10 +685,11 @@ The bench measures the steady state (first run already answered, all permissions
 - The ML experiments were not promoted: the default is still `default-v1`.
 - The 2% CPU budget is per core; on low-power laptops the measured number may be higher than on the reference PC.
 
-**Next steps**
+**Next steps** (next cycle; details in the [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
 
-1. Pending manual smokes and calibration with real models.
-2. Art: limb animation and per-family poses.
+1. **M13:** calibration with real models (manual smokes and semantic-search thresholds).
+2. **M14:** limb animation and per-family poses.
+3. **M15:** distribution: OS-specific data folders, builds and autostart.
 
 Specs, plans and reports of each milestone: [`docs/superpowers/`](docs/superpowers/).
 

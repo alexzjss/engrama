@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "engrama"
-version = "0.11.0"
+version = "0.12.0"
 requires-python = ">=3.13"
 dependencies = ["pygame-ce", "numpy", "psutil"]
 
@@ -12,7 +12,7 @@ dependencies = ["pygame-ce", "numpy", "psutil"]
 engrama = "engrama.app.host:main"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "pytest-xdist", "ruff"]
 
 [tool.setuptools.packages.find]
 include = ["engrama*"]
@@ -20,4 +20,15 @@ include = ["engrama*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-markers = ["slow: long-running acceptance tests (included in the default run)"]
+markers = [
+    "slow: long-running acceptance tests (included in the default run)",
+    "perf: asserts measured wall time, CPU or FPS against a budget (noisy on loaded runners; CI runs them apart)",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 130
+extend-exclude = ["spike", "art-review", ".pytest_tmp"]
+
+[tool.ruff.lint]
+select = ["F", "E9", "B006", "B008", "B904"]

@@ -268,7 +268,6 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
     names = []
     grps = []
     lines = []
-    name_ids = {}
     for i, p in enumerate(parts):
         # rasterise only inside the part's pixel bbox (+2 px for the rim tests)
         bx0, by0, bx1, by1 = p.bbox()

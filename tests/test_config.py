@@ -1,5 +1,7 @@
 import json
 import sys
+
+import pytest
 from pathlib import Path
 from engrama.config import Config
 
@@ -42,6 +44,7 @@ def test_config_m5_defaults_and_old_config(tmp_path):
     assert old.perception_asked is False and old.eyes_hotkey == "ctrl+alt+e"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: caminhos POSIX")
 def test_config_linux_defaults_no_drive_letter(tmp_path, monkeypatch):
     from engrama import config as config_mod
 
@@ -62,6 +65,7 @@ def test_config_windows_defaults_unchanged(monkeypatch):
     assert cfg.ollama_models == Path(r"E:\Ollama\models")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: caminhos POSIX")
 def test_windows_config_loaded_on_linux_falls_back(tmp_path, monkeypatch):
     from engrama import config as config_mod
 
@@ -76,6 +80,7 @@ def test_windows_config_loaded_on_linux_falls_back(tmp_path, monkeypatch):
     assert cfg.recipe == "x"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: caminhos POSIX")
 def test_linux_custom_ollama_path_is_kept(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")
     p = tmp_path / "config.json"

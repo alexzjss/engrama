@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 from engrama import balance as B
 from engrama.mind.contracts import ASK_ACTION, Blackboard, Experience
-from engrama.modules.policy.aif import (FACTORS, ActiveInferencePolicy, efe, log_pref, outcome_vector)
+from engrama.modules.policy.aif import (ActiveInferencePolicy, efe, log_pref, outcome_vector)
 from engrama.modules.policy.qlearning import state_index
 from engrama.vocab import ACTIONS, REWARD_KEYS
 from tests.modules import contract_kit as kit
@@ -174,7 +174,12 @@ def test_recipe_runs_clean():
     rec = kit.recipe("aif-v1")
     assert [m.type for m in rec.modules].count("policy.aif") == 1
     kit.run_clean(rec, 3, "attentive")
-    rt = kit.run_clean(rec, 5, "neglectful")
+    kit.run_clean(rec, 5, "neglectful")
+
+
+@pytest.mark.perf
+def test_recipe_mean_ms_within_budget():
+    rt = kit.run_clean(kit.recipe("aif-v1"), 5, "neglectful")
     assert kit.mean_ms(rt, "policy.aif") <= B.EXP_BUDGET_MS
 
 

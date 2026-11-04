@@ -1,6 +1,6 @@
 import json
-import os
 import socket
+import sys
 import tempfile
 import threading
 import time
@@ -54,6 +54,7 @@ def test_socket_path(tmp_path):
     assert hyprland.socket_path({"XDG_RUNTIME_DIR": str(tmp_path)}) is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: caminhos POSIX")
 def test_socket_path_legacy(tmp_path):
     env = {"XDG_RUNTIME_DIR": str(tmp_path / "nada"), "HYPRLAND_INSTANCE_SIGNATURE": "zz"}
     assert hyprland.socket_path(env) == str(tmp_path / "nada/hypr/zz/.socket.sock")
@@ -110,6 +111,7 @@ def test_empty_object_is_none_and_bad_json():
     assert hyprland.active_window(env, connect=lambda p: _Fake(b"[1]")) is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="socket AF_UNIX")
 def test_missing_socket_none(tmp_path):
     assert hyprland.active_window({}) is None
     env = {"XDG_RUNTIME_DIR": str(tmp_path), "HYPRLAND_INSTANCE_SIGNATURE": "none"}
@@ -117,6 +119,7 @@ def test_missing_socket_none(tmp_path):
     assert hyprland.active_window(env) is None
 
 
+@pytest.mark.perf
 def test_silent_socket_times_out(tmp_path):
     env, sock = _env(tmp_path)
     _server(sock, None, silent=True)

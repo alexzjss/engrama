@@ -62,7 +62,6 @@ def test_grave_then_death_24h_online():
 
 def count_colds(seed: int, days: int) -> int:
     k = baby(seed)
-    n, was = 0, False
     run(k, days * 24 * H, 10.0, dt=600.0, stop=None)
     return k.health.cold_count
 

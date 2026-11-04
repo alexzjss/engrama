@@ -245,9 +245,7 @@ def test_ollama_stopped_is_m8(tmp_path):
     store = build_store(tmp_path / "g.sqlite")
     svc, _ = make(tmp_path, emb, store=store, cfg=cfg)
     svc.server.up = False
-    golden = json.loads(GOLDEN.read_text(encoding="utf-8"))
     text, stage, lang = next(c for c in CASES if c[0] == "meu cachorro, o Biscoito, esta doente")
-    i = CASES.index((text, stage, lang))
     svc.client.chats.clear()
     svc._chat(text)
     assert svc.client.chats == []   # offline: babble, no prompt at all
@@ -495,6 +493,7 @@ def test_thirty_days_bounded(tmp_path):
 
 # ---- 10: fast -------------------------------------------------------------------------------------------------
 @pytest.mark.slow
+@pytest.mark.perf
 def test_search_budget(tmp_path):
     mem = MemoryStore(tmp_path / "m.sqlite", now_fn=Clock())
     mem.set_vector_model("embeddinggemma")

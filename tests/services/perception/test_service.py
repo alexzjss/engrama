@@ -1,4 +1,5 @@
 import psutil
+import pytest
 
 from engrama.services.perception import HEAVY_FOR_S
 from engrama.services.perception.service import PerceptionService
@@ -213,6 +214,7 @@ def test_null_sources_off_windows():
     assert posts == []
 
 
+@pytest.mark.perf
 def test_thread_start_stop_fast():
     import time
     svc, _, _, _ = make(FakeCfg(), now_fn=time.time)

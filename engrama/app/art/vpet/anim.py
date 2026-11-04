@@ -94,7 +94,6 @@ def _lie(a):
     r = np.rot90(a, 1).copy()
     ys = np.nonzero(r[:, :, 3].any(axis=1))[0]
     xs = np.nonzero(r[:, :, 3].any(axis=0))[0]
-    out = np.zeros_like(r)
     dy = (n - 1) - int(ys[-1])
     dx = int(round((n - 1) / 2 - (xs[0] + xs[-1]) / 2))
     return _shift(r, dx, dy)

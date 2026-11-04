@@ -91,6 +91,7 @@ def test_holder_pid_when_held(tmp_path):
         p.wait()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: SIGUSR1")
 def test_send_eyes_toggle_codes(tmp_path, monkeypatch, capsys):
     import signal
     sent = []

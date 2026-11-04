@@ -1,5 +1,4 @@
 """O kit de contrato (tests/modules/contract_kit.py) exercitado com módulos que já existem e um falso."""
-from pathlib import Path
 
 import numpy as np
 import pytest

@@ -1,5 +1,4 @@
 """policy.thompson: Q-learning bayesiano simplificado (M10, Tarefa 3)."""
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -165,6 +164,7 @@ def test_thompson_no_global_rng(monkeypatch):
     K.assert_no_global_rng(monkeypatch, K.recipe("thompson-v1"), seconds=3600.0)
 
 
+@pytest.mark.perf
 def test_thompson_mean_ms_within_budget():
     rt = K.run_clean(K.recipe("thompson-v1"), 0.5)
     assert K.mean_ms(rt, "policy.thompson") <= B.EXP_BUDGET_MS

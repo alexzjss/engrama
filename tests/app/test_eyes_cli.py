@@ -12,7 +12,7 @@ ENV = {**os.environ, "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy"}
 def test_eyes_toggle_without_instance_exits_1(tmp_path):
     r = subprocess.run([sys.executable, "-m", "engrama", "--eyes", "toggle", "--data-dir", str(tmp_path)],
                        env=ENV, capture_output=True, text=True, timeout=60)
-    assert r.returncode == 1
+    assert r.returncode == (2 if sys.platform == "win32" else 1)   # Windows: usa o atalho global
     assert not (tmp_path / "engrama.lock").exists() or (tmp_path / "engrama.lock").read_bytes() == b""
 
 
