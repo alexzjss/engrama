@@ -1,5 +1,6 @@
 import socket
 import struct
+import sys
 import threading
 import time
 
@@ -196,6 +197,7 @@ def test_connect_failure_false():
     assert wl.IdleWatcher(60, env=ENV, connect=boom).start() is False
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: caminhos POSIX")
 def test_socket_path():
     assert wl.socket_path(ENV) == "/run/user/1000/wayland-0"
     assert wl.socket_path({"WAYLAND_DISPLAY": "/tmp/s"}) == "/tmp/s"

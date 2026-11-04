@@ -199,6 +199,7 @@ def test_windows_choices_unchanged(monkeypatch, tmp_path):
 
 
 # 3, 4 ----------------------------------------------------------------------------------------------------
+@pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: caminhos POSIX")
 def test_linux_config_and_ollama(tmp_path, monkeypatch):
     from engrama import config as config_mod
     from engrama.app.i18n import _ui_locale_name
@@ -386,6 +387,7 @@ def test_eyes_windows_exit_code_and_x11_lock_variants(tmp_path, monkeypatch, cap
 
 
 # 13 ------------------------------------------------------------------------------------------------------
+@pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: get_desktop usa a plataforma real")
 def test_overlay_wayland_notice_and_x11_fake(monkeypatch):
     from engrama.app import desktop as dk
     from engrama.app import i18n
