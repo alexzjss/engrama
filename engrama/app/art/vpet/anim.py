@@ -140,7 +140,7 @@ def _color(a, p):
 
 # M14 pose data, filled by the family modules: key (family, plan) or family -> {anim: [pose per frame]}.
 # A pose is {role: {"rot", "dx", "dy", "alt"}} (see core.posed); {} = rest.
-POSES: dict = {}
+from .poses import POSES  # noqa: E402  filled per family in poses/
 
 
 def poses_for(sp: Sprite, anim: str):
