@@ -34,9 +34,10 @@ def test_recall_finds_fact_by_word():
     assert ctx.facts == ["jogo_favorito: hollow knight"]
 
 
-def test_recall_fallback_most_confident_facts():
+def test_recall_no_fact_fallback_when_nothing_matches():
+    # M13: unrelated facts used to be injected (rows[:2]) and fed assistant drift; now only matches
     m = FakeMem(facts=[("aaa", "um"), ("bbb", "dois"), ("ccc", "tres")])
-    assert len(recall(m, "oi", "child", "pt").facts) == 2
+    assert recall(m, "oi", "child", "pt").facts == []
 
 
 def test_recall_stage_gating():
