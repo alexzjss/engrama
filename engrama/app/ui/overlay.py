@@ -113,6 +113,12 @@ class OverlayController:
         return (wx, wy, ww, wh)
 
     def _hwnd(self) -> int:
+        # On Wayland (and the dummy driver) get_wm_info() segfaults or has no native handle: no HWND.
+        try:
+            if pygame.display.get_driver() in ("wayland", "dummy"):
+                return 0
+        except Exception:
+            pass
         try:
             return int(pygame.display.get_wm_info().get("window", 0) or 0)
         except Exception:

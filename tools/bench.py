@@ -119,8 +119,10 @@ def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5, fake_percep
 
 def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict:
     """Overlay mode in this process (dummy SDL, FakeDesktop, a fake cursor wandering the screen): RSS and CPU."""
-    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
-    os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+    # Force, don't setdefault: a session that already exports SDL_VIDEODRIVER=wayland (Hyprland) would
+    # otherwise open a real window and segfault in pygame.display.get_wm_info(). FakeDesktop needs no window.
+    os.environ["SDL_VIDEODRIVER"] = "dummy"
+    os.environ["SDL_AUDIODRIVER"] = "dummy"
     import math
     import pygame
     from engrama.app.desktop import FakeDesktop

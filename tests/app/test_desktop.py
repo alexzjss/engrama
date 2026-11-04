@@ -207,3 +207,18 @@ def test_shape_sent_only_on_change():
     assert len(fx.shapes) == 2
     d.update_shape(1, pygame.Surface((12, 3), 0, 32))
     assert len(fx.shapes) == 3
+
+
+@pytest.mark.parametrize("driver", ["dummy", "wayland"])
+def test_own_hwnd_is_zero_without_wm_info_on_dummy_or_wayland(monkeypatch, driver):
+    import pygame
+
+    from engrama.app.desktop import WinDesktop
+
+    calls = []   # the production code swallows exceptions, so record the call instead of raising
+    monkeypatch.setattr(pygame.display, "get_driver", lambda: driver)
+    monkeypatch.setattr(pygame.display, "get_wm_info", lambda: calls.append(driver) or {"window": 99})
+    # _own_hwnd only touches pygame, so the Win32 __init__ (which cannot run on Linux) is skipped.
+    d = object.__new__(WinDesktop)
+    assert d._own_hwnd() == 0
+    assert calls == []
