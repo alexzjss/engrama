@@ -163,6 +163,7 @@ def test_budget_app_shadow_all(tmp_path):
     assert r["mean_cpu_percent"] <= 2.0 * tol
 
 
+@pytest.mark.perf
 @pytest.mark.parametrize("name", NEW)
 def test_new_modules_mean_ms(name):
     rt = K.run_clean(K.recipe(name), 0.25)

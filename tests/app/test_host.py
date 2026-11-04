@@ -218,6 +218,26 @@ def test_wall_jump_is_capped(tmp_path, hosts):
     assert h.runtime.kernel.t - t1 <= 50.0 + 1e-9
 
 
+@pytest.mark.perf
+def test_stop_returns_within_3s_under_posting_load(tmp_path):
+    h = Host(Config(data_dir=tmp_path), tmp_path, MINIMAL, seed=3, ram_free_mb_fn=lambda: 8000.0)
+    h.start()
+    stop_posting = threading.Event()
+
+    def spam():
+        while not stop_posting.is_set():
+            h.post("pet")
+            time.sleep(0.001)
+    th = threading.Thread(target=spam, daemon=True)
+    th.start()
+    time.sleep(0.3)
+    t0 = time.time()
+    h.stop(timeout=3.0)
+    elapsed = time.time() - t0
+    stop_posting.set(); th.join()
+    assert elapsed < 3.0
+
+
 def test_stop_saves_and_joins_within_3s(tmp_path):
     h = Host(Config(data_dir=tmp_path), tmp_path, MINIMAL, seed=3, ram_free_mb_fn=lambda: 8000.0)
     h.start()
@@ -230,9 +250,7 @@ def test_stop_saves_and_joins_within_3s(tmp_path):
     th = threading.Thread(target=spam, daemon=True)
     th.start()
     time.sleep(0.3)
-    t0 = time.time()
     h.stop(timeout=3.0)
-    assert time.time() - t0 < 3.0
     stop_posting.set(); th.join()
     assert h._thread is not None and not h._thread.is_alive()
     rt = Runtime.load(tmp_path / "save")     # intact and loadable

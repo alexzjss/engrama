@@ -117,6 +117,7 @@ def test_missing_socket_none(tmp_path):
     assert hyprland.active_window(env) is None
 
 
+@pytest.mark.perf
 def test_silent_socket_times_out(tmp_path):
     env, sock = _env(tmp_path)
     _server(sock, None, silent=True)

@@ -149,6 +149,7 @@ def test_profiles_branch_differently():
 
 
 @pytest.mark.slow
+@pytest.mark.perf
 def test_200_days_under_8_min():
     t0 = time.time()
     m = run_days(RECIPE.with_name(BUDGET_RECIPE), 200, "attentive", 1, 60.0, None)

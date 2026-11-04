@@ -27,6 +27,7 @@ def _mod(rt: Runtime, name: str):
 
 
 @pytest.mark.slow
+@pytest.mark.perf
 def test_default_recipe_30_days_stable():
     col = _Collector()
     rt = _runtime(DEFAULT, "attentive", 1, col)

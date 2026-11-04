@@ -3,6 +3,8 @@ import struct
 import threading
 import time
 
+import pytest
+
 from engrama.osapi import wayland as wl
 
 ENV = {"WAYLAND_DISPLAY": "wayland-0", "XDG_RUNTIME_DIR": "/run/user/1000"}
@@ -179,6 +181,7 @@ def test_no_wayland_display_false():
     assert not called
 
 
+@pytest.mark.perf
 def test_silent_compositor_times_out():
     w, comp = make(answer=False)
     t0 = time.monotonic()

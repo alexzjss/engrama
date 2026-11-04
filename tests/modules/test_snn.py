@@ -163,6 +163,7 @@ def test_channels_and_viz():
 
 
 @pytest.mark.skipif(bool(os.environ.get("CI")), reason="timing-sensitive")
+@pytest.mark.perf
 def test_step_cost():
     m = make(160)
     bb = Blackboard()

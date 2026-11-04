@@ -115,6 +115,7 @@ def test_invalid_spec_reports_error_without_raising():
     assert api.registered == []
 
 
+@pytest.mark.perf
 def test_stop_is_fast():
     api = FakeApi()
     hk = GlobalHotkey("ctrl+alt+e", lambda: None, api=api)
@@ -204,10 +205,20 @@ def test_x11api_loop_and_quit():
     hk = GlobalHotkey("ctrl+alt+e", hit.set, api=hk_mod._X11Api(opener=lambda: fake))
     assert hk.start()
     assert hit.wait(1.0)
+    hk.stop()
+    assert fake.ungrabbed and fake.closed
+
+
+@pytest.mark.perf
+def test_x11api_stop_is_fast():
+    fake = FakeKeyGrab(presses=1)
+    hit = threading.Event()
+    hk = GlobalHotkey("ctrl+alt+e", hit.set, api=hk_mod._X11Api(opener=lambda: fake))
+    assert hk.start()
+    assert hit.wait(1.0)
     t0 = time.monotonic()
     hk.stop()
     assert time.monotonic() - t0 < 0.6
-    assert fake.ungrabbed and fake.closed
 
 
 def test_start_wayland_error():
