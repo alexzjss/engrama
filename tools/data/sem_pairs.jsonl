@@ -1,0 +1,240 @@
+{"kind": "episode", "query": "ontem fiquei até tarde vendo série", "memory": "conversa: assisti a uma série de mistério até de madrugada", "match": true, "lang": "pt", "note": "paráfrase"}
+{"kind": "episode", "query": "tô com dor de cabeça desde cedo", "memory": "conversa: minha cabeça está doendo muito hoje", "match": true, "lang": "pt", "note": "sinônimo"}
+{"kind": "episode", "query": "lembra da minha prova de cálculo?", "memory": "conversa: amanhã tenho prova de cálculo e estou nervoso", "match": true, "lang": "pt", "note": "mesmo evento"}
+{"kind": "episode", "query": "preciso comprar ração pro Bolota", "memory": "conversa: o Bolota ficou sem comida e fui ao mercado", "match": true, "lang": "pt", "note": "mesmo pet"}
+{"kind": "episode", "query": "cansei do trabalho, quero férias", "memory": "o usuário reclamou do trabalho e disse que precisa descansar", "match": true, "lang": "pt", "note": "resumo de reflexão"}
+{"kind": "episode", "query": "fui correr no parque hoje cedo", "memory": "conversa: acordei cedo para fazer uma corrida", "match": true, "lang": "pt", "note": "paráfrase"}
+{"kind": "episode", "query": "meu notebook não liga mais", "memory": "conversa: o computador travou e agora não inicia", "match": true, "lang": "pt", "note": "sinônimo"}
+{"kind": "episode", "query": "vamos falar de música?", "memory": "conversa sobre musica, várias vezes", "match": true, "lang": "pt", "note": "resumo compactado"}
+{"kind": "episode", "query": "estou aprendendo violão", "memory": "conversa: comprei um violão e comecei as aulas", "match": true, "lang": "pt", "note": "mesmo assunto"}
+{"kind": "episode", "query": "choveu o dia todo, que tristeza", "memory": "conversa: o tempo está chuvoso e me deixou desanimado", "match": true, "lang": "pt", "note": "paráfrase"}
+{"kind": "episode", "query": "fiz bolo de cenoura pra família", "memory": "conversa: assei um bolo no domingo para meus pais", "match": true, "lang": "pt", "note": "pouca sobreposição"}
+{"kind": "episode", "query": "meu chefe marcou uma reunião chata", "memory": "conversa: tenho uma reunião longa com o gerente", "match": true, "lang": "pt", "note": "sinônimo"}
+{"kind": "episode", "query": "ontem fiquei até tarde vendo série", "memory": "conversa: o preço do dólar subiu bastante", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "episode", "query": "tô com dor de cabeça desde cedo", "memory": "conversa: meu time ganhou o campeonato", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "episode", "query": "meu gato está doente", "memory": "conversa: o gato da vizinha subiu no telhado", "match": false, "lang": "pt", "note": "difícil: gato de outro dono"}
+{"kind": "episode", "query": "vou viajar para a praia", "memory": "conversa: preciso pagar o aluguel do apartamento", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "episode", "query": "fiz bolo de cenoura pra família", "memory": "conversa: fui ao dentista tratar uma cárie", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "episode", "query": "comprei uma manga no mercado", "memory": "conversa: a manga da camisa rasgou", "match": false, "lang": "pt", "note": "difícil: manga fruta vs manga de roupa"}
+{"kind": "episode", "query": "estou aprendendo violão", "memory": "conversa: assisti a um show de rock ontem", "match": false, "lang": "pt", "note": "difícil: música mas outro assunto"}
+{"kind": "episode", "query": "meu notebook não liga mais", "memory": "conversa: a internet está lenta hoje", "match": false, "lang": "pt", "note": "difícil: tecnologia, outro problema"}
+{"kind": "episode", "query": "fui correr no parque hoje cedo", "memory": "conversa: li um livro de ficção científica", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "episode", "query": "amanhã tenho prova de cálculo", "memory": "conversa: meu irmão passou na prova de direção", "match": false, "lang": "pt", "note": "difícil: prova de outra pessoa"}
+{"kind": "episode", "query": "meu aniversário é sábado", "memory": "conversa: o aniversário da minha irmã foi ontem", "match": false, "lang": "pt", "note": "difícil: aniversário de outra pessoa"}
+{"kind": "episode", "query": "choveu o dia todo, que tristeza", "memory": "conversa sobre futebol, às vezes", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "episode", "query": "vamos falar de música?", "memory": "conversa sobre culinária, várias vezes", "match": false, "lang": "pt", "note": "outro tópico"}
+{"kind": "episode", "query": "cansei do trabalho, quero férias", "memory": "mostrou um arquivo de imagem", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "episode", "query": "meu chefe marcou uma reunião chata", "memory": "conversa: meu cachorro quebrou o vaso da sala", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "episode", "query": "I stayed up late binge-watching a show", "memory": "conversation: I watched a mystery series until the early morning", "match": true, "lang": "en", "note": "paraphrase"}
+{"kind": "episode", "query": "my head has been pounding since morning", "memory": "conversation: I have a terrible headache today", "match": true, "lang": "en", "note": "synonym"}
+{"kind": "episode", "query": "remember my calculus exam?", "memory": "conversation: tomorrow I have a calculus test and I am nervous", "match": true, "lang": "en", "note": "same event"}
+{"kind": "episode", "query": "I need to buy food for Biscuit", "memory": "conversation: Biscuit ran out of kibble so I went to the store", "match": true, "lang": "en", "note": "same pet"}
+{"kind": "episode", "query": "I am sick of work, I want a holiday", "memory": "the user complained about their job and said they need rest", "match": true, "lang": "en", "note": "reflection summary"}
+{"kind": "episode", "query": "went jogging in the park this morning", "memory": "conversation: I woke up early for a run", "match": true, "lang": "en", "note": "paraphrase"}
+{"kind": "episode", "query": "my laptop will not turn on anymore", "memory": "conversation: the computer froze and now it will not boot", "match": true, "lang": "en", "note": "synonym"}
+{"kind": "episode", "query": "let's talk about music", "memory": "talked about musica, many times", "match": true, "lang": "en", "note": "compacted summary"}
+{"kind": "episode", "query": "I am learning the guitar", "memory": "conversation: I bought a guitar and started lessons", "match": true, "lang": "en", "note": "same subject"}
+{"kind": "episode", "query": "it rained all day, so gloomy", "memory": "conversation: the weather is wet and it brought my mood down", "match": true, "lang": "en", "note": "paraphrase"}
+{"kind": "episode", "query": "baked a carrot cake for my family", "memory": "conversation: I made a cake on Sunday for my parents", "match": true, "lang": "en", "note": "low overlap"}
+{"kind": "episode", "query": "my manager scheduled a boring meeting", "memory": "conversation: I have a long sync with my boss", "match": true, "lang": "en", "note": "synonym"}
+{"kind": "episode", "query": "I stayed up late binge-watching a show", "memory": "conversation: the dollar price went up a lot", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "episode", "query": "my head has been pounding since morning", "memory": "conversation: my team won the championship", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "episode", "query": "my cat is sick", "memory": "conversation: the neighbor's cat climbed on the roof", "match": false, "lang": "en", "note": "hard: someone else's cat"}
+{"kind": "episode", "query": "I am going on a beach trip", "memory": "conversation: I have to pay the rent for the apartment", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "episode", "query": "baked a carrot cake for my family", "memory": "conversation: I went to the dentist for a cavity", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "episode", "query": "I deposited cash at the bank", "memory": "conversation: we had a picnic on the river bank", "match": false, "lang": "en", "note": "hard: bank money vs river"}
+{"kind": "episode", "query": "I am learning the guitar", "memory": "conversation: I went to a rock concert yesterday", "match": false, "lang": "en", "note": "hard: music, other subject"}
+{"kind": "episode", "query": "my laptop will not turn on anymore", "memory": "conversation: the wifi is slow today", "match": false, "lang": "en", "note": "hard: tech, other problem"}
+{"kind": "episode", "query": "went jogging in the park this morning", "memory": "conversation: I read a science fiction novel", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "episode", "query": "I have a calculus exam tomorrow", "memory": "conversation: my brother passed his driving test", "match": false, "lang": "en", "note": "hard: another person's exam"}
+{"kind": "episode", "query": "my birthday is on Saturday", "memory": "conversation: my sister's birthday was yesterday", "match": false, "lang": "en", "note": "hard: someone else's birthday"}
+{"kind": "episode", "query": "it rained all day, so gloomy", "memory": "chatted about football, sometimes", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "episode", "query": "let's talk about music", "memory": "talked about cooking, many times", "match": false, "lang": "en", "note": "other topic"}
+{"kind": "episode", "query": "I am sick of work, I want a holiday", "memory": "showed a file of image", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "episode", "query": "my manager scheduled a boring meeting", "memory": "conversation: my dog knocked over a vase", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "episode", "query": "ontem fiquei até tarde vendo série", "memory": "conversation: I watched a mystery series until the early morning", "match": true, "lang": "cross", "note": "cross paraphrase"}
+{"kind": "episode", "query": "tô com dor de cabeça desde cedo", "memory": "conversation: I have a terrible headache today", "match": true, "lang": "cross", "note": "cross synonym"}
+{"kind": "episode", "query": "lembra da minha prova de cálculo?", "memory": "conversation: tomorrow I have a calculus test and I am nervous", "match": true, "lang": "cross", "note": "cross same event"}
+{"kind": "episode", "query": "preciso comprar ração pro Bolota", "memory": "conversation: Biscuit ran out of kibble so I went to the store", "match": true, "lang": "cross", "note": "cross same pet kind (different name)"}
+{"kind": "episode", "query": "cansei do trabalho, quero férias", "memory": "the user complained about their job and said they need rest", "match": true, "lang": "cross", "note": "cross reflection"}
+{"kind": "episode", "query": "fui correr no parque hoje cedo", "memory": "conversation: I woke up early for a run", "match": true, "lang": "cross", "note": "cross paraphrase"}
+{"kind": "episode", "query": "meu notebook não liga mais", "memory": "conversation: the computer froze and now it will not boot", "match": true, "lang": "cross", "note": "cross synonym"}
+{"kind": "episode", "query": "I am learning the guitar", "memory": "conversa: comprei um violão e comecei as aulas", "match": true, "lang": "cross", "note": "cross same subject"}
+{"kind": "episode", "query": "it rained all day, so gloomy", "memory": "conversa: o tempo está chuvoso e me deixou desanimado", "match": true, "lang": "cross", "note": "cross paraphrase"}
+{"kind": "episode", "query": "baked a carrot cake for my family", "memory": "conversa: assei um bolo no domingo para meus pais", "match": true, "lang": "cross", "note": "cross low overlap"}
+{"kind": "episode", "query": "my manager scheduled a boring meeting", "memory": "conversa: tenho uma reunião longa com o gerente", "match": true, "lang": "cross", "note": "cross synonym"}
+{"kind": "episode", "query": "let's talk about music", "memory": "conversa sobre musica, várias vezes", "match": true, "lang": "cross", "note": "cross compacted summary"}
+{"kind": "episode", "query": "ontem fiquei até tarde vendo série", "memory": "conversation: the dollar price went up a lot", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "episode", "query": "meu gato está doente", "memory": "conversation: the neighbor's cat climbed on the roof", "match": false, "lang": "cross", "note": "cross hard: someone else's cat"}
+{"kind": "episode", "query": "comprei uma manga no mercado", "memory": "conversation: the sleeve of my shirt ripped", "match": false, "lang": "cross", "note": "cross hard: manga fruit vs sleeve"}
+{"kind": "episode", "query": "fui ao banco depositar dinheiro", "memory": "conversation: we had a picnic on the river bank", "match": false, "lang": "cross", "note": "cross hard: bank sense"}
+{"kind": "episode", "query": "meu aniversário é sábado", "memory": "conversation: my sister's birthday was yesterday", "match": false, "lang": "cross", "note": "cross hard: someone else's birthday"}
+{"kind": "episode", "query": "estou aprendendo violão", "memory": "conversation: I went to a rock concert yesterday", "match": false, "lang": "cross", "note": "cross hard: music other subject"}
+{"kind": "episode", "query": "meu notebook não liga mais", "memory": "conversation: the wifi is slow today", "match": false, "lang": "cross", "note": "cross hard: tech other problem"}
+{"kind": "episode", "query": "tô com dor de cabeça desde cedo", "memory": "conversation: my team won the championship", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "episode", "query": "I have a calculus exam tomorrow", "memory": "conversa: meu irmão passou na prova de direção", "match": false, "lang": "cross", "note": "cross hard: other exam"}
+{"kind": "episode", "query": "I went jogging in the park", "memory": "conversa: li um livro de ficção científica", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "episode", "query": "it rained all day, so gloomy", "memory": "conversa sobre futebol, às vezes", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "episode", "query": "baked a carrot cake for my family", "memory": "conversa: fui ao dentista tratar uma cárie", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "episode", "query": "my manager scheduled a boring meeting", "memory": "conversa: meu cachorro quebrou o vaso da sala", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "episode", "query": "let's talk about music", "memory": "conversa sobre culinária, várias vezes", "match": false, "lang": "cross", "note": "cross other topic"}
+{"kind": "fact", "query": "como se chama meu gato mesmo?", "memory": "nome do gato: Bolota", "match": true, "lang": "pt", "note": "mesma chave"}
+{"kind": "fact", "query": "onde eu moro?", "memory": "cidade onde mora: Campinas", "match": true, "lang": "pt", "note": "paráfrase da chave"}
+{"kind": "fact", "query": "qual é meu doce preferido?", "memory": "comida favorita: brigadeiro", "match": true, "lang": "pt", "note": "paráfrase"}
+{"kind": "fact", "query": "você lembra do meu trabalho?", "memory": "profissão: professora de química", "match": true, "lang": "pt", "note": "profissão"}
+{"kind": "fact", "query": "em que eu estudo?", "memory": "curso: engenharia elétrica", "match": true, "lang": "pt", "note": "curso"}
+{"kind": "fact", "query": "qual esporte eu pratico?", "memory": "esporte que pratica: natação", "match": true, "lang": "pt", "note": "esporte"}
+{"kind": "fact", "query": "minha irmã faz o quê da vida?", "memory": "irmã: dentista", "match": true, "lang": "pt", "note": "parentesco"}
+{"kind": "fact", "query": "qual a cor do meu carro?", "memory": "cor do carro: verde", "match": true, "lang": "pt", "note": "atributo"}
+{"kind": "fact", "query": "que bicho eu tenho em casa?", "memory": "animal de estimação: cachorro chamado Pipoca", "match": true, "lang": "pt", "note": "pouca sobreposição"}
+{"kind": "fact", "query": "de qual time eu sou?", "memory": "time de futebol: Corinthians", "match": true, "lang": "pt", "note": "time"}
+{"kind": "fact", "query": "que instrumento eu toco?", "memory": "instrumento: violão", "match": true, "lang": "pt", "note": "instrumento"}
+{"kind": "fact", "query": "quando faço aniversário?", "memory": "aniversário: em março", "match": true, "lang": "pt", "note": "aniversário próprio"}
+{"kind": "fact", "query": "como se chama meu gato mesmo?", "memory": "nome da irmã: Carla", "match": false, "lang": "pt", "note": "mesmo domínio familiar, outro fato"}
+{"kind": "fact", "query": "onde eu moro?", "memory": "time de futebol: Corinthians", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "fact", "query": "qual é meu doce preferido?", "memory": "cor do carro: verde", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "fact", "query": "qual a cor do meu carro?", "memory": "cor da casa: amarela", "match": false, "lang": "pt", "note": "difícil: outro objeto"}
+{"kind": "fact", "query": "como se chama meu gato mesmo?", "memory": "nome do gato da vizinha: Mingau", "match": false, "lang": "pt", "note": "difícil: gato de outra pessoa"}
+{"kind": "fact", "query": "quando faço aniversário?", "memory": "aniversário da irmã: em julho", "match": false, "lang": "pt", "note": "difícil: aniversário de outra pessoa"}
+{"kind": "fact", "query": "em que eu estudo?", "memory": "profissão: professora de química", "match": false, "lang": "pt", "note": "estudo vs trabalho"}
+{"kind": "fact", "query": "qual esporte eu pratico?", "memory": "instrumento: violão", "match": false, "lang": "pt", "note": "hobby diferente"}
+{"kind": "fact", "query": "que bicho eu tenho em casa?", "memory": "comida favorita: brigadeiro", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "fact", "query": "que instrumento eu toco?", "memory": "esporte que pratica: natação", "match": false, "lang": "pt", "note": "hobby diferente"}
+{"kind": "fact", "query": "você lembra do meu trabalho?", "memory": "cidade onde mora: Campinas", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "fact", "query": "minha irmã faz o quê da vida?", "memory": "irmão: engenheiro", "match": false, "lang": "pt", "note": "difícil: outro parente"}
+{"kind": "fact", "query": "de qual time eu sou?", "memory": "fruta favorita: manga", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "fact", "query": "qual é minha fruta favorita?", "memory": "peça de roupa: camisa de manga curta", "match": false, "lang": "pt", "note": "difícil: manga sentido errado"}
+{"kind": "fact", "query": "onde eu trabalho?", "memory": "banco favorito: Nubank", "match": false, "lang": "pt", "note": "difícil: banco/dinheiro ruído"}
+{"kind": "fact", "query": "what is my cat called again?", "memory": "cat name: Biscuit", "match": true, "lang": "en", "note": "same key"}
+{"kind": "fact", "query": "where do I live?", "memory": "home city: Denver", "match": true, "lang": "en", "note": "key paraphrase"}
+{"kind": "fact", "query": "what's my favourite dessert?", "memory": "favorite food: cheesecake", "match": true, "lang": "en", "note": "paraphrase"}
+{"kind": "fact", "query": "do you remember my job?", "memory": "occupation: chemistry teacher", "match": true, "lang": "en", "note": "job"}
+{"kind": "fact", "query": "what am I studying?", "memory": "major: electrical engineering", "match": true, "lang": "en", "note": "study"}
+{"kind": "fact", "query": "which sport do I play?", "memory": "sport: swimming", "match": true, "lang": "en", "note": "sport"}
+{"kind": "fact", "query": "what does my sister do for a living?", "memory": "sister: dentist", "match": true, "lang": "en", "note": "relative"}
+{"kind": "fact", "query": "what colour is my car?", "memory": "car color: green", "match": true, "lang": "en", "note": "attribute"}
+{"kind": "fact", "query": "what pet do I have at home?", "memory": "pet: dog named Waffles", "match": true, "lang": "en", "note": "low overlap"}
+{"kind": "fact", "query": "which team do I support?", "memory": "football team: Arsenal", "match": true, "lang": "en", "note": "team"}
+{"kind": "fact", "query": "what instrument do I play?", "memory": "instrument: guitar", "match": true, "lang": "en", "note": "instrument"}
+{"kind": "fact", "query": "when is my birthday?", "memory": "birthday: in March", "match": true, "lang": "en", "note": "own birthday"}
+{"kind": "fact", "query": "what is my cat called again?", "memory": "sister name: Carla", "match": false, "lang": "en", "note": "family domain, other fact"}
+{"kind": "fact", "query": "where do I live?", "memory": "football team: Arsenal", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "fact", "query": "what's my favourite dessert?", "memory": "car color: green", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "fact", "query": "what colour is my car?", "memory": "house color: yellow", "match": false, "lang": "en", "note": "hard: other object"}
+{"kind": "fact", "query": "what is my cat called again?", "memory": "neighbor cat name: Marmalade", "match": false, "lang": "en", "note": "hard: someone else's cat"}
+{"kind": "fact", "query": "when is my birthday?", "memory": "sister birthday: in July", "match": false, "lang": "en", "note": "hard: someone else's birthday"}
+{"kind": "fact", "query": "what am I studying?", "memory": "occupation: chemistry teacher", "match": false, "lang": "en", "note": "study vs work"}
+{"kind": "fact", "query": "which sport do I play?", "memory": "instrument: guitar", "match": false, "lang": "en", "note": "other hobby"}
+{"kind": "fact", "query": "what pet do I have at home?", "memory": "favorite food: cheesecake", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "fact", "query": "what instrument do I play?", "memory": "sport: swimming", "match": false, "lang": "en", "note": "other hobby"}
+{"kind": "fact", "query": "do you remember my job?", "memory": "home city: Denver", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "fact", "query": "what does my sister do for a living?", "memory": "brother: engineer", "match": false, "lang": "en", "note": "hard: other relative"}
+{"kind": "fact", "query": "which team do I support?", "memory": "favorite fruit: mango", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "fact", "query": "where did I put my money?", "memory": "river bank: Mississippi", "match": false, "lang": "en", "note": "hard: bank sense"}
+{"kind": "fact", "query": "what shirt do I like?", "memory": "favorite fruit: mango", "match": false, "lang": "en", "note": "hard: wrong sense"}
+{"kind": "fact", "query": "como se chama meu gato mesmo?", "memory": "cat name: Biscuit", "match": true, "lang": "cross", "note": "cross same key"}
+{"kind": "fact", "query": "onde eu moro?", "memory": "home city: Denver", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "qual é meu doce preferido?", "memory": "favorite food: cheesecake", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "você lembra do meu trabalho?", "memory": "occupation: chemistry teacher", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "em que eu estudo?", "memory": "major: electrical engineering", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "qual esporte eu pratico?", "memory": "sport: swimming", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "qual a cor do meu carro?", "memory": "car color: green", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "what pet do I have at home?", "memory": "animal de estimação: cachorro chamado Pipoca", "match": true, "lang": "cross", "note": "cross low overlap"}
+{"kind": "fact", "query": "which team do I support?", "memory": "time de futebol: Corinthians", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "what instrument do I play?", "memory": "instrumento: violão", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "when is my birthday?", "memory": "aniversário: em março", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "where do I live?", "memory": "cidade onde mora: Campinas", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "fact", "query": "como se chama meu gato mesmo?", "memory": "sister name: Carla", "match": false, "lang": "cross", "note": "cross other fact"}
+{"kind": "fact", "query": "onde eu moro?", "memory": "football team: Arsenal", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "fact", "query": "qual é meu doce preferido?", "memory": "car color: green", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "fact", "query": "qual a cor do meu carro?", "memory": "house color: yellow", "match": false, "lang": "cross", "note": "cross hard: other object"}
+{"kind": "fact", "query": "como se chama meu gato mesmo?", "memory": "neighbor cat name: Marmalade", "match": false, "lang": "cross", "note": "cross hard: someone else's cat"}
+{"kind": "fact", "query": "quando faço aniversário?", "memory": "sister birthday: in July", "match": false, "lang": "cross", "note": "cross hard: someone else's birthday"}
+{"kind": "fact", "query": "em que eu estudo?", "memory": "occupation: chemistry teacher", "match": false, "lang": "cross", "note": "cross study vs work"}
+{"kind": "fact", "query": "qual esporte eu pratico?", "memory": "instrument: guitar", "match": false, "lang": "cross", "note": "cross other hobby"}
+{"kind": "fact", "query": "que bicho eu tenho em casa?", "memory": "favorite food: cheesecake", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "fact", "query": "what does my sister do for a living?", "memory": "irmão: engenheiro", "match": false, "lang": "cross", "note": "cross hard: other relative"}
+{"kind": "fact", "query": "what's my favourite fruit?", "memory": "peça de roupa: camisa de manga curta", "match": false, "lang": "cross", "note": "cross hard: manga sleeve"}
+{"kind": "fact", "query": "where did I deposit my money?", "memory": "margem do rio: Tietê", "match": false, "lang": "cross", "note": "cross hard: bank sense"}
+{"kind": "fact", "query": "do you remember my job?", "memory": "cidade onde mora: Campinas", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "fact", "query": "what colour is my car?", "memory": "cor da casa: amarela", "match": false, "lang": "cross", "note": "cross hard: other object"}
+{"kind": "topic", "query": "quero aprender a codar em python", "memory": "programacao", "match": true, "lang": "pt", "note": "sinônimo"}
+{"kind": "topic", "query": "ontem vi um filme de terror", "memory": "cinema", "match": true, "lang": "pt", "note": "hiperônimo"}
+{"kind": "topic", "query": "meu time perdeu de novo", "memory": "futebol", "match": true, "lang": "pt", "note": "time -> esporte"}
+{"kind": "topic", "query": "ando ouvindo muito rock", "memory": "musica", "match": true, "lang": "pt", "note": "gênero -> tema"}
+{"kind": "topic", "query": "fiz lasanha pro almoço", "memory": "culinaria", "match": true, "lang": "pt", "note": "receita"}
+{"kind": "topic", "query": "passei o fim de semana jogando videogame", "memory": "jogo", "match": true, "lang": "pt", "note": "mesmo tema"}
+{"kind": "topic", "query": "preciso estudar pra prova da faculdade", "memory": "estudo", "match": true, "lang": "pt", "note": "mesmo tema"}
+{"kind": "topic", "query": "o médico mandou eu descansar", "memory": "saude", "match": true, "lang": "pt", "note": "saúde"}
+{"kind": "topic", "query": "quero conhecer o Japão ano que vem", "memory": "viagem", "match": true, "lang": "pt", "note": "viagem"}
+{"kind": "topic", "query": "vou levar o cachorro pra passear", "memory": "animais", "match": true, "lang": "pt", "note": "pets"}
+{"kind": "topic", "query": "meu salário atrasou de novo", "memory": "dinheiro", "match": true, "lang": "pt", "note": "finanças"}
+{"kind": "topic", "query": "a chuva não para desde ontem", "memory": "clima", "match": true, "lang": "pt", "note": "clima"}
+{"kind": "topic", "query": "quero aprender a codar em python", "memory": "futebol", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "ontem vi um filme de terror", "memory": "culinaria", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "meu time perdeu de novo", "memory": "musica", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "fiz lasanha pro almoço", "memory": "programacao", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "passei o fim de semana jogando videogame", "memory": "saude", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "preciso estudar pra prova da faculdade", "memory": "viagem", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "o médico mandou eu descansar", "memory": "jogo", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "meu salário atrasou de novo", "memory": "cinema", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "ando ouvindo muito rock", "memory": "estudo", "match": false, "lang": "pt", "note": "próximo mas outro"}
+{"kind": "topic", "query": "fiz lasanha pro almoço", "memory": "animais", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "meu time perdeu de novo", "memory": "jogo", "match": false, "lang": "pt", "note": "difícil: esporte vs jogo"}
+{"kind": "topic", "query": "quero conhecer o Japão ano que vem", "memory": "clima", "match": false, "lang": "pt", "note": "difícil: viagem vs clima"}
+{"kind": "topic", "query": "comi uma manga docinha", "memory": "moda", "match": false, "lang": "pt", "note": "difícil: manga fruta vs roupa"}
+{"kind": "topic", "query": "fui ao banco pagar uma conta", "memory": "natureza", "match": false, "lang": "pt", "note": "difícil: banco vs margem de rio"}
+{"kind": "topic", "query": "vou levar o cachorro pra passear", "memory": "dinheiro", "match": false, "lang": "pt", "note": "sem relação"}
+{"kind": "topic", "query": "I want to learn to code in Python", "memory": "programacao", "match": true, "lang": "en", "note": "synonym (stored pt name)"}
+{"kind": "topic", "query": "last night I watched a horror movie", "memory": "cinema", "match": true, "lang": "en", "note": "hypernym"}
+{"kind": "topic", "query": "my team lost again", "memory": "futebol", "match": true, "lang": "en", "note": "team -> sport"}
+{"kind": "topic", "query": "I have been listening to a lot of rock", "memory": "musica", "match": true, "lang": "en", "note": "genre -> topic"}
+{"kind": "topic", "query": "made lasagna for lunch", "memory": "culinaria", "match": true, "lang": "en", "note": "recipe"}
+{"kind": "topic", "query": "spent the weekend playing video games", "memory": "jogo", "match": true, "lang": "en", "note": "same topic"}
+{"kind": "topic", "query": "I need to study for my college exam", "memory": "estudo", "match": true, "lang": "en", "note": "same topic"}
+{"kind": "topic", "query": "the doctor told me to rest", "memory": "saude", "match": true, "lang": "en", "note": "health"}
+{"kind": "topic", "query": "I want to visit Japan next year", "memory": "viagem", "match": true, "lang": "en", "note": "travel"}
+{"kind": "topic", "query": "taking the dog out for a walk", "memory": "animais", "match": true, "lang": "en", "note": "pets"}
+{"kind": "topic", "query": "my paycheck is late again", "memory": "dinheiro", "match": true, "lang": "en", "note": "finance"}
+{"kind": "topic", "query": "it has not stopped raining since yesterday", "memory": "clima", "match": true, "lang": "en", "note": "weather"}
+{"kind": "topic", "query": "I want to learn to code in Python", "memory": "futebol", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "last night I watched a horror movie", "memory": "culinaria", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "my team lost again", "memory": "musica", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "made lasagna for lunch", "memory": "programacao", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "spent the weekend playing video games", "memory": "saude", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "I need to study for my college exam", "memory": "viagem", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "the doctor told me to rest", "memory": "jogo", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "my paycheck is late again", "memory": "cinema", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "I have been listening to a lot of rock", "memory": "estudo", "match": false, "lang": "en", "note": "close but other"}
+{"kind": "topic", "query": "made lasagna for lunch", "memory": "animais", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "my team lost again", "memory": "jogo", "match": false, "lang": "en", "note": "hard: sport vs game"}
+{"kind": "topic", "query": "I want to visit Japan next year", "memory": "clima", "match": false, "lang": "en", "note": "hard: travel vs weather"}
+{"kind": "topic", "query": "I ate a sweet mango", "memory": "moda", "match": false, "lang": "en", "note": "hard: mango fruit vs fashion"}
+{"kind": "topic", "query": "I walked along the river bank", "memory": "dinheiro", "match": false, "lang": "en", "note": "hard: bank sense"}
+{"kind": "topic", "query": "taking the dog out for a walk", "memory": "dinheiro", "match": false, "lang": "en", "note": "unrelated"}
+{"kind": "topic", "query": "quero aprender a codar em python", "memory": "programming", "match": true, "lang": "cross", "note": "cross exact en name"}
+{"kind": "topic", "query": "ontem vi um filme de terror", "memory": "movies", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "meu time perdeu de novo", "memory": "football", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "ando ouvindo muito rock", "memory": "music", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "fiz lasanha pro almoço", "memory": "cooking", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "passei o fim de semana jogando videogame", "memory": "gaming", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "o médico mandou eu descansar", "memory": "health", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "quero conhecer o Japão ano que vem", "memory": "travel", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "I want to learn to code in Python", "memory": "programacao", "match": true, "lang": "cross", "note": "cross-ish synonym"}
+{"kind": "topic", "query": "my team lost again", "memory": "futebol", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "taking the dog out for a walk", "memory": "pets", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "my paycheck is late again", "memory": "money", "match": true, "lang": "cross", "note": "cross"}
+{"kind": "topic", "query": "quero aprender a codar em python", "memory": "football", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "topic", "query": "ontem vi um filme de terror", "memory": "cooking", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "topic", "query": "meu time perdeu de novo", "memory": "music", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "topic", "query": "fiz lasanha pro almoço", "memory": "programming", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "topic", "query": "passei o fim de semana jogando videogame", "memory": "health", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "topic", "query": "preciso estudar pra prova da faculdade", "memory": "travel", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "topic", "query": "o médico mandou eu descansar", "memory": "gaming", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "topic", "query": "meu salário atrasou de novo", "memory": "movies", "match": false, "lang": "cross", "note": "cross unrelated"}
+{"kind": "topic", "query": "ando ouvindo muito rock", "memory": "study", "match": false, "lang": "cross", "note": "cross close but other"}
+{"kind": "topic", "query": "meu time perdeu de novo", "memory": "gaming", "match": false, "lang": "cross", "note": "cross hard: sport vs game"}
+{"kind": "topic", "query": "quero conhecer o Japão ano que vem", "memory": "weather", "match": false, "lang": "cross", "note": "cross hard: travel vs weather"}
+{"kind": "topic", "query": "comi uma manga docinha", "memory": "fashion", "match": false, "lang": "cross", "note": "cross hard: mango vs fashion"}
+{"kind": "topic", "query": "fui ao banco pagar uma conta", "memory": "nature", "match": false, "lang": "cross", "note": "cross hard: bank sense"}
+{"kind": "topic", "query": "I need to study for my college exam", "memory": "viagem", "match": false, "lang": "cross", "note": "cross unrelated"}
