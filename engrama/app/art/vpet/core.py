@@ -123,7 +123,8 @@ class Builder:
                 p.a = (-a[2], a[1], -a[0], a[3], a[4])
 
     def _add(self, kind, a, mat, z, name, sym, mirror_fn, **kw):
-        self.parts.append(Part(kind, a, mat, z, name, side=1 if sym else 0, **kw))
+        side = kw.pop("side", None)          # explicit side for left/right limbs built as separate (non-sym) calls
+        self.parts.append(Part(kind, a, mat, z, name, side=1 if sym else (side or 0), **kw))
         if sym:
             mkw = dict(kw)
             if kw.get("pivot") is not None:

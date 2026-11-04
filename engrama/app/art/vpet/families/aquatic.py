@@ -37,10 +37,11 @@ def aquatico(b, g, P, t):
             pts2 = [(x, cy + bellh * .35)]
             for k in range(1, 4):
                 pts2.append((x + w * (.8 if k % 2 else -.8) * (1 + m), cy + bellh * .35 + L * k / 3))
-            b.C(pts2, [lerp(.7, 1.0, m), .7, .5, .35], ACC if i % 2 else BODY, 8, "tentacle", keep=True)
+            b.C(pts2, [lerp(.7, 1.0, m), .7, .5, .35], ACC if i % 2 else BODY, 8, "tentacle", keep=True,
+                role="fin", pivot=pts2[0], side=w)
         if t >= 2:
             b.C([(0, cy + bellh * .3), (d.side * 1.5, cy + bellh * .3 + tl * .45), (0, cy + bellh * .3 + tl * .7)],
-                [1.6, 1.3, .7], BELLY, 9, "oral", keep=True)
+                [1.6, 1.3, .7], BELLY, 9, "oral", keep=True, role="fin", pivot=(0, cy + bellh * .3))
         if g["f1"] == 2:
             b.C([(0, cy - bellh * .45), (d.side * 1.5, cy - bellh * .5 - 3 * d.fk)], [.6, .4], DARK, 17, "lure",
                 keep=True)
@@ -64,14 +65,14 @@ def aquatico(b, g, P, t):
         tf = lerp(2.5, 6, m) * (1 + .3 * d.cri)
         tx = L * .42
         b.P([(tx, by - bh * .1), (tx + tf * 1.1, by - tf * 1.0), (tx + tf * .6, by), (tx + tf * 1.1, by + tf * 1.0),
-             (tx, by + bh * .1)], ACC, 6, "fluke", keep=True)
+             (tx, by + bh * .1)], ACC, 6, "fluke", keep=True, role="tail", pivot=(tx, by))
         df = lerp(1.5, 4.5, m) * d.fk / d.G
         b.P([(-L * .15, by - bh * .42), (L * .05 + d.ind, by - bh * .5 - df), (L * .3, by - bh * .38)], ACC, 8,
-            "dorsal", keep=True)
+            "dorsal", keep=True, role="fin", pivot=(L * .08, by - bh * .45))
         b.P([(-L * .02, by + bh * .1), (L * .2, by + bh * .35 + df * .3), (L * .2, by + bh * .05)], ACC, 13,
-            "pectoral", keep=True)
+            "pectoral", keep=True, role="fin", pivot=(-L * .02, by + bh * .1))
         b.P([(L * .05, by + bh * .45), (L * .2, by + bh * .5 + df * .5), (L * .3, by + bh * .38)], ACC, 7,
-            "anal", keep=True)
+            "anal", keep=True, role="fin", pivot=(L * .15, by + bh * .45))
         if g["f1"] == 2 and t >= 1:
             b.C([(-L * .3, by - bh * .4), (-L * .45, by - bh * .5 - 3 * d.fk), (-L * .6, by - bh * .4 - 3 * d.fk)],
                 [.5, .4, .35], DARK, 17, "lure", keep=True)
@@ -90,21 +91,21 @@ def aquatico(b, g, P, t):
             pts = [(hx - 1.2, hcy - 1.6), (hx + L * .9, hcy - L * 1.0), (hx + L * .55, hcy - L * .38),
                    (hx + L * 1.1, hcy - L * .15), (hx + L * .5, hcy + L * .12), (hx + L * .75, hcy + L * .5),
                    (hx - 1.0, hcy + 1.3)]
-            b.P(pts, ACC, 18, "fin", sym=True, keep=True)
+            b.P(pts, ACC, 18, "fin", sym=True, keep=True, role="ear", pivot=(hx - 1.0, hcy))
         else:
             for a in (-.5, 0, .5):
                 L = 1.6 + 2.6 * d.fk
                 b.C([(hx - .8, hcy - .5 + a * 2.4), (hx + L * math.cos(a), hcy - .5 + a * 2.4 - L * .3 + a * L * .6)],
-                    [.95, .5], ACC, 18, "gill", sym=True, keep=True)
+                    [.95, .5], ACC, 18, "gill", sym=True, keep=True, role="ear", pivot=(hx - .8, hcy - .5))
         tl = 2.5 + 4 * m
         s = d.side
         p0 = (s * d.bw * .3, d.by + d.bh * .35)
         p1 = (s * (d.bw * .5 + tl * .5), d.by + d.bh * .45)
         p2 = (s * (d.bw * .5 + tl * .95), d.by + d.bh * .05)
-        b.C([p0, p1, p2], [d.lr * 1.2, d.lr * .85, d.lr * .5], BODY, 5, "tail")
+        b.C([p0, p1, p2], [d.lr * 1.2, d.lr * .85, d.lr * .5], BODY, 5, "tail", role="tail", pivot=p0)
         F = 1.6 + 2.4 * m
         b.P([(p2[0], p2[1] + .4), (p2[0] + s * F * 1.1, p2[1] - F * 1.3), (p2[0] + s * F * .2, p2[1] - .2),
-             (p2[0] - s * F * .3, p2[1] - F * 1.4)], ACC, 6, "fluke", keep=True)
+             (p2[0] - s * F * .3, p2[1] - F * 1.4)], ACC, 6, "fluke", keep=True, role="tail", pivot=p0)
         b.E(0, d.hcy + d.hr * d.hy * .42, d.hr * .62, d.hr * d.hy * .3, BELLY, 21, "muzzle", on=("head",))
         d.mouth_y = d.hcy + d.hr * d.hy * .42
     markings(b, g, d)
