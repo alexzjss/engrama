@@ -3,7 +3,7 @@ import urllib.error
 import pytest
 
 from engrama.config import Config
-from engrama.services.language.client import LLMOffline, LLMTimeout, OllamaClient, strip_think
+from engrama.services.language.client import CHAT_NUM_CTX, LLMOffline, LLMTimeout, OllamaClient, strip_think
 
 
 def test_chat_body_has_think_false_and_keep_alive(tmp_path):
@@ -67,6 +67,7 @@ def test_warm_and_unload_bodies(tmp_path):
     c.warm("m")
     c.unload("m")
     assert calls[0][1]["keep_alive"] == "600s" and calls[0][2] == 300
+    assert calls[0][1]["options"]["num_ctx"] == CHAT_NUM_CTX   # same as chat: no reload on the first reply
     assert calls[1][1]["keep_alive"] == 0
 
 

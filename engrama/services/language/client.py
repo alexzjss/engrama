@@ -7,6 +7,8 @@ from typing import Callable, Iterator
 
 from engrama.config import Config
 
+CHAT_NUM_CTX = 2048   # context for chat and warm-up (must match, or Ollama reloads the model)
+
 
 class LLMOffline(Exception):
     pass
@@ -73,8 +75,10 @@ class OllamaClient:
             on_progress(pct, d.get("status", ""))
 
     def warm(self, model: str) -> None:
+        # same num_ctx as chat(): a different context size makes Ollama reload the model on the first chat
         self._json(self._url("/api/generate"),
-                   {"model": model, "prompt": "", "stream": False, "keep_alive": self._keep_alive()}, 300)
+                   {"model": model, "prompt": "", "stream": False, "keep_alive": self._keep_alive(),
+                    "options": {"num_ctx": CHAT_NUM_CTX}}, 300)
 
     def unload(self, model: str) -> None:
         self._json(self._url("/api/generate"), {"model": model, "keep_alive": 0, "stream": False}, 20)
@@ -83,7 +87,7 @@ class OllamaClient:
              timeout: float = 45) -> str:
         body = {"model": model, "messages": messages, "stream": False, "think": False,
                 "keep_alive": self._keep_alive(),
-                "options": {"num_ctx": 2048, "num_predict": num_predict, "temperature": temperature}}
+                "options": {"num_ctx": CHAT_NUM_CTX, "num_predict": num_predict, "temperature": temperature}}
         try:
             d = self._json(self._url("/api/chat"), body, timeout)
         except Exception as e:
