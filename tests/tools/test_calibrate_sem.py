@@ -36,7 +36,7 @@ def _recs(pos, neg, kind="fact"):
 def test_sweep_math_on_tiny_set():
     # positives 0.9, 0.8, 0.5; negatives 0.7, 0.4, 0.3
     res = cs.analyze_kind(_recs([0.9, 0.8, 0.5], [0.7, 0.4, 0.3]), current=0.6)
-    assert len(res["sweep"]) == 61
+    assert len(res["sweep"]) == len(cs.GRID) == 76
     assert res["sweep"][0]["threshold"] == 0.15 and res["sweep"][-1]["threshold"] == 0.90
     at = {round(s["threshold"], 2): s for s in res["sweep"]}
     # 0.60: predicted 0.9, 0.8, 0.7 -> TP 2, FP 1, FN 1
