@@ -40,15 +40,17 @@ def palette(hue, sat, val, acc_hue, acc_sat=.85):
     light = _hsv(_toward(hue, .14, .2), sat * .32, 1.0)
     deep = _hsv(_toward(hue, .72, .2), min(1, sat * 1.1 + .1), val * .48)
     a_hi, a, a_sh = ramp(acc_hue, acc_sat, .97)
-    P = np.zeros((8, 3, 3), np.uint8)
-    P[BODY] = (hi, base, sh)
-    P[BELLY] = (light, _hsv(_toward(hue, .14, .2), sat * .45, .97), hi)
-    P[ACC] = (a_hi, a, a_sh)
-    P[MARK] = (base, sh, deep)
-    P[BONE] = (_hsv(.12, .06, 1), _hsv(.11, .14, .96), _hsv(.08, .26, .78))
-    P[DARK] = (sh, deep, np.array(OUT, np.uint8))
-    P[GLASS] = (_hsv(acc_hue, .12, 1), _hsv(acc_hue, .3, 1), _hsv(_toward(acc_hue, .66, .1), .45, .9))
-    P[GOLD] = (_hsv(.15, .35, 1), _hsv(.12, .8, 1), _hsv(.07, .85, .78))
+    P = np.zeros((8, 4, 3), np.uint8)
+    P[BODY, :3] = (hi, base, sh)
+    P[BELLY, :3] = (light, _hsv(_toward(hue, .14, .2), sat * .45, .97), hi)
+    P[ACC, :3] = (a_hi, a, a_sh)
+    P[MARK, :3] = (base, sh, deep)
+    P[BONE, :3] = (_hsv(.12, .06, 1), _hsv(.11, .14, .96), _hsv(.08, .26, .78))
+    P[DARK, :3] = (sh, deep, np.array(OUT, np.uint8))
+    P[GLASS, :3] = (_hsv(acc_hue, .12, 1), _hsv(acc_hue, .3, 1), _hsv(_toward(acc_hue, .66, .1), .45, .9))
+    P[GOLD, :3] = (_hsv(.15, .35, 1), _hsv(.12, .8, 1), _hsv(.07, .85, .78))
+    # tone 3: specular glint, a near-white tint of the material's highlight
+    P[:, 3] = (P[:, 0].astype(np.int16) + 2 * 255) // 3
     return P
 
 
@@ -83,6 +85,19 @@ class Builder:
         self.parts = []
         self.anchor = {}
 
+    def flip(self):
+        """Mirror the whole creature (3/4 plans face left by default)."""
+        for p in self.parts:
+            k, a = p.kind, p.a
+            if k == "E":
+                p.a = (-a[0], a[1], a[2], a[3], -a[4])
+            elif k == "C":
+                p.a = ([(-x, y) for x, y in a[0]], a[1])
+            elif k == "P":
+                p.a = [(-x, y) for x, y in a]
+            elif k == "R":
+                p.a = (-a[2], a[1], -a[0], a[3], a[4])
+
     def _add(self, kind, a, mat, z, name, sym, mirror_fn, **kw):
         self.parts.append(Part(kind, a, mat, z, name, **kw))
         if sym:
@@ -106,7 +121,7 @@ class Builder:
 
 
 # --- rasterisation ------------------------------------------------------------------------------------------
-def _mask_normal(p, X, Y, s):
+def _mask_normal(p, X, Y, s, need_n=True):
     """Boolean mask and (nx, ny, nz) normals for one part. s = px per design unit (for min sizes)."""
     k, a = p.kind, p.a
     half = .5 / s                    # half a pixel in design units
@@ -127,7 +142,7 @@ def _mask_normal(p, X, Y, s):
         return m, (u, v, nz)
     if k == "C":
         pts, rs = a
-        best = None
+        es, us, vs = [], [], []
         for i in range(len(pts) - 1):
             (x0, y0), (x1, y1) = pts[i], pts[i + 1]
             r0, r1 = max(rs[i], half), max(rs[i + 1], half)
@@ -135,17 +150,24 @@ def _mask_normal(p, X, Y, s):
             L2 = ddx * ddx + ddy * ddy + 1e-9
             t = np.clip(((X - x0) * ddx + (Y - y0) * ddy) / L2, 0, 1)
             px, py = X - (x0 + t * ddx), Y - (y0 + t * ddy)
-            d = np.hypot(px, py)
             r = r0 + (r1 - r0) * t
-            e = d - r
-            if best is None:
-                best = [e, px / r, py / r]
-            else:
-                w = e < best[0]
-                best[0] = np.where(w, e, best[0]); best[1] = np.where(w, px / r, best[1])
-                best[2] = np.where(w, py / r, best[2])
-        m = best[0] <= 0
-        u, v = best[1], best[2]
+            es.append(np.sqrt(px * px + py * py) - r)
+            if need_n:
+                us.append(px / r); vs.append(py / r)
+        if len(es) == 1:
+            e = es[0]
+            if not need_n:
+                return e <= 0, None
+            u, v = us[0], vs[0]
+        else:
+            E = np.stack(es)
+            if not need_n:
+                return E.min(axis=0) <= 0, None
+            j = E.argmin(axis=0)[None]
+            e = np.take_along_axis(E, j, 0)[0]
+            u = np.take_along_axis(np.stack(us), j, 0)[0]
+            v = np.take_along_axis(np.stack(vs), j, 0)[0]
+        m = e <= 0
         nz = np.sqrt(np.clip(1 - u * u - v * v, 0, 1))
         return m, (u, v, nz)
     if k == "P":
@@ -182,7 +204,7 @@ def _n4(m):
     return (_sh(m, 1, 0).astype(np.int8) + _sh(m, -1, 0) + _sh(m, 0, 1) + _sh(m, 0, -1))
 
 
-T_HI, T_SH = .86, .36
+T_HI, T_SH, T_SPEC = .80, .36, .965
 
 
 def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None, n_base=None):
@@ -204,9 +226,9 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
     if abs(ox - N / 2) <= 2 and (N / 2 + s * x1) <= N - 2 and (N / 2 + s * x0) >= 2:
         ox = N // 2
     oy = N - 1 - s * y1   # lowest point lands on the row above the bottom outline
-    yy, xx = np.mgrid[0:N, 0:N].astype(float)
-    X = (xx + .5 - ox) / s
-    Y = (yy + .5 - oy) / s
+    yy, xx = np.mgrid[0:N, 0:N].astype(np.float32)
+    X = ((xx + .5 - ox) / s).astype(np.float32)
+    Y = ((yy + .5 - oy) / s).astype(np.float32)
 
     mat = np.full((N, N), -1, np.int8)
     tone = np.ones((N, N), np.int8)
@@ -214,40 +236,51 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
     keep = np.zeros((N, N), bool)
     names = []
     lines = []
+    name_ids = {}
     for i, p in enumerate(parts):
-        m, nrm = _mask_normal(p, X, Y, s)
+        # rasterise only inside the part's pixel bbox (+2 px for the rim tests)
+        bx0, by0, bx1, by1 = p.bbox()
+        px0 = max(0, int(ox + bx0 * s) - 2); px1 = min(N, int(ox + bx1 * s) + 3)
+        py0 = max(0, int(oy + by0 * s) - 2); py1 = min(N, int(oy + by1 * s) + 3)
+        if px0 >= px1 or py0 >= py1:
+            names.append(p.name)
+            continue
+        win = (slice(py0, py1), slice(px0, px1))
+        ms, nrm = _mask_normal(p, X[win], Y[win], s, need_n=p.on is None and not p.flat)
+        pidw, tonew, matw, keepw = pid[win], tone[win], mat[win], keep[win]   # views
         if p.on is not None:          # patch: recolour pixels already owned by the named parts
-            own = np.isin(pid, [j for j, nm in enumerate(names) if nm in p.on])
-            m &= own
-            mat[m] = p.mat
+            ids = [j for j, nm in enumerate(names) if nm in p.on]
+            msk = ms & np.isin(pidw, ids)
+            matw[msk] = p.mat
             if p.flat:
-                tone[m] = 1
+                tonew[msk] = 1
             names.append(p.name)
             continue
-        if not m.any():
+        if not ms.any():
             names.append(p.name)
             continue
+        ts = np.ones(ms.shape, np.int8)
         if nrm is None or p.flat:
-            t = np.ones((N, N), np.int8)
-            t[m & ~_sh(m, 1, 1)] = 2          # bottom-right rim
-            t[m & ~_sh(m, -1, -1) & _sh(m, 1, 1)] = 0  # top-left rim
+            ts[ms & ~_sh(ms, 1, 1)] = 2          # bottom-right rim
+            ts[ms & ~_sh(ms, -1, -1) & _sh(ms, 1, 1)] = 0  # top-left rim
         else:
             u, v, nz = nrm
             d = u * LIGHT[0] + v * LIGHT[1] + nz * LIGHT[2]
-            t = np.ones((N, N), np.int8)
-            t[d > T_HI] = 0
-            t[d < T_SH] = 2
-        # contact shadow: back pixels right under this (front) part
-        under = _sh(m, 0, -1) & ~m & (pid >= 0)
-        tone[under] = 2
-        mat[m] = p.mat
-        tone[m] = t[m]
-        pid[m] = i
-        keep[m] = p.keep
+            ts[d > T_HI] = 0
+            ts[d < T_SH] = 2
+            if p.kind == "E" and min(p.a[2], p.a[3]) * s >= 3.5 and p.mat != DARK:
+                ts[(d > T_SPEC) & ms] = 3
+        matw[ms] = p.mat
+        tonew[ms] = ts[ms]
+        pidw[ms] = i
+        keepw[ms] = p.keep
         names.append(p.name)
         if p.line:
             lines.append(i)
     occ = mat >= 0
+    # contact shadow: pixels right under a part drawn in front of theirs
+    above = _sh(pid, 0, -1, -1)
+    tone[(pid >= 0) & (above > pid)] = 2
 
     # --- cleanup: orphans and 1px slivers (except parts marked keep, e.g. horn tips)
     for _ in range(2):
@@ -278,18 +311,24 @@ def render(b: Builder, N: int, fill: float, accents=None, out_rgb=OUT, pal=None,
     rgb[:] = pal[mo, tone]
 
     # --- selective inner lines: edge of a front part where it overlaps a different, earlier part
+    nparts = len(names)
+    uniq = {}
+    name_id = np.array([uniq.setdefault(nm, len(uniq)) for nm in names] + [-1])
+    is_line = np.zeros(nparts + 1, bool)
+    is_line[lines] = True
+    counts = np.bincount(pid[pid >= 0].ravel(), minlength=nparts + 1)
+    is_line &= np.append(counts[:nparts] >= 6, False)
+    pp = np.where(pid >= 0, pid, nparts)          # -1 -> sentinel index
+    front = is_line[pp]
     inner = np.zeros((N, N), bool)
-    for i in lines:
-        m = pid == i
-        if m.sum() < 6:
-            continue
-        nb = np.zeros_like(m)
-        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-            o = _sh(pid, dx, dy, -1)
-            nb |= m & (o >= 0) & (o < i) & (_sh(mat, dx, dy, -1) != mat)
-        # do not eat parts that are only 2 px thick there
-        thick = _sh(m, 1, 0) & _sh(m, -1, 0) | _sh(m, 0, 1) & _sh(m, 0, -1)
-        inner |= nb & thick
+    same = {}
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        o = _sh(pid, dx, dy, -1)
+        oo = np.where(o >= 0, o, nparts)
+        same[(dx, dy)] = o == pid
+        inner |= front & (o >= 0) & (o < pid) & ((_sh(mat, dx, dy, -1) != mat) | (name_id[oo] != name_id[pp]))
+    thick = same[(1, 0)] & same[(-1, 0)] | same[(0, 1)] & same[(0, -1)]
+    inner &= thick
     if inner.any():
         # darker of the two tones, pulled toward the outline: a softer line than the silhouette
         base = pal[mo, 2].astype(np.int16)

@@ -13,11 +13,12 @@ from .gen import STAGES
 from .genes import FAMILIES, FAMILY_PT, family_of
 from .gen import idle, sprite
 from .anim import frame_arrays
-from .sheets import BG, demo_lineage, egg, label, surf
+from .sheets import BG, demo_lineage, egg, label, plan_seeds, surf
 
 LINEAGE_SEEDS = (3, 6, 7, 12, 14, 16)
-# one adult per family, picked by eye from the review sheets
-FAMILY_SEEDS = {f: next(s for s in range(1, 400) if family_of(s) == f) for f in FAMILIES}
+# one adult per family, cycling through the sub-plans so the README shows the range of body plans
+SHOW_PLAN = dict(draco=2, fera=1, ave=1, inseto=2, planta=1, espirito=2, aquatico=1, maquina=1)
+FAMILY_SEEDS = {f: plan_seeds(f)[SHOW_PLAN[f]] for f in FAMILIES}
 ANIM_SEED = 7
 SHOW_ANIMS = ("idle", "happy", "eat", "sleep", "sad")
 

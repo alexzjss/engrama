@@ -105,6 +105,7 @@ def genes(seed: int, hue_rgb=None) -> dict:
              belly=r.random() < .8,
              f1=r.randrange(4), f2=r.randrange(4), f3=r.randrange(4), f4=r.randrange(4),
              side=1 if r.random() < .5 else -1,
-             hy=r.uniform(.86, .96), bodyk=r.uniform(.92, 1.1), limbk=r.uniform(.9, 1.12))
+             hy=r.uniform(.86, .96), bodyk=r.uniform(.92, 1.1), limbk=r.uniform(.9, 1.12),
+             plan=rng(seed, "plan").randrange(3), eye_pick=r.random())
     g["pal"] = palette(h, sat, val, acc_h)
     return g
