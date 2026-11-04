@@ -209,9 +209,9 @@ Todos os sprites são **procedurais e originais**, no estilo V-Pet: contorno esc
 
 ![Uma forma adulta de cada família](docs/images/families.png)
 
-- **Oito famílias** (plano de corpo fixo pela vida toda, definido pela semente): dragão, fera, ave, inseto, planta, espírito, aquático, máquina.
-- **Coesão:** um esqueleto só (cabeça, corpo, pernas, braços) muda de proporção por estágio (bebê = cabeça enorme; adulto, perfeito e final alongam). Chifres, orelhas, caudas, nadadeiras e asas crescem com o estágio. Os genes da semente (tipo de chifre/orelha, marcações, estilo dos olhos, proporções finas) são os mesmos em todos os estágios, então dá para reconhecer a criatura ao crescer.
-- **Personalidade e ramo aparecem no desenho:** curiosidade aumenta cabeça e olhos; sociabilidade abre os braços; paciência alarga o corpo; independência afina e alonga. Cada ramo dá um acessório (cachecol, óculos, boina, capa, coroa...), e os de negligência dão olhos vermelhos.
+- **Oito famílias, três planos de corpo cada** (fixos pela vida toda, definidos pela semente): dragão (quadrúpede, bípede, serpente), fera (quadrúpede, sentada, bípede), ave (empoleirada, coruja, em voo), inseto (besouro, louva-a-deus, mariposa), planta (bulbo, flor, cacto), espírito (lençol, chama, encapuzado), aquático (água-viva, peixe, anfíbio), máquina (bípede, tanque, drone).
+- **Coesão:** o plano de corpo só muda de proporção por estágio (bebê = cabeça enorme; adulto, perfeito e final alongam). Chifres, orelhas, caudas, nadadeiras e asas crescem com o estágio. Os genes da semente (tipo de chifre/orelha, marcações, estilo dos olhos, proporções finas) são os mesmos em todos os estágios, então dá para reconhecer a criatura ao crescer. Os olhos variam por família e semente (fenda, facetado, aceso, visor...).
+- **Personalidade e ramo aparecem no desenho:** curiosidade aumenta cabeça e olhos; sociabilidade abre os braços; paciência alarga o corpo; independência afina e alonga. Cada ramo dá um acessório (cachecol, óculos, boina, capa, coroa...) que continua nos estágios seguintes (até 3, o mais recente em destaque), e os de negligência dão olhos vermelhos.
 - **Paleta:** 3 tons de corpo com deslocamento de matiz, 1 acento, contorno quente fixo; o matiz base é o do genoma e se mantém a vida inteira.
 - **Animações** (as mesmas do app: `idle`, `walk`, `eat`, `sleep`, `happy`, `sad`, `sick`, `evolve`, `old`, `dead`):
 
@@ -318,7 +318,7 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 **Próximos passos**
 
 1. Integrar a arte do M11 em `engrama/app/art` (a API pública `sprites.frames(...)` e os saves não mudam; plano no README do protótipo).
-2. Revisar a arte (rodada 2: ovo com a cor da família, inseto e ave, acessórios pequenos, poses).
+2. Revisar a arte (rodada 3: dragão quadrúpede carregado no adulto, asas erguidas da ave, acessórios de costas em serpente/água-viva).
 3. Smokes manuais pendentes e calibração com modelos reais.
 
 Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs/superpowers/).
@@ -539,9 +539,9 @@ All sprites are **procedural and original**, in the V-Pet style: 1 px dark outli
 
 ![One adult form per family](docs/images/families.png)
 
-- **Eight families** (body plan fixed for life, set by the seed): dragon, beast, bird, insect, plant, spirit, aquatic, machine.
-- **Cohesion:** a single skeleton (head, body, legs, arms) changes proportions per stage (baby = huge head; adult, perfect and final stretch out). Horns, ears, tails, fins and wings grow with the stage. The seed's genes (horn/ear type, markings, eye style, fine proportions) are the same at every stage, so you recognise the creature as it grows.
-- **Personality and branch show in the drawing:** curiosity enlarges head and eyes; sociability opens the arms; patience widens the body; independence slims and lengthens. Each branch adds an accessory (scarf, glasses, beret, cape, crown...), and the neglect branches give red eyes.
+- **Eight families, three body plans each** (fixed for life, set by the seed): dragon (quadruped, biped, serpent), beast (quadruped, sitting, biped), bird (perching, owl, in flight), insect (beetle, mantis, moth), plant (bulb, flower, cactus), spirit (sheet, flame, hooded), aquatic (jellyfish, fish, amphibian), machine (biped, tank, drone).
+- **Cohesion:** the body plan only changes proportions per stage (baby = huge head; adult, perfect and final stretch out). Horns, ears, tails, fins and wings grow with the stage. The seed's genes (horn/ear type, markings, eye style, fine proportions) are the same at every stage, so you recognise the creature as it grows. Eyes vary by family and seed (slit, compound, glowing, visor...).
+- **Personality and branch show in the drawing:** curiosity enlarges head and eyes; sociability opens the arms; patience widens the body; independence slims and lengthens. Each branch adds an accessory (scarf, glasses, beret, cape, crown...) that carries over to later stages (up to 3, the latest most prominent), and the neglect branches give red eyes.
 - **Palette:** 3 body tones with hue shift, 1 accent, a fixed warm outline; the base hue is the genome's and stays the same for life.
 - **Animations** (the same ones the app uses: `idle`, `walk`, `eat`, `sleep`, `happy`, `sad`, `sick`, `evolve`, `old`, `dead`):
 
@@ -648,7 +648,7 @@ The bench measures the steady state (first run already answered, all permissions
 **Next steps**
 
 1. Integrate the M11 art into `engrama/app/art` (the public `sprites.frames(...)` API and the saves do not change; plan in the prototype README).
-2. Review the art (round 2: egg with the family colour, insect and bird, small accessories, poses).
+2. Review the art (round 3: cluttered adult quadruped dragon, raised bird wings, back accessories on serpent/jellyfish).
 3. Pending manual smokes and calibration with real models.
 
 Specs, plans and reports of each milestone: [`docs/superpowers/`](docs/superpowers/).
