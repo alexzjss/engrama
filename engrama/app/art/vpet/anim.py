@@ -159,26 +159,54 @@ def _body(sp: Sprite, pose):
     return render(posed(bd.builder, pose, bd.s), bd.n, bd.fill, pal=bd.pal, n_base=bd.n_base, drop=bd.drop)[0]
 
 
+def _frame(sp: Sprite, p: dict, pose) -> np.ndarray:
+    a = stamp_face(_body(sp, pose).copy(), sp.face, p.get("eyes", "normal"), p.get("mouth", "normal"),
+                   p.get("tear", 0))
+    if p.get("sq"):
+        a = _squash(a, p["sq"])
+    if p.get("lean"):
+        a = _lean(a, p["lean"])
+    if p.get("dy"):
+        top = _rows(a)[0]
+        a = _shift(a, 0, max(int(p["dy"] * (2 if sp.n >= 40 else 1)), -top))
+    if p.get("lie"):
+        a = _lie(a)
+    a = _color(a, p)
+    if p.get("z"):
+        a = _zs(a, p["z"])
+    return a
+
+
+def _sides(a):
+    """Which canvas edges (top, left, right) have ink."""
+    al = a[:, :, 3] > 0
+    return al[0].any(), al[:, 0].any(), al[:, -1].any()
+
+
+def _scaled(pose, k):
+    return {r: {key: (v * k if key in ("rot", "dx", "dy") else v) for key, v in spec.items()}
+            for r, spec in pose.items()}
+
+
+def _guarded(sp: Sprite, p: dict, pose) -> np.ndarray:
+    """The posed frame; a swing that would push ink onto an edge the rest frame does not touch is damped (60 %,
+    30 %, then rest), so a limb never gets clipped by the canvas."""
+    a = _frame(sp, p, pose)
+    if not pose or not any(_sides(a)):
+        return a
+    base = _sides(_frame(sp, p, None))
+    k = 1.0
+    while any(x and not r for x, r in zip(_sides(a), base)):
+        k = .6 if k == 1.0 else .3 if k == .6 else 0.0
+        a = _frame(sp, p, _scaled(pose, k) if k else None)
+        if not k:
+            break
+    return a
+
+
 def frame_arrays(sp: Sprite, anim: str, poses=None) -> list:
     """`poses`: None or one pose per frame of ANIM_FRAMES[anim] (empty pose = rest body, bit-identical)."""
     frames = ANIM_FRAMES[anim]
     if poses is not None and len(poses) != len(frames):
         raise ValueError(f"{anim}: {len(poses)} poses for {len(frames)} frames")
-    out = []
-    for i, p in enumerate(frames):
-        a = stamp_face(_body(sp, poses[i] if poses else None).copy(), sp.face, p.get("eyes", "normal"),
-                       p.get("mouth", "normal"), p.get("tear", 0))
-        if p.get("sq"):
-            a = _squash(a, p["sq"])
-        if p.get("lean"):
-            a = _lean(a, p["lean"])
-        if p.get("dy"):
-            top = _rows(a)[0]
-            a = _shift(a, 0, max(int(p["dy"] * (2 if sp.n >= 40 else 1)), -top))
-        if p.get("lie"):
-            a = _lie(a)
-        a = _color(a, p)
-        if p.get("z"):
-            a = _zs(a, p["z"])
-        out.append(a)
-    return out
+    return [_guarded(sp, p, poses[i] if poses else None) for i, p in enumerate(frames)]
