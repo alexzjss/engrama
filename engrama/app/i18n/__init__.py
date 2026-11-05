@@ -2,9 +2,10 @@ import json
 import locale
 import os
 import sys
-from pathlib import Path
 
-_DIR = Path(__file__).parent
+from engrama.resources import i18n_dir
+
+_DIR = i18n_dir()
 _LANGS = ("pt", "en")
 _FALLBACK = "en"
 _TABLES: dict[str, dict[str, str]] = {}

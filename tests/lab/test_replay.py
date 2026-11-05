@@ -5,7 +5,7 @@ from engrama.lab.replay import replay_module
 from engrama.lab.runtime import run_days
 from engrama.mind.recipe import ModuleSpec
 
-RECIPE = Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml"
+RECIPE = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "minimal-v1.toml"
 
 
 def test_replay_matches_live_for_deterministic_module(tmp_path):

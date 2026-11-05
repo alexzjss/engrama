@@ -144,7 +144,7 @@ Clique na criatura no modo sobreposição para abrir o mini-menu: Comida, Reméd
 | Flag | Efeito |
 |---|---|
 | `--data-dir DIR` | Pasta de dados (padrão: `data/` na raiz do repositório) |
-| `--recipe NOME\|CAMINHO` | Receita da mente (`recipes/NOME.toml` ou caminho). Só vale em pasta de dados **nova**; com save existente é ignorada (aviso no log). Nome inexistente sai com código 2 |
+| `--recipe NOME\|CAMINHO` | Receita da mente (`engrama/recipes/NOME.toml` ou caminho). Só vale em pasta de dados **nova**; com save existente é ignorada (aviso no log). Nome inexistente sai com código 2 |
 | `--seed N` | Semente da criatura nova |
 | `--time-scale N` | Multiplicador de tempo (para testar) |
 | `--dev` | Mostra números e escala de tempo |
@@ -251,7 +251,7 @@ ruff check .                             # lint
 - `engrama/mind`, `engrama/modules`: contratos, registro e módulos da mente.
 - `engrama/lab`: runtime de simulação, log de experiência (SQLite), replay, métricas e CLI.
 - `engrama/app`: o app (interface, arte, host, `cli.py` para a linha de comando, serviços de percepção, memória, LLM).
-- `recipes/`: receitas TOML que escolhem os módulos e seus pesos; `docs/superpowers/` guarda especificações, planos e relatórios de cada marco.
+- `engrama/recipes/`: receitas TOML que escolhem os módulos e seus pesos; `docs/superpowers/` guarda especificações, planos e relatórios de cada marco.
 
 Regra de dependência (verificada por `tests/test_architecture.py`): `kernel` não importa `mind`, `modules`, `lab` nem `services`; `mind` não importa `kernel` nem `modules`; um módulo só importa `engrama.mind`, `engrama.vocab`, `engrama.balance`, a própria família, numpy e a stdlib.
 
@@ -275,9 +275,9 @@ Resumo do [relatório de comparação](docs/superpowers/reports/2026-11-08-m10-e
 ### Laboratório
 
 ```
-python -m engrama.lab sim --recipe recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
+python -m engrama.lab sim --recipe engrama/recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
 python -m engrama.lab report --log data/run.db
-python -m engrama.lab compare --a recipes/minimal-v1.toml --b recipes/default-v1.toml --days 10
+python -m engrama.lab compare --a engrama/recipes/minimal-v1.toml --b engrama/recipes/default-v1.toml --days 10
 python -m engrama.lab replay --log data/run.db --module temporal.snn --param readout_hidden=false
 python -m engrama.lab suite --recipes default-v1 thompson-v1 --profiles attentive --seeds 1 --days 1 --out suite.json --md suite.md
 python -m engrama.lab suite --preset m10 --jobs 4 --out suite.json --md tabela.md   # 8 receitas x 4 perfis x 3 sementes
@@ -509,7 +509,7 @@ Click the creature in overlay mode to open the mini-menu: Food, Medicine (hidden
 | Flag | Effect |
 |---|---|
 | `--data-dir DIR` | Data folder (default: `data/` at the repository root) |
-| `--recipe NAME\|PATH` | Mind recipe (`recipes/NAME.toml` or a path). Only applies to a **new** data dir; with an existing save it is ignored (warning in the log). An unknown name exits with code 2 |
+| `--recipe NAME\|PATH` | Mind recipe (`engrama/recipes/NAME.toml` or a path). Only applies to a **new** data dir; with an existing save it is ignored (warning in the log). An unknown name exits with code 2 |
 | `--seed N` | Seed of a new creature |
 | `--time-scale N` | Time multiplier (for testing) |
 | `--dev` | Shows numbers and the time scale |
@@ -616,7 +616,7 @@ ruff check .                             # lint
 - `engrama/mind`, `engrama/modules`: contracts, registry and mind modules.
 - `engrama/lab`: simulation runtime, experience log (SQLite), replay, metrics and CLI.
 - `engrama/app`: the app (UI, art, host, `cli.py` for the command line, perception services, memory, LLM).
-- `recipes/`: TOML recipes that choose the modules and their weights; `docs/superpowers/` holds the specs, plans and reports of each milestone.
+- `engrama/recipes/`: TOML recipes that choose the modules and their weights; `docs/superpowers/` holds the specs, plans and reports of each milestone.
 
 Dependency rule (checked by `tests/test_architecture.py`): `kernel` does not import `mind`, `modules`, `lab` or `services`; `mind` does not import `kernel` or `modules`; a module only imports `engrama.mind`, `engrama.vocab`, `engrama.balance`, its own family, numpy and the stdlib.
 
@@ -640,9 +640,9 @@ Summary of the [comparison report](docs/superpowers/reports/2026-11-08-m10-exper
 ### Lab
 
 ```
-python -m engrama.lab sim --recipe recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
+python -m engrama.lab sim --recipe engrama/recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
 python -m engrama.lab report --log data/run.db
-python -m engrama.lab compare --a recipes/minimal-v1.toml --b recipes/default-v1.toml --days 10
+python -m engrama.lab compare --a engrama/recipes/minimal-v1.toml --b engrama/recipes/default-v1.toml --days 10
 python -m engrama.lab replay --log data/run.db --module temporal.snn --param readout_hidden=false
 python -m engrama.lab suite --recipes default-v1 thompson-v1 --profiles attentive --seeds 1 --days 1 --out suite.json --md suite.md
 python -m engrama.lab suite --preset m10 --jobs 4 --out suite.json --md table.md   # 8 recipes x 4 profiles x 3 seeds

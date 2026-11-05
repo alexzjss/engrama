@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from engrama.lab.cli import main
 
-RECIPE = str(Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml")
+RECIPE = str(Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "minimal-v1.toml")
 
 
 def test_cli_compare_outputs_diff(capsys, tmp_path):

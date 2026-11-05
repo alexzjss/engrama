@@ -30,7 +30,7 @@ from engrama.services.perception.service import PerceptionService
 from engrama.services.perception.sources import LinuxSources, make_sources
 
 ROOT = Path(__file__).resolve().parents[1]
-MINIMAL = ROOT / "recipes" / "minimal-v1.toml"
+MINIMAL = ROOT / "engrama" / "recipes" / "minimal-v1.toml"
 FIXTURE = ROOT / "tests" / "fixtures" / "m6_sim_1d_seed1_attentive.json"
 ENV = {**os.environ, "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy"}
 SECRET = "Plano Secreto do Projeto Zeta 123"
@@ -429,7 +429,7 @@ def test_x11desktop_and_strange_sessions_are_inert():
 @pytest.mark.slow
 def test_lab_identical_to_m7(capsys):
     from engrama.lab.cli import main as lab_main
-    assert lab_main(["sim", "--recipe", str(ROOT / "recipes" / "default-v1.toml"), "--days", "1", "--seed", "1",
+    assert lab_main(["sim", "--recipe", str(ROOT / "engrama" / "recipes" / "default-v1.toml"), "--days", "1", "--seed", "1",
                      "--profile", "attentive"]) == 0
     assert json.loads(capsys.readouterr().out) == json.loads(FIXTURE.read_text(encoding="utf-8"))
 

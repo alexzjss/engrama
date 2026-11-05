@@ -6,8 +6,8 @@ from engrama.lab.suite import (MD_METRICS, PRESETS, RoutineUser, RunSpec, run_on
                                summarize, to_markdown)
 
 ROOT = Path(__file__).resolve().parents[2]
-DEF = ROOT / "recipes" / "default-v1.toml"
-MIN = ROOT / "recipes" / "minimal-v1.toml"
+DEF = ROOT / "engrama" / "recipes" / "default-v1.toml"
+MIN = ROOT / "engrama" / "recipes" / "minimal-v1.toml"
 FIXTURE = ROOT / "tests" / "fixtures" / "m6_sim_1d_seed1_attentive.json"
 
 
