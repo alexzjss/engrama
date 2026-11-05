@@ -6,6 +6,7 @@ from typing import Callable
 import pygame
 from engrama import balance, vocab
 from engrama.app import i18n
+from engrama.resources import assets_dir
 from engrama.app.audio.growl import Growler
 from engrama.app.art import digital_fx
 from engrama.app.art.sprites import look_of
@@ -30,6 +31,14 @@ KEY_PANELS = {pygame.K_F1: "digital", pygame.K_F2: "mind", pygame.K_F4: "food", 
 # Panel registry: name -> factory(window) -> panel (draw(surface, snap), handle_event(event) -> bool,
 # optional on_open()/on_close()). T7/T8/T9 call register_panel (or set window.panels[name]) to plug in.
 PANELS: dict[str, Callable[["Window"], object]] = {}
+
+
+def _set_app_icon() -> None:
+    """Window icon from the packaged PNG; a missing file or a driver without icons never stops the window."""
+    try:
+        pygame.display.set_icon(pygame.image.load(str(assets_dir() / "icon-256.png")))
+    except (OSError, pygame.error):
+        pass
 
 
 def register_panel(name: str, factory: Callable[["Window"], object]) -> None:
@@ -82,6 +91,7 @@ class Window:
         pygame.font.init()
         self.screen = pygame.display.set_mode(size)
         pygame.display.set_caption("Engrama")
+        _set_app_icon()
         self.low = pygame.Surface((size[0] // SCALE, size[1] // SCALE))
         self.scene = Scene(self.low.get_size())
         self.hud = Hud()
