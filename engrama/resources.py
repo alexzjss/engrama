@@ -20,3 +20,7 @@ def recipes_dir() -> Path:
 
 def i18n_dir() -> Path:
     return _pkg_dir("app", "i18n")
+
+
+def assets_dir() -> Path:
+    return _pkg_dir("app", "assets")
