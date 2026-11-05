@@ -217,6 +217,10 @@ Todos os sprites são **procedurais e originais**, no estilo V-Pet: contorno esc
 
 ![Quadros de idle, happy, eat, sleep e sad](docs/images/anims.png)
 
+- **Membros animados:** pernas, braços, caudas, asas, nadadeiras, orelhas e antenas giram em torno da junta, em poses próprias por família e plano (`walk` alterna as pernas; `happy` levanta os braços ou asas; `sleep` recolhe os membros). Ovo, `sick`, `evolve` e `dead` ficam em repouso, como antes (salvo o dragão quadrúpede adulto, que ficou mais leve de propósito); a cauda cai em `old`. Exemplo de `walk`, quatro famílias adultas:
+
+![Caminhada (walk) de quatro famílias adultas](docs/images/walk.gif)
+
 O gerador mora em `engrama/app/art/vpet/`. Para regenerar as imagens: `SDL_VIDEODRIVER=dummy python -m spike.vpet2.showcase` (usa a API do app e grava em `docs/images/`); folhas de revisão: `python -m spike.vpet2.sheets <pasta>`. Detalhes e limitações no [README da arte](spike/vpet2/README.md).
 
 ## Para desenvolvedores
@@ -324,6 +328,7 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 | M10 | Experimentos de ML como receitas opcionais + relatório | feito |
 | M11 | Arte V-Pet coesa: 8 famílias × 3 planos, ovos da família, acessórios que acumulam | feito |
 | M12 | Saúde do projeto: CI Linux/Windows, lint, testes paralelos, divisão dos arquivos grandes, bench no Wayland | feito |
+| M14 | Animação de membros e poses por família (pernas, braços, caudas, asas, nadadeiras) | feito |
 
 **Limitações conhecidas**
 
@@ -331,15 +336,13 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 - Sem calibração com modelo real: os limiares da busca por significado (`SEM_MIN_SIM`, `FACT_MIN_SIM`, `TOPIC_MIN_SIM`) estão nos valores iniciais do plano.
 - Overlay não funciona em Wayland (só X11 e Windows).
 - No Wayland, KDE e GNOME não expõem app em foco/título/tela cheia à percepção.
-- A arte não tem animação de membros (só transformações do sprite inteiro e troca de rosto); o dragão quadrúpede adulto ainda é o desenho mais carregado.
 - Os experimentos de ML não foram promovidos: o padrão continua sendo `default-v1`.
 - O orçamento de 2% de CPU é por núcleo; em notebooks de baixo consumo o número medido pode ser maior que no PC de referência.
 
 **Próximos passos** (ciclo seguinte; detalhes no [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
 
 1. **M13:** calibração com modelos reais (smokes manuais e limiares da busca por significado).
-2. **M14:** animação de membros e poses por família.
-3. **M15:** distribuição: pastas de dados por sistema operacional, builds e início automático.
+2. **M15:** distribuição: pastas de dados por sistema operacional, builds e início automático.
 
 Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs/superpowers/).
 
@@ -567,6 +570,10 @@ All sprites are **procedural and original**, in the V-Pet style: 1 px dark outli
 
 ![idle, happy, eat, sleep and sad frames](docs/images/anims.png)
 
+- **Animated limbs:** legs, arms, tails, wings, fins, ears and antennae rotate around their joints, with poses of their own per family and body plan (`walk` alternates the legs; `happy` raises the arms or wings; `sleep` tucks the limbs in). The egg, `sick`, `evolve` and `dead` stay at rest as before (except the adult quadruped dragon, which is lighter on purpose); the tail droops in `old`. Example of `walk`, four adult families:
+
+![Walk cycle of four adult families](docs/images/walk.gif)
+
 The generator lives in `engrama/app/art/vpet/`. To regenerate the images: `SDL_VIDEODRIVER=dummy python -m spike.vpet2.showcase` (uses the app API, writes to `docs/images/`); review sheets: `python -m spike.vpet2.sheets <dir>`. Details and limitations in the [art README](spike/vpet2/README.md) (Portuguese).
 
 ## For developers
@@ -674,6 +681,7 @@ The bench measures the steady state (first run already answered, all permissions
 | M10 | ML experiments as optional recipes + report | done |
 | M11 | Cohesive V-Pet art: 8 families × 3 plans, family eggs, accumulating accessories | done |
 | M12 | Project health: Linux/Windows CI, lint, parallel tests, split of large files, bench on Wayland | done |
+| M14 | Limb animation and per-family poses (legs, arms, tails, wings, fins) | done |
 
 **Known limitations**
 
@@ -681,15 +689,13 @@ The bench measures the steady state (first run already answered, all permissions
 - No calibration with a real model: the semantic-search thresholds (`SEM_MIN_SIM`, `FACT_MIN_SIM`, `TOPIC_MIN_SIM`) are at the plan's initial values.
 - The overlay does not work on Wayland (X11 and Windows only).
 - On Wayland, KDE and GNOME do not expose focused app/title/fullscreen to perception.
-- The art has no limb animation (only whole-sprite transforms and face swaps); the adult quadruped dragon is still the busiest drawing.
 - The ML experiments were not promoted: the default is still `default-v1`.
 - The 2% CPU budget is per core; on low-power laptops the measured number may be higher than on the reference PC.
 
 **Next steps** (next cycle; details in the [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
 
 1. **M13:** calibration with real models (manual smokes and semantic-search thresholds).
-2. **M14:** limb animation and per-family poses.
-3. **M15:** distribution: OS-specific data folders, builds and autostart.
+2. **M15:** distribution: OS-specific data folders, builds and autostart.
 
 Specs, plans and reports of each milestone: [`docs/superpowers/`](docs/superpowers/).
 
