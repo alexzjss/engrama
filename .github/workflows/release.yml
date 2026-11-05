@@ -4,6 +4,12 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+  pull_request:        # validates the bundles when packaging changes; the release job below runs only on tags
+    paths:
+      - "packaging/**"
+      - ".github/workflows/release.yml"
+      - "engrama/resources.py"
+      - "pyproject.toml"
 
 permissions:
   contents: read
