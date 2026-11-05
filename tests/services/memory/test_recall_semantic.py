@@ -87,7 +87,7 @@ def test_fact_found_by_meaning():
     m = SemMem(facts=[("cor", "azul"), ("animal_de_estimacao", "cachorro biscoito")],
                sim={"fact": [("animal_de_estimacao", 0.9)]})
     msg = "meu bichinho está doente"
-    assert recall(m, msg, "adult", "pt").facts == ["cor: azul", "animal_de_estimacao: cachorro biscoito"]
+    assert recall(m, msg, "adult", "pt").facts == []     # M13: no unmatched-fact fallback on the words path
     ctx = recall(m, msg, "adult", "pt", qvec=q(msg))
     assert ctx.facts == ["animal_de_estimacao: cachorro biscoito"]
 
@@ -169,4 +169,5 @@ def test_no_digits_with_qvec():
 def test_qvec_is_ndarray_unused_by_words_path():
     m = SemMem(facts=[("cor", "azul")])
     assert isinstance(q("x"), np.ndarray)
-    assert recall(m, "oi", "adult", "pt", qvec=None).facts == ["cor: azul"]
+    assert recall(m, "oi", "adult", "pt", qvec=None).facts == []     # M13: no unmatched-fact fallback
+    assert recall(m, "qual a cor?", "adult", "pt", qvec=None).facts == ["cor: azul"]
