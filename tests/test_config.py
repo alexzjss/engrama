@@ -57,12 +57,49 @@ def test_config_linux_defaults_no_drive_letter(tmp_path, monkeypatch):
     assert "E:" not in p.read_text(encoding="utf-8")
 
 
-def test_config_windows_defaults_unchanged(monkeypatch):
+def test_config_windows_defaults_have_no_fixed_drive(monkeypatch):
+    from engrama import config as config_mod
     monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(config_mod.shutil, "which", lambda name: None)   # shutil.which is POSIX-only here
     cfg = Config()
+    assert cfg.ollama_home is None and cfg.ollama_models is None
+    assert "E:" not in str(cfg.ollama_exe)
+
+
+def test_windows_ollama_discovery_order():
+    from engrama.config import default_ollama_exe
+    env = {"LOCALAPPDATA": r"C:\L", "ProgramFiles": r"C:\PF"}
+    local, pf = Path(env["LOCALAPPDATA"]) / "Programs" / "Ollama" / "ollama.exe", \
+        Path(env["ProgramFiles"]) / "Ollama" / "ollama.exe"
+    # PATH first
+    assert default_ollama_exe("win32", env, lambda p: True, lambda n: r"C:\bin\ollama.exe") == Path(r"C:\bin\ollama.exe")
+    # then the official installer folder, then Program Files
+    assert default_ollama_exe("win32", env, lambda p: True, lambda n: None) == local
+    assert default_ollama_exe("win32", env, lambda p: p == pf, lambda n: None) == pf
+    # nothing found: a non-existent, non-crashing value (the UI reports "Ollama not found")
+    nothing = default_ollama_exe("win32", env, lambda p: False, lambda n: None)
+    assert nothing == local and not nothing.exists()
+    assert default_ollama_exe("win32", {}, lambda p: False, lambda n: None) == Path("ollama.exe")
+
+
+def test_missing_ollama_is_reported_unavailable(tmp_path):
+    from engrama.config import default_ollama_exe
+    from engrama.services.language.server import OllamaServer
+    exe = default_ollama_exe("win32", {"LOCALAPPDATA": str(tmp_path)}, lambda p: False, lambda n: None)
+    srv = OllamaServer(Config(data_dir=tmp_path, ollama_exe=exe), ping=lambda *a: False)
+    assert srv.available() is False and srv.start() is False
+
+
+def test_saved_e_drive_config_loads_unchanged_on_windows(tmp_path, monkeypatch):
+    from engrama import config as config_mod
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(config_mod.shutil, "which", lambda name: None)
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"ollama_exe": r"E:\Ollama\ollama.exe", "ollama_home": r"E:\Ollama\home",
+                             "ollama_models": r"E:\Ollama\models"}), encoding="utf-8")
+    cfg = Config.load(p)
     assert cfg.ollama_exe == Path(r"E:\Ollama\ollama.exe")
-    assert cfg.ollama_home == Path(r"E:\Ollama\home")
-    assert cfg.ollama_models == Path(r"E:\Ollama\models")
+    assert cfg.ollama_home == Path(r"E:\Ollama\home") and cfg.ollama_models == Path(r"E:\Ollama\models")
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="simula Linux: caminhos POSIX")
@@ -92,7 +129,9 @@ def test_linux_custom_ollama_path_is_kept(tmp_path, monkeypatch):
 
 
 def test_windows_config_kept_on_windows(tmp_path, monkeypatch):
+    from engrama import config as config_mod
     monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(config_mod.shutil, "which", lambda name: None)
     p = tmp_path / "config.json"
     p.write_text(json.dumps({"ollama_home": r"D:\Ollama\home"}), encoding="utf-8")
     assert Config.load(p).ollama_home == Path(r"D:\Ollama\home")
