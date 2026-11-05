@@ -33,7 +33,7 @@ from tests.modules import test_thompson as TT
 from tests.modules import test_world_model as TW
 
 ROOT = Path(__file__).resolve().parents[1]
-RECIPES = ROOT / "recipes"
+RECIPES = ROOT / "engrama" / "recipes"
 REPORT = ROOT / "docs" / "superpowers" / "reports" / "2026-11-08-m10-experimentos"
 NEW = ["ctrnn-v1", "shadow-ctrnn-v1", "curious-v1", "curious-lp-v1", "thompson-v1", "aif-v1", "aif-solo-v1",
        "lab-shadow-all-v1"]

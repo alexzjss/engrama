@@ -10,7 +10,7 @@ from engrama.mind import registry
 from engrama.mind.contracts import Module
 from engrama.mind.recipe import ModuleSpec, Recipe, load_recipe
 
-RECIPE = Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml"
+RECIPE = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "minimal-v1.toml"
 DAY = 86400.0
 
 

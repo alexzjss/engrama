@@ -28,7 +28,7 @@ def test_ips_counts_only_decision_ticks(tmp_path):
     from pathlib import Path
     from engrama.lab.explog import read_log
     from engrama.lab.runtime import run_days
-    recipe = Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml"
+    recipe = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "minimal-v1.toml"
     log = tmp_path / "l.db"
     run_days(recipe, 0.05, "attentive", 1, 2.0, log)
     rows = list(read_log(log))
@@ -43,7 +43,7 @@ def test_forced_action_is_not_a_decision(tmp_path):
     from engrama.lab.explog import ExperienceLog, read_log
     from engrama.lab.runtime import Runtime
     from engrama.mind.recipe import load_recipe
-    recipe = load_recipe(Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml")
+    recipe = load_recipe(Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "minimal-v1.toml")
     el = ExperienceLog(tmp_path / "l.db", "r", recipe.name, 1)
     rt = Runtime(recipe, 1, el)
     real = rt.kernel.execute

@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 from engrama.app import i18n
+from engrama.resources import recipes_dir
 from engrama.app.host import FORGET_EVERY_S, Host
 from engrama.app.providers import (_Activity, _build_persona, _memory_provider, _NullServer, _PerceptionProvider)
 
@@ -26,7 +27,7 @@ def resolve_recipe_arg(arg: str | Path) -> Path | None:
     p = Path(arg)
     if p.exists():
         return p
-    q = Path(__file__).resolve().parents[2] / "recipes" / (p.name if p.suffix == ".toml" else p.name + ".toml")
+    q = recipes_dir() / (p.name if p.suffix == ".toml" else p.name + ".toml")
     return q if q.exists() else None
 
 
@@ -112,7 +113,7 @@ def _main(argv: list[str] | None, held: list) -> int:
         cfg.time_scale = a.time_scale
     if cfg.ui_lang in ("pt", "en"):
         i18n.set_lang(cfg.ui_lang)
-    recipe = requested or Path(__file__).resolve().parents[2] / "recipes" / f"{cfg.recipe}.toml"
+    recipe = requested or recipes_dir() / f"{cfg.recipe}.toml"
 
     host = Host(cfg, data_dir, recipe, seed=a.seed, warn_recipe_mismatch=requested is not None)
     memory = MemoryStore(data_dir / "memory.sqlite")

@@ -11,7 +11,7 @@ from engrama.mind.recipe import load_recipe
 from engrama.vocab import EVENT_KINDS
 
 DAY = 86400.0
-MIN = Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml"
+MIN = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "minimal-v1.toml"
 
 
 def _rt(mods=None):

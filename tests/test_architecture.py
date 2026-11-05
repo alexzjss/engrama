@@ -12,7 +12,7 @@ FORBIDDEN = {
 }
 OSAPI_SELF = "engrama.osapi"
 APP_PRESENTATION = ("ui", "art", "audio", "i18n")
-APP_ALLOWED = ("engrama.app", "engrama.vocab", "engrama.balance")
+APP_ALLOWED = ("engrama.app", "engrama.vocab", "engrama.balance", "engrama.resources")
 APP_OSAPI = ("app/desktop.py",)
 APP_THIRD_PARTY = {"numpy", "pygame"}
 MODULE_ALLOWED = ("engrama.mind", "engrama.vocab", "engrama.balance")

@@ -21,7 +21,7 @@ from engrama.services.memory.store import MemoryStore, WorkingMemory
 pytestmark = pytest.mark.slow
 
 ROOT = Path(__file__).resolve().parents[1]
-MINIMAL = ROOT / "recipes" / "minimal-v1.toml"
+MINIMAL = ROOT / "engrama" / "recipes" / "minimal-v1.toml"
 DAY = 86400.0
 FACTS_HEADS = (FACTS_PROMPT["pt"][:30], FACTS_PROMPT["en"][:30])
 REFLECT_HEADS = ("Você é a memória", "You are Engrama's memory")

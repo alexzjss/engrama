@@ -3,7 +3,7 @@ import pytest
 from engrama.lab.metrics import compute_metrics, life_metrics
 from engrama.lab.runtime import run_days
 
-RECIPE = Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml"
+RECIPE = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "minimal-v1.toml"
 
 
 def _life(gen, days, cause, colds=0, sick=0.0, final=None, lineage=()):

@@ -10,7 +10,7 @@ from engrama.lab.simuser import PROFILES, SimUser
 from engrama.mind.recipe import load_recipe
 from engrama.vocab import TRAIT_KEYS, INITIAL_TRAITS
 
-RECIPES = Path(__file__).resolve().parents[1] / "recipes"
+RECIPES = Path(__file__).resolve().parents[1] / "engrama" / "recipes"
 DEFAULT, MINIMAL = RECIPES / "default-v1.toml", RECIPES / "minimal-v1.toml"
 DAY = 24 * B.HOUR
 

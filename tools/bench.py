@@ -41,7 +41,7 @@ def _resolve_recipe(arg: str) -> Path:
     p = Path(arg)
     if p.exists():
         return p
-    return ROOT / "recipes" / (p.name if p.suffix == ".toml" else p.name + ".toml")
+    return ROOT / "engrama" / "recipes" / (p.name if p.suffix == ".toml" else p.name + ".toml")
 
 
 def bench_app(seconds: float, data_dir: Path, sample_s: float = 0.5, fake_perception: bool = False,
@@ -132,7 +132,7 @@ def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict
 
     data_dir.mkdir(parents=True, exist_ok=True)
     cfg = Config(data_dir=data_dir)
-    host = Host(cfg, data_dir, ROOT / "recipes" / "default-v1.toml", seed=1)
+    host = Host(cfg, data_dir, ROOT / "engrama" / "recipes" / "default-v1.toml", seed=1)
     desk = FakeDesktop(work=(0, 0, 1920, 1040), cur=(900, 500))
     window = Window(host.snapshot, host.post)
     window.desktop = desk

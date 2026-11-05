@@ -17,6 +17,9 @@ dev = ["pytest", "pytest-xdist", "ruff"]
 [tool.setuptools.packages.find]
 include = ["engrama*"]
 
+[tool.setuptools.package-data]
+engrama = ["recipes/*.toml", "app/i18n/*.json", "app/assets/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

@@ -16,7 +16,7 @@ from engrama.lab.cli import main as lab_main
 from engrama.vocab import DIGITAL_IDS
 
 ROOT = Path(__file__).resolve().parents[1]
-MINIMAL = ROOT / "recipes" / "minimal-v1.toml"
+MINIMAL = ROOT / "engrama" / "recipes" / "minimal-v1.toml"
 FIXTURE = ROOT / "tests" / "fixtures" / "m6_sim_1d_seed1_attentive.json"
 
 
@@ -140,7 +140,7 @@ def test_terrarium_config_does_not_touch_the_mode():
 @pytest.mark.slow
 def test_lab_metrics_identical_to_m6(capsys):
     assert FIXTURE.exists()
-    assert lab_main(["sim", "--recipe", str(ROOT / "recipes" / "default-v1.toml"), "--days", "1", "--seed", "1",
+    assert lab_main(["sim", "--recipe", str(ROOT / "engrama" / "recipes" / "default-v1.toml"), "--days", "1", "--seed", "1",
                      "--profile", "attentive"]) == 0
     got = json.loads(capsys.readouterr().out)
     assert got == json.loads(FIXTURE.read_text(encoding="utf-8"))

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 from engrama import balance as B
+from engrama.resources import recipes_dir
 from engrama.kernel.sensors import Obs
 from engrama.lab.expmetrics import Probe, experiment_metrics
 from engrama.lab.metrics import compute_metrics
@@ -13,7 +14,7 @@ from engrama.lab.runtime import Runtime, _Collector
 from engrama.lab.simuser import PROFILES, SimUser
 from engrama.mind.recipe import load_recipe
 
-RECIPES_DIR = Path(__file__).resolve().parents[2] / "recipes"
+RECIPES_DIR = recipes_dir()
 
 
 class RoutineUser:

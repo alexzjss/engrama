@@ -21,7 +21,7 @@ from engrama.services.memory.store import MemoryStore, WorkingMemory
 pytestmark = pytest.mark.slow
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT = ROOT / "recipes" / "default-v1.toml"
+DEFAULT = ROOT / "engrama" / "recipes" / "default-v1.toml"
 
 
 class FakeTime:
