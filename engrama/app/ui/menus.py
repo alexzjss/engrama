@@ -525,6 +525,8 @@ class SettingsPanel:
         items = ["lang", "mute", "rest"]
         if getattr(getattr(self.window, "desktop", None), "available", False):
             items.append("overlay")
+        if getattr(self.window, "autostart", None) is not None:
+            items.append("autostart")
         if getattr(self.window, "dev", False):
             items.append("scale")
         return items
@@ -552,6 +554,10 @@ class SettingsPanel:
                 fn(w.rest_manual)
         elif item == "overlay":
             w.set_mode("terrarium" if getattr(w, "mode", "terrarium") == "overlay" else "overlay")
+        elif item == "autostart":
+            a = getattr(w, "autostart", None)
+            if a is not None and a.available:
+                a.set(not a.enabled())   # the state is read back from the OS on every draw
         elif item == "scale":
             scales = (1.0, 10.0, 60.0)
             self._scale_i = (self._scale_i + 1) % len(scales)
@@ -578,6 +584,10 @@ class SettingsPanel:
             elif item == "overlay":
                 label = i18n.t("ui.menu.overlay")
                 val = "[x]" if getattr(w, "mode", "terrarium") == "overlay" else "[ ]"
+            elif item == "autostart":
+                a = w.autostart
+                label = i18n.t("settings.autostart") if a.available else i18n.t("settings.autostart_dev")
+                val = ("[x]" if a.enabled() else "[ ]") if a.available else "--"
             else:
                 label = i18n.t("ui.dev")
                 val = ("1x", "10x", "60x")[self._scale_i]
