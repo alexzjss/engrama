@@ -107,9 +107,11 @@ def draco(b, g, P, t):
                     keep=True)
         if winged:
             ws = L * (0, 0, .48, .58, .68)[t] * (1 + .25 * d.ind)
-            membrane_wing(b, L * .22, d.by - bh * .4, ws, z=3, simple=True)
-            if t >= 3:                  # the far wing only from the perfect stage, membrane only
-                membrane_wing(b, L * .02, d.by - bh * .42, ws * .8, z=2, name="farwing", simple=True, arm=False)
+            if t == 2:                  # lighter adult: one simple wing, no far wing
+                membrane_wing(b, L * .22, d.by - bh * .4, ws, z=3, simple=True)
+            else:
+                membrane_wing(b, L * .22, d.by - bh * .4, ws, z=3, struts=t >= 3)
+                membrane_wing(b, L * .02, d.by - bh * .42, ws * .8, z=2, mat=ACC, name="farwing", struts=False)
         d.acc_max = 2
     elif plan == 1:    # upright, heavy-bottomed, big tail mass and wings
         upright(b, g, d, head_k=.88, body_k=1.15, limb_k=1.3, leg_k=1.1, pear=.22, body_hk=1.05)
