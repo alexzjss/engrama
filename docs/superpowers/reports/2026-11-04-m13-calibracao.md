@@ -49,7 +49,7 @@ Referências da própria calibração, para contexto:
 - Fato, melhor F1 em 0,29: precisão 0,686, recall 0,972, F1 0,805.
 - Assunto, melhor F1 em 0,26: precisão 0,895, recall 0,944, F1 0,919.
 
-Critério: para `FACT_MIN_SIM` e `TOPIC_MIN_SIM`, o menor limiar com precisão ≥ 0,90 (fato errado é pior que fato esquecido). Para `SEM_MIN_SIM`, o plano previa o limiar de F1 máximo, que é 0,32. O valor aplicado é 0,42, que é o menor limiar com precisão ≥ 0,90 que a calibração lista. Essa escolha é um desvio do plano e os arquivos de entrada não registram o motivo. Fica registrado aqui para revisão.
+Critério: para `FACT_MIN_SIM` e `TOPIC_MIN_SIM`, o menor limiar com precisão ≥ 0,90 (fato errado é pior que fato esquecido). Para `SEM_MIN_SIM`, o plano previa o limiar de F1 máximo, que é 0,32. O valor aplicado é 0,42, o menor limiar com precisão ≥ 0,90, e é um desvio deliberado da regra do plano: em 0,32 a precisão cai para 0,837, ou seja, cerca de um episódio em seis injetado no prompt não tem relação com a mensagem, e a criatura passa a falar de coisas que não vieram ao caso. Em 0,42 o F1 é 0,886, contra 0,911 no máximo, com a mesma regra de precisão usada para fatos e assuntos. O custo é o recall entre idiomas (0,667), registrado nas limitações.
 
 Quebra por idioma nos limiares escolhidos (precisão / recall):
 
@@ -109,7 +109,7 @@ Critérios do plano, na ordem do documento.
    - Idioma certo ≥ 95% (média de 3 repetições): **não verificado no formato exigido**. A rodada depois deu 99,3% com uma repetição só (`--repeat 1`). O valor passa de 95%, mas a média de 3 repetições não foi feita.
 2. **Limiares escolhidos por dados, com precisão e recall publicados por tipo de memória.**
    - Publicado: **atendido** (tabela de limiares acima e `m13/calibration.md`).
-   - Escolha por dados: **atendido para fato e assunto** (critério de precisão ≥ 0,90 do plano). **Desvio para episódio**: o plano previa o limiar de F1 máximo (0,32) e o valor aplicado é 0,42, sem justificativa nos arquivos de entrada.
+   - Escolha por dados: **atendido para fato e assunto** (critério de precisão ≥ 0,90 do plano). **Desvio deliberado para episódio**: o plano previa o limiar de F1 máximo (0,32); o aplicado é 0,42 (precisão ≥ 0,90), com o motivo na seção de limiares.
 3. **Itens A dos smokes executados e relatados; checklist H entregue ao usuário.**
    - **Atendido.** Os 11 itens A (desdobrados de 5 do plano) passaram na última execução, depois da correção. Na primeira execução, o A8b falhou por causa do fato fantasma, que foi corrigido pelo commit `70645c8`. A checklist H de 12 itens está na seção 4 de [`2026-11-04-m13-smokes.md`](2026-11-04-m13-smokes.md).
 4. **Suíte e lint verdes na CI (Linux e Windows), sem depender de Ollama.**
@@ -125,7 +125,7 @@ Resumo: critérios 2 e 3 atendidos (com o desvio de episódio registrado no item
 - **Os números de fatos do `compare.md` são anteriores à correção do T5** (commit `70645c8`). A checagem depois da correção está só nos testes diretos do extrator e nos smokes.
 - **Latências em CPU, com a máquina de 7 GB.** Não há medida com GPU. As rodadas antes e depois não tiveram o ajuste de aquecimento (`a7a3e85`). O resumo da rodada antes classifica as latências como "melhor caso", mas o `compare.md` e este relatório as tratam como cenário de CPU, que é o alvo.
 - **Recall cruzado baixo para fatos** (0,167 com o limiar 0,46). Ver a seção de limiares.
-- **Seleção de `SEM_MIN_SIM`** fora da regra do plano (0,42 em vez de 0,32), sem justificativa registrada.
+- **`SEM_MIN_SIM` = 0,42** prioriza precisão: o recall de episódios entre idiomas fica em 0,667.
 - **Só um modelo de embedding testado** (`embeddinggemma`). Os limiares valem para ele. Trocar de modelo exige recalibrar.
 - **Respostas em português para perguntas em inglês** continuam às vezes (smokes, A6). É o idioma da criatura, não do recall.
 - **Não há verificação de CI neste relatório** (critério 4 do aceite).
