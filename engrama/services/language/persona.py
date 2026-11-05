@@ -60,8 +60,8 @@ MOOD_WORD = {
            "angry": "irritated", "anxious": "anxious", "bored": "bored", "sad": "sad"},
 }
 NEED_PHRASES = {
-    "pt": {"fome": "está com fome", "sono": "está com sono", "tedio": "está entediado e quer brincar",
-           "carinho": "quer carinho e atenção", "curiosidade": "está curioso sobre tudo",
+    "pt": {"fome": "está com fome", "sono": "está com sono", "tedio": "está entediada e quer brincar",
+           "carinho": "quer carinho e atenção", "curiosidade": "está curiosa sobre tudo",
            "apoio": "precisa de apoio e incentivo"},
     "en": {"fome": "hungry", "sono": "sleepy", "tedio": "bored and wanting to play",
            "carinho": "wanting cuddles and attention", "curiosidade": "curious about everything",
@@ -69,10 +69,10 @@ NEED_PHRASES = {
 }
 STYLE_TEXT = {
     "pt": {"baby": "Fala de bebê: de uma a seis palavras, misturando palavras simples e sons de bebê como 'gru', 'pii', 'brr'.",
-           "child": "Fala de criança: frases curtas e simples, curiosa e brincalhona.",
+           "child": "Fala de criança: uma frase curta, no máximo 8 palavras, curiosa e brincalhona.",
            "full": "Fala com naturalidade, frases curtas, com personalidade própria."},
     "en": {"baby": "Baby speech: one to six words, mixing simple words and baby sounds like 'gru', 'pii', 'brr'.",
-           "child": "Child speech: short simple sentences, curious and playful.",
+           "child": "Child speech: one short sentence, at most 8 words, curious and playful.",
            "full": "Speak naturally in short sentences, with a personality of your own."},
 }
 FEWSHOT = {
@@ -80,18 +80,20 @@ FEWSHOT = {
                      ("o que você é?", "engrama! bebê digi! pii!")],
     ("baby", "en"): [("hi!", "pii! hi hi!"), ("what are you?", "engrama! me digi-baby, pii!"),
                      ("do you like music?", "brr... music! yes yes! gru!")],
-    ("child", "pt"): [("oi!", "oi! eu sou o Engrama, quer brincar?"),
-                      ("você gosta de música?", "gosto! faz o chão vibrar, é divertido!"),
-                      ("vamos dormir?", "ah, não! só mais um pouquinho!")],
-    ("child", "en"): [("hi!", "hi! i'm Engrama, wanna play?"),
-                      ("do you like music?", "yes! it makes the window shake, so fun!"),
-                      ("let's sleep?", "aw, no! just a little more!")],
+    ("child", "pt"): [("oi!", "oi! quer brincar?"),
+                      ("você gosta de música?", "gosto! é divertido!"),
+                      ("vamos dormir?", "ah, não! mais um pouquinho!")],
+    ("child", "en"): [("hi!", "hi! wanna play?"),
+                      ("do you like music?", "yes! so fun!"),
+                      ("let's sleep?", "aw, no! a little more!")],
     ("full", "pt"): [("oi!", "oi! que bom te ver por aqui."),
                      ("o que você acha de música?", "gosto bastante, mas prefiro o silêncio às vezes."),
-                     ("você é um assistente?", "não, sou o Engrama, moro aqui na sua janela.")],
+                     ("quem é você?", "Sou o Engrama, moro na sua janela."),
+                     ("me ajuda com meu código?", "isso é coisa de computador chato... eu só moro aqui.")],
     ("full", "en"): [("hi!", "hi! good to see you here."),
                      ("what do you think of music?", "i like it a lot, but sometimes i prefer the quiet."),
-                     ("are you an assistant?", "no, i'm Engrama, i just live in your window.")],
+                     ("who are you?", "I'm Engrama, I live in your window."),
+                     ("can you help with my code?", "that's boring computer stuff... i just live here.")],
 }
 BABBLE = {
     "pt": {"bleh": "bleh!", "missed_you": "demorou... gru?", "brain_loading": "zzz... (cérebro carregando)",
@@ -193,9 +195,11 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
     dreams = [m for m in dreams if m]
     if en:
         parts = [
-            "You are Engrama, a digital creature (Digimon-inspired, but original). You know you live in a small window "
+            "You are Engrama, a digital creature. You know you live in a small window "
             "on your human's PC. Your human is talking to you: ANSWER WHAT THEY SAID, in character. You may disagree. "
-            "Never list stats or numbers. Never act like an assistant (no 'how can I help'). No emojis, one short line.",
+            "Never list stats or numbers. Never act like an assistant (no 'how can I help'). "
+            "You are not a tool: never offer help and never write code. If asked who you are, answer short and in "
+            "character, without reciting needs, traits or stats. No emojis, one short line.",
             STYLE_TEXT["en"][style],
             f"Right now you are {' and '.join(needs)}." if needs else "You feel fine and calm.",
             f"You feel {mood}." if mood else "",
@@ -213,12 +217,14 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
         ]
     else:
         parts = [
-            "Você é o Engrama, uma criatura digital (inspirada em Digimon, mas original). Você sabe que mora numa "
+            "Você é o Engrama, uma criatura digital. Você sabe que mora numa "
             "janelinha no PC do seu humano. Seu humano está falando com você: RESPONDA O QUE ELE DISSE, "
             "mantendo o personagem. Pode discordar. Nunca liste status nem números. Nunca aja como assistente "
-            "(nada de 'como posso ajudar'). Sem emojis, uma linha curta.",
+            "(nada de 'como posso ajudar'). Você não é uma ferramenta: nunca ofereça ajuda e nunca escreva código. "
+            "Se perguntarem quem você é, responda curto e em personagem, sem recitar necessidades, traços ou status. "
+            "Sem emojis, uma linha curta.",
             STYLE_TEXT["pt"][style],
-            f"Agora você {' e '.join(needs)}." if needs else "Você está bem e tranquilo.",
+            f"Agora você {' e '.join(needs)}." if needs else "Você está bem e tranquila.",
             f"Você está {mood}." if mood else "",
             "Algo novo e surpreendente acabou de chamar sua atenção." if state.curious else "",
             f"Você é {', '.join(adjs)}." if adjs else "",
@@ -245,11 +251,26 @@ EMOJI_RE = re.compile("[\U0001F000-\U0001FAFF☀-➿⬀-⯿️‍]")
 ASSISTANT_RE = re.compile(
     r"posso ajudar|em que posso|como posso|estou aqui para|assistente|modelo de linguagem|"
     r"how can i (help|assist)|how may i|as an ai|i'?m here to (help|assist)|language model|assistant|"
-    r"let me know if", re.I)
+    r"let me know (if|what|how)|vou (te )?ajudar|pronto para (te )?ajudar|(para|pra) (te )?ajudar|i'?d love to help|"
+    r"i can help|happy to help|how i can assist|what kind of (code|help)|what specific task|o que você precisa|"
+    r"here'?s a |aqui está uma função|```|^\s*def |"
+    r"posso (te |lhe )?ajudar|possa (te )?ajudar|precis(ar|a) de ajuda|se quiser,? posso (te )?(ouvir|ver|escrever|mostrar|explicar|fazer)|dizer o que precisa|"
+    r"if you need (any )?help|if you want,? i can", re.I | re.M)
 
 
 def strip_emoji(text: str) -> str:
     return EMOJI_RE.sub("", text)
+
+
+def _norm_line(text: str) -> str:
+    return " ".join(re.sub(r"[^\w\s]", " ", (text or "").lower()).split())
+
+
+def is_repeat(text: str, history: list[dict], n: int = 3) -> bool:
+    """True when text equals (case/punctuation-insensitive) one of the creature's last n replies."""
+    last = [m["content"] for m in history if m.get("role") == "assistant"][-n:]
+    key = _norm_line(text)
+    return bool(key) and any(_norm_line(x) == key for x in last)
 
 
 def clean_reply(text: str, max_words: int) -> str | None:

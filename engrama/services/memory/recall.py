@@ -67,7 +67,7 @@ def _facts(memory, words: list[str]) -> list[str]:
     rows = memory.fact_rows()
     hits = [r for r in rows
             if any(w in plain_text(f"{r['key']} {r['value']}".replace("_", " ")) for w in words)]
-    chosen = hits[:3] if hits else rows[:2]
+    chosen = hits[:3]     # only facts that matched; nothing matched, nothing injected
     return [c for c in (_clean(f"{r['key']}: {r['value']}") for r in chosen) if c]
 
 
@@ -110,7 +110,7 @@ def _facts_semantic(memory, words: list[str], qvec) -> list[str]:
         score = W_SEM * (_norm_sim(sim) if sim is not None else 0.0) + W_WORD * (1.0 if hit else 0.0)
         scored.append((-score, i, r))
     scored.sort(key=lambda x: (x[0], x[1]))
-    chosen = [x[2] for x in scored[:3]] if scored else rows[:2]
+    chosen = [x[2] for x in scored[:3]]     # only matched facts (by word or meaning)
     return [c for c in (_clean(f"{r['key']}: {r['value']}") for r in chosen) if c]
 
 

@@ -19,7 +19,7 @@ from typing import Callable
 from engrama.services.language.client import LLMOffline, LLMTimeout, strip_think
 from engrama.services.language.lang import detect_lang
 from engrama.services.language.persona import (build_farewell_messages, farewell_babble, OPINION_PROMPT, build_file_messages, REFLECT_PROMPT, SPEECH, SPONTANEOUS_PROMPT,
-                                               PersonaState, apply_recall, babble, build_messages, clean_reply,
+                                               PersonaState, apply_recall, babble, build_messages, clean_reply, is_repeat,
                                                strip_emoji, valence)
 from engrama.services.memory import CONVERSATION_GAP_S, EMBED_BATCH, INDEX_EVERY_S
 from engrama.services.memory.opinions import stance_word
@@ -33,12 +33,20 @@ P_CHAT, P_COMMENT, P_REFLECT, P_FACTS, P_INDEX = 0, 1, 2, 3, 4
 FACTS_PROMPT = {
     "pt": ("Extraia da mensagem do usuário, em JSON puro e nada mais: "
            '{"facts":[[chave,valor,confianca]],"topics":[[assunto,delta]],"valence":-1..1}. '
-           "facts: fatos sobre o usuário (confianca 0..1); topics: assuntos mencionados (delta -1..1); "
-           "valence: humor da mensagem. Listas vazias se não houver nada."),
+           "facts: só fatos duradouros que o PRÓPRIO USUÁRIO afirma sobre si ou sua vida (nome, bichos, família, "
+           "trabalho, hobbies, gostos), com chave curta e valor concreto, confianca 0..1. "
+           "Nunca perguntas, nunca falas da criatura ou de um assistente, nunca clima ou acontecimentos de um dia só. "
+           'Exemplo: "meu gato se chama Bolota" -> [["nome_do_gato","Bolota",0.9]]. '
+           "Se não houver fato, facts deve ser lista vazia. "
+           "topics: assuntos mencionados (delta -1..1); valence: humor da mensagem."),
     "en": ("From the user's message, output pure JSON and nothing else: "
            '{"facts":[[key,value,confidence]],"topics":[[name,delta]],"valence":-1..1}. '
-           "facts: facts about the user (confidence 0..1); topics: subjects mentioned (delta -1..1); "
-           "valence: mood of the message. Empty lists if nothing applies."),
+           "facts: only durable facts the USER states about themselves or their life (name, pets, family, job, "
+           "hobbies, likes), with a short key and a concrete value, confidence 0..1. "
+           "Never questions, never words about the creature or an assistant, never weather or one-off events. "
+           'Example: "my cat is called Pumpkin" -> [["cat_name","Pumpkin",0.9]]. '
+           "If there is no fact, facts must be an empty list. "
+           "topics: subjects mentioned (delta -1..1); valence: mood of the message."),
 }
 CLASSIFY_PROMPT = ("Classify the program by its process name only. Answer with exactly one word "
                    "from this list and nothing else: {cats}.")
@@ -63,6 +71,45 @@ def parse_facts(text: str) -> dict | None:
     except (ValueError, TypeError, AttributeError):
         return None
     return {"facts": facts, "topics": topics, "valence": val}
+
+
+_FACT_BAD_VALUES = {"true", "false", "yes", "no", "sim", "não", "nao", "null", "none", "n/a"}
+_FACT_AI_RE = re.compile(
+    r"\bassistant\b|\bassistente\b|\bai\b|\bia\b|language model|modelo de linguagem|alibaba|qwen|"
+    r"\bchatbot\b|\bengrama\b", re.I)
+_FACT_QUESTION_RE = re.compile(
+    r"^(who|what|why|how|when|where|which|do|does|are|is|can|could|quem|qual|quais|que|o que|por que|porque|"
+    r"como|quando|onde|quanto|voce|você)\b", re.I)
+_FACT_STOP = {"going", "to", "the", "a", "an", "and", "or", "of", "in", "on", "is", "are", "it", "this", "that",
+              "ir", "indo", "de", "do", "da", "em", "no", "na", "um", "uma", "o", "os", "as", "que", "e", "ou",
+              "true", "false", "sleep", "rest"}
+
+
+def sanitize_facts(facts: list) -> list:
+    """Conservative deterministic filter for LLM-extracted facts [[key, value, conf], ...].
+
+    Drops questions, yes/no values, talk about the assistant/AI, too-short keys/values and
+    keys made only of stopwords. Never logs content.
+    """
+    out = []
+    for k, v, c in facts:
+        k, v = str(k).strip(), str(v).strip()
+        if len(k) < 3 or len(v) < 2:
+            continue
+        if "?" in k or v.endswith("?") or _FACT_QUESTION_RE.match(k.replace("_", " ")):
+            continue
+        if v.lower().strip(" .!") in _FACT_BAD_VALUES:
+            continue
+        if _FACT_AI_RE.search(k) or _FACT_AI_RE.search(v):
+            continue
+        kw = [w for w in re.split(r"[\s_\-]+", k.lower()) if w]
+        vw = [w for w in re.split(r"[\s_\-]+", v.lower().strip(" .!")) if w]
+        if not kw or all(w in _FACT_STOP for w in kw) or all(w in _FACT_STOP for w in vw):
+            continue
+        if k.lower() == v.lower():
+            continue
+        out.append([k, v, c])
+    return out
 
 
 class LanguageService:
@@ -540,6 +587,8 @@ class LanguageService:
         try:
             for temp in (0.8, 0.9):
                 out = clean_reply(self.client.chat(self.cfg.model, msgs, num_predict, temp), max_words)
+                if out and is_repeat(out, self.working.messages()):
+                    out = None            # same stock line as one of the last replies: retry, then babble
                 if out:
                     break
         except LLMOffline:
@@ -681,7 +730,7 @@ class LanguageService:
         self._index_more = True
         topics, facts = [], []
         try:
-            for k, v, c in d["facts"]:
+            for k, v, c in sanitize_facts(d["facts"]):
                 if mem.is_blocked("fact", k, since=t_msg):     # deleted after the message: stays deleted
                     continue
                 mem.unblock_on_new_mention("fact", k, t_msg)
