@@ -33,3 +33,19 @@ def test_real_facts_survive():
 def test_prompts_require_user_durable_facts_only():
     assert "never questions" in FACTS_PROMPT["en"].lower()
     assert "nunca perguntas" in FACTS_PROMPT["pt"].lower()
+
+
+def test_ground_facts_drops_values_the_user_never_said():
+    from engrama.services.language.service import ground_facts
+    # a question echoing the prompt's own example must not become a fact
+    assert ground_facts([["cat_name", "Pumpkin", 0.9]], "what is my cat called?") == []
+    assert ground_facts([["nome_do_gato", "Bolota", 0.9]], "como se chama meu gato?") == []
+
+
+def test_ground_facts_keeps_said_values_ignoring_case_and_accents():
+    from engrama.services.language.service import ground_facts
+    good = [["cat_name", "Pumpkin", 0.9]]
+    assert ground_facts(good, "My cat is called pumpkin") == good
+    assert ground_facts([["cidade", "São Paulo", 0.8]], "eu moro em sao paulo") == [["cidade", "São Paulo", 0.8]]
+    assert ground_facts([["hobby", "ukulele", 0.8]], "eu toco ukulele nas sextas") == [["hobby", "ukulele", 0.8]]
+    assert ground_facts([["x", "ukulele", 0.8]], "ukuleles") == []   # whole words only

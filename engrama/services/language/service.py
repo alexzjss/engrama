@@ -36,7 +36,8 @@ FACTS_PROMPT = {
            "facts: só fatos duradouros que o PRÓPRIO USUÁRIO afirma sobre si ou sua vida (nome, bichos, família, "
            "trabalho, hobbies, gostos), com chave curta e valor concreto, confianca 0..1. "
            "Nunca perguntas, nunca falas da criatura ou de um assistente, nunca clima ou acontecimentos de um dia só. "
-           'Exemplo: "meu gato se chama Bolota" -> [["nome_do_gato","Bolota",0.9]]. '
+           'Exemplos: "meu gato se chama Bolota" -> [["nome_do_gato","Bolota",0.9]]; '
+           '"eu toco ukulele" -> [["hobby","ukulele",0.8]]. '
            "Se não houver fato, facts deve ser lista vazia. "
            "topics: assuntos mencionados (delta -1..1); valence: humor da mensagem."),
     "en": ("From the user's message, output pure JSON and nothing else: "
@@ -44,7 +45,8 @@ FACTS_PROMPT = {
            "facts: only durable facts the USER states about themselves or their life (name, pets, family, job, "
            "hobbies, likes), with a short key and a concrete value, confidence 0..1. "
            "Never questions, never words about the creature or an assistant, never weather or one-off events. "
-           'Example: "my cat is called Pumpkin" -> [["cat_name","Pumpkin",0.9]]. '
+           'Examples: "my cat is called Pumpkin" -> [["cat_name","Pumpkin",0.9]]; '
+           '"I play ukulele" -> [["hobby","ukulele",0.8]]. '
            "If there is no fact, facts must be an empty list. "
            "topics: subjects mentioned (delta -1..1); valence: mood of the message."),
 }
@@ -109,6 +111,21 @@ def sanitize_facts(facts: list) -> list:
         if k.lower() == v.lower():
             continue
         out.append([k, v, c])
+    return out
+
+
+def ground_facts(facts: list, text: str) -> list:
+    """Keep only facts whose value was actually said by the user (accent/case-insensitive, whole words).
+
+    Stops the model from echoing the prompt's own example ("Bolota", "Pumpkin") as if the user had said it,
+    which happens when the message is a question about it. Never logs content.
+    """
+    said = " " + re.sub(r"[^\w]+", " ", plain_text(text or "")) + " "
+    out = []
+    for k, v, c in facts:
+        words = [w for w in re.sub(r"[^\w]+", " ", plain_text(str(v))).split() if w]
+        if words and all(f" {w} " in said for w in words):
+            out.append([k, v, c])
     return out
 
 
@@ -730,7 +747,7 @@ class LanguageService:
         self._index_more = True
         topics, facts = [], []
         try:
-            for k, v, c in sanitize_facts(d["facts"]):
+            for k, v, c in ground_facts(sanitize_facts(d["facts"]), text):
                 if mem.is_blocked("fact", k, since=t_msg):     # deleted after the message: stays deleted
                     continue
                 mem.unblock_on_new_mention("fact", k, t_msg)

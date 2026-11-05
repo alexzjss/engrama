@@ -265,7 +265,7 @@ def test_babble_also_recorded(tmp_path):
 def test_facts_extracted_when_idle(tmp_path):
     client = FakeClient(reply='oi {"facts":[["nome","Ana",0.9]],"topics":[["musica",0.5]],"valence":0.2}')
     svc, mem, _ = make(tmp_path, client=client)
-    svc.request("oi")
+    svc.request("oi, meu nome é Ana")
     svc.pump()
     assert ("nome", "Ana") in mem.facts()
 
