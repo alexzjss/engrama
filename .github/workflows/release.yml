@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      PYTHONUTF8: "1"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install .[build]
+      - name: Build bundle
+        run: pyinstaller packaging/engrama.spec --noconfirm
+      - name: Smoke test the bundle
+        run: |
+          exe=dist/engrama/engrama
+          if [ "$RUNNER_OS" = "Windows" ]; then exe=dist/engrama/engrama.exe; fi
+          data="$RUNNER_TEMP/engrama-smoke"
+          mkdir -p "$data"
+          abs="$(pwd)/$exe"
+          (cd "$RUNNER_TEMP" && "$abs" --frames 120 --no-llm --data-dir "$data")
+          test -d "$data/save"
+          test -f "$data/host.json"
+          du -sh dist/engrama
+      - name: Package
+        id: pkg
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            name="engrama-$version-windows-x64.zip"
+            (cd dist && 7z a -tzip "../$name" engrama)
+          else
+            name="engrama-$version-linux-x64.tar.gz"
+            tar -C dist -czf "$name" engrama
+          fi
+          ls -l "$name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.name }}
+          path: ${{ steps.pkg.outputs.name }}
+          if-no-files-found: error
+
+  release:
+    name: draft release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: assets/*

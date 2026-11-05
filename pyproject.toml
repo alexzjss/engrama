@@ -13,6 +13,7 @@ engrama = "engrama.app.host:main"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-xdist", "ruff"]
+build = ["pyinstaller"]
 
 [tool.setuptools.packages.find]
 include = ["engrama*"]
