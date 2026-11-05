@@ -313,6 +313,18 @@ python tools/bench.py --overlay --seconds 30                 # overlay com deskt
 
 O bench mede o estado estável (primeiro uso já respondido, todas as permissões desligadas); o limite é de 150 MB e 2% de CPU médio, em qualquer plataforma. Para os testes, veja [Ambiente e testes](#ambiente-e-testes).
 
+### Ferramentas com modelo real (Ollama)
+
+Precisam do Ollama rodando, com `qwen3:1.7b` e `embeddinggemma` baixados. Não baixam modelos nem iniciam o Ollama.
+
+```
+python tools/smoke_llm.py --out pasta_nova --repeat 3                              # roteiros de conversa: rejeições, atendente, idioma, fatos
+python tools/calibrate_sem.py --out resultado.json --md resultado.md               # calibra os limiares da busca por significado (embeddinggemma)
+```
+
+- `tools/smoke_llm.py`: harness de conversa. Roda roteiros por estágio (`--stages`, `--langs`) pelo serviço de linguagem real e grava `transcripts.json` e `summary.md` em `--out`. Veja [o relatório da calibração](docs/superpowers/reports/2026-11-04-m13-calibracao.md).
+- `tools/calibrate_sem.py`: varre limiares de 0,15 a 0,90 sobre `tools/data/sem_pairs.jsonl` e reporta precisão, recall e F1 por tipo de memória.
+
 ## Estado do MVP e roadmap
 
 | Marco | Entrega | Estado |
@@ -328,12 +340,12 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 | M10 | Experimentos de ML como receitas opcionais + relatório | feito |
 | M11 | Arte V-Pet coesa: 8 famílias × 3 planos, ovos da família, acessórios que acumulam | feito |
 | M12 | Saúde do projeto: CI Linux/Windows, lint, testes paralelos, divisão dos arquivos grandes, bench no Wayland | feito |
+| M13 | Calibração com modelo real: persona (harness de conversas), limiares da busca por significado, smokes manuais | parcial |
 | M14 | Animação de membros e poses por família (pernas, braços, caudas, asas, nadadeiras) | feito |
 
 **Limitações conhecidas**
 
 - Smokes manuais de alguns marcos continuam pendentes de relato (por exemplo a busca por significado com o modelo real baixado).
-- Sem calibração com modelo real: os limiares da busca por significado (`SEM_MIN_SIM`, `FACT_MIN_SIM`, `TOPIC_MIN_SIM`) estão nos valores iniciais do plano.
 - Overlay não funciona em Wayland (só X11 e Windows).
 - No Wayland, KDE e GNOME não expõem app em foco/título/tela cheia à percepção.
 - Os experimentos de ML não foram promovidos: o padrão continua sendo `default-v1`.
@@ -341,7 +353,7 @@ O bench mede o estado estável (primeiro uso já respondido, todas as permissõe
 
 **Próximos passos** (ciclo seguinte; detalhes no [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
 
-1. **M13:** calibração com modelos reais (smokes manuais e limiares da busca por significado).
+1. **M13:** fechar o aceite (média de 3 repetições do harness, atendente no texto final e CI) e a checklist humana; relatório em [`docs/superpowers/reports/`](docs/superpowers/reports/2026-11-04-m13-calibracao.md).
 2. **M15:** distribuição: pastas de dados por sistema operacional, builds e início automático.
 
 Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs/superpowers/).
@@ -666,6 +678,18 @@ python tools/bench.py --overlay --seconds 30                 # overlay with fake
 
 The bench measures the steady state (first run already answered, all permissions off); the limit is 150 MB and 2% mean CPU, on any platform. For the tests, see [Environment and tests](#environment-and-tests).
 
+### Tools with a real model (Ollama)
+
+They need Ollama running, with `qwen3:1.7b` and `embeddinggemma` downloaded. They do not download models or start Ollama.
+
+```
+python tools/smoke_llm.py --out new_folder --repeat 3                              # conversation scripts: rejections, assistant phrasing, language, facts
+python tools/calibrate_sem.py --out result.json --md result.md                     # calibrates the semantic-search thresholds (embeddinggemma)
+```
+
+- `tools/smoke_llm.py`: conversation harness. Runs per-stage scripts (`--stages`, `--langs`) through the real language service and writes `transcripts.json` and `summary.md` to `--out`. See [the calibration report](docs/superpowers/reports/2026-11-04-m13-calibracao.md) (Portuguese).
+- `tools/calibrate_sem.py`: sweeps thresholds from 0.15 to 0.90 over `tools/data/sem_pairs.jsonl` and reports precision, recall and F1 per memory type.
+
 ## MVP status and roadmap
 
 | Milestone | Delivery | Status |
@@ -681,12 +705,12 @@ The bench measures the steady state (first run already answered, all permissions
 | M10 | ML experiments as optional recipes + report | done |
 | M11 | Cohesive V-Pet art: 8 families × 3 plans, family eggs, accumulating accessories | done |
 | M12 | Project health: Linux/Windows CI, lint, parallel tests, split of large files, bench on Wayland | done |
+| M13 | Calibration with a real model: persona (conversation harness), semantic-search thresholds, manual smokes | partial |
 | M14 | Limb animation and per-family poses (legs, arms, tails, wings, fins) | done |
 
 **Known limitations**
 
 - Manual smoke tests of some milestones are still pending a report (for example semantic search with the real downloaded model).
-- No calibration with a real model: the semantic-search thresholds (`SEM_MIN_SIM`, `FACT_MIN_SIM`, `TOPIC_MIN_SIM`) are at the plan's initial values.
 - The overlay does not work on Wayland (X11 and Windows only).
 - On Wayland, KDE and GNOME do not expose focused app/title/fullscreen to perception.
 - The ML experiments were not promoted: the default is still `default-v1`.
@@ -694,7 +718,7 @@ The bench measures the steady state (first run already answered, all permissions
 
 **Next steps** (next cycle; details in the [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
 
-1. **M13:** calibration with real models (manual smokes and semantic-search thresholds).
+1. **M13:** close the acceptance (3-repetition average of the harness, no assistant phrasing in the final text, and CI) and the human checklist; report in [`docs/superpowers/reports/`](docs/superpowers/reports/2026-11-04-m13-calibracao.md) (Portuguese).
 2. **M15:** distribution: OS-specific data folders, builds and autostart.
 
 Specs, plans and reports of each milestone: [`docs/superpowers/`](docs/superpowers/).

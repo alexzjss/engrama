@@ -7,5 +7,6 @@ spike/config_smoke.json
 spike/save_smoke.json
 .superpowers/
 data/
+!tools/data/
 .claude/worktrees/
 .pytest_tmp/

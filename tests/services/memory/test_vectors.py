@@ -546,7 +546,7 @@ def test_retrieve_with_sims_hybrid(tmp_path):
                 + W_RELEVANCE * (W_SEM * sp + W_WORD * ov))
     assert score(a, 0.3, now - 2 * DAY, 0.95, 0) > score(c, 0.5, now - 0, 0.0, 0) - 1  # sanity
     # a sim below the threshold adds nothing: same as sim 0 / absent
-    assert s.retrieve(["bichinho"], 3, sims={a: 0.3, b: 0.49}) == s.retrieve(["bichinho"], 3, sims={})
+    assert s.retrieve(["bichinho"], 3, sims={a: 0.3, b: SEM_MIN_SIM - 0.01}) == s.retrieve(["bichinho"], 3, sims={})
     # ancestral episodes never come back from retrieve
     s._db.execute("INSERT INTO episodes(t, kind, summary, valence, importance, topic)"
                   " VALUES(1,'ancestral','sonho com bichinho',0,0.9,NULL)")

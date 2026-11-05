@@ -22,9 +22,9 @@ EMBED_RETRY_S = 60             # embedder "failed" before trying again
 EMBED_CHECK_S = 300            # minimum interval between tags() checks
 EMBED_DIM_MAX = 4096           # dimension above this = invalid response
 INDEX_EVERY_S = 5              # minimum interval between index jobs
-SEM_MIN_SIM = 0.5              # cosine below this does not count as related
-FACT_MIN_SIM = 0.6             # fact enters by meaning
-TOPIC_MIN_SIM = 0.6            # topic of an opinion by meaning
+SEM_MIN_SIM = 0.42             # cosine below this does not count as related; calibrated in M13 (embeddinggemma), see docs/superpowers/reports/m13/calibration.md
+FACT_MIN_SIM = 0.46            # fact enters by meaning; calibrated in M13 (embeddinggemma), see docs/superpowers/reports/m13/calibration.md
+TOPIC_MIN_SIM = 0.27           # topic of an opinion by meaning; calibrated in M13 (embeddinggemma), see docs/superpowers/reports/m13/calibration.md
 W_SEM = 0.7                    # meaning weight in relevance
 W_WORD = 0.3                   # words weight in relevance
 W_IMPORTANCE = 0.35            # episode with qvec
