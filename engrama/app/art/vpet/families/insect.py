@@ -4,19 +4,20 @@ from .common import D, lerp, markings
 
 def _antennae(b, g, d, x, y, L, sym=True):
     k = g["f1"]
+    ak = {"role": "antenna", "pivot": (x, y)}
     if k == 0:
-        b.C([(x, y), (x + L * .3, y - L)], .45, DARK, 17, "ant", sym=sym, keep=True)
-        b.E(x + L * .3, y - L, 1.0 + .3 * d.fk, 1.0 + .3 * d.fk, ACC, 18, "antip", sym=sym)
+        b.C([(x, y), (x + L * .3, y - L)], .45, DARK, 17, "ant", sym=sym, keep=True, **ak)
+        b.E(x + L * .3, y - L, 1.0 + .3 * d.fk, 1.0 + .3 * d.fk, ACC, 18, "antip", sym=sym, **ak)
     elif k == 1:
         b.C([(x, y), (x + L * .2, y - L * .8), (x + L * .6, y - L), (x + L * .7, y - L * .7)], .45, DARK, 17, "ant",
-            sym=sym, keep=True)
+            sym=sym, keep=True, **ak)
     elif k == 2:
-        b.C([(x, y), (x + L * .5, y - L)], .45, DARK, 17, "ant", sym=sym, keep=True)
+        b.C([(x, y), (x + L * .5, y - L)], .45, DARK, 17, "ant", sym=sym, keep=True, **ak)
         b.P([(x + L * .15, y - L * .3), (x + L * .55, y - L * 1.05), (x + L * .7, y - L * .4)], ACC, 16, "antf",
-            sym=sym, keep=True)
+            sym=sym, keep=True, **ak)
     else:
         b.C([(x, y), (x + L * .1, y - L * .9), (x + L * .7, y - L * 1.15)], [.5, .4, .3], DARK, 17, "ant", sym=sym,
-            keep=True)
+            keep=True, **ak)
 
 
 def inseto(b, g, P, t):
@@ -53,7 +54,7 @@ def inseto(b, g, P, t):
             for k, ax in enumerate((.18, .32, .44)):
                 x0 = bw * ax
                 b.C([(x0, by + bh * .35), (x0 + .6 + .3 * k, -.3)], .55 + .2 * m, DARK, 8 - k, "leg", sym=True,
-                    keep=True)
+                    keep=True, role="leg", pivot=(x0, by + bh * .35))
         if t >= 2:
             my = hcy + hr * .7
             b.C([(hr * .35, my - .5), (hr * .45, my + .8), (hr * .15, my + 1.3)], [.7, .55, .3], BONE, 24,
@@ -82,14 +83,17 @@ def inseto(b, g, P, t):
         _antennae(b, g, d, hr * .4, hcy - hr * .65, hr * .7 * d.ck + 1.5)
         ws = lerp(2.5, 7.5, m) * (1 + .2 * d.soc)
         if t >= 1:
+            wp = (tw * .5, ty - th * .2)
             b.E(tw * .6 + ws * .55, ty - th * .3 - ws * .35, ws * .62, ws * .36, GLASS, 3, "wing", sym=True, rot=-.7,
-                flat=True)
-            b.E(tw * .5 + ws * .4, ty - th * .1, ws * .4, ws * .24, GLASS, 2, "wing2", sym=True, rot=-.25, flat=True)
+                flat=True, role="wing", pivot=wp)
+            b.E(tw * .5 + ws * .4, ty - th * .1, ws * .4, ws * .24, GLASS, 2, "wing2", sym=True, rot=-.25, flat=True,
+                role="wing", pivot=wp)
             for k, x in enumerate((.25, .42)):
                 b.C([(ab_w * x, ay + ab_h * .3), (ab_w * x + .5, -.3)], .5 + .15 * m, DARK, 6 - k, "leg", sym=True,
-                    keep=True)
+                    keep=True, role="leg", pivot=(ab_w * x, ay + ab_h * .3))
             ex, ey = tw * .9 + .8, ty + th * .15
-            b.C([(tw * .8, ty - th * .1), (ex, ey)], lerp(.7, 1.0, m), DARK, 14, "arm", sym=True, keep=True)
+            b.C([(tw * .8, ty - th * .1), (ex, ey)], lerp(.7, 1.0, m), DARK, 14, "arm", sym=True, keep=True,
+                role="arm", pivot=(tw * .8, ty - th * .1))
             d.hands = [(ex, ey), (-ex, ey)]
         d.eyes = ("compound", "gem", "compound")
         d.neck = (0, ty - th * .4, tw * 1.6)
@@ -110,14 +114,16 @@ def inseto(b, g, P, t):
         ws = lerp(4.5, 12, m) * (1 + .25 * d.cri)
         wm = ACC if g["f4"] % 2 else BODY
         other = BODY if wm == ACC else ACC
-        b.E(ws * .8, by - ws * .38, ws * .68, ws * .5, wm, 3, "wing", sym=True, rot=-.55)
-        b.E(ws * .62, by + ws * .3, ws * .45, ws * .38, wm, 2, "wing2", sym=True, rot=.5)
+        wk = {"role": "wing", "pivot": (1.0, by)}
+        b.E(ws * .8, by - ws * .38, ws * .68, ws * .5, wm, 3, "wing", sym=True, rot=-.55, **wk)
+        b.E(ws * .62, by + ws * .3, ws * .45, ws * .38, wm, 2, "wing2", sym=True, rot=.5, **wk)
         if t >= 1:
-            b.E(ws * 1.1, by - ws * .62, ws * .3, ws * .22, other, 4, "wband", sym=True, rot=-.55, on=("wing",))
-            b.E(ws * .78, by - ws * .38, ws * .17, ws * .17, BELLY, 4, "eyespot", sym=True, on=("wing",))
+            b.E(ws * 1.1, by - ws * .62, ws * .3, ws * .22, other, 4, "wband", sym=True, rot=-.55, on=("wing",),
+                **wk)
+            b.E(ws * .78, by - ws * .38, ws * .17, ws * .17, BELLY, 4, "eyespot", sym=True, on=("wing",), **wk)
             b.E(ws * .78, by - ws * .38, ws * .08, ws * .08, DARK, 5, "eyespot2", sym=True, on=("eyespot",),
-                line=False)
-            b.E(ws * .72, by + ws * .4, ws * .15, ws * .15, other, 4, "spot2", sym=True, on=("wing2",))
+                line=False, **wk)
+            b.E(ws * .72, by + ws * .4, ws * .15, ws * .15, other, 4, "spot2", sym=True, on=("wing2",), **wk)
         d.neck = (0, hcy + hr * .8, hr * 1.4)
         d.no_slots = frozenset({"back"})
     markings(b, g, d)

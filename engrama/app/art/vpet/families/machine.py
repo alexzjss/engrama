@@ -7,18 +7,22 @@ from .common import D, lerp, upright
 def _antenna(b, g, d, x, top, L):
     k = g["f1"]
     if k == 0:
-        b.C([(x, top + .6), (x, top - L)], .45, DARK, 17, "ant", keep=True)
-        b.E(x, top - L, 1.0 + .2 * d.fk, 1.0 + .2 * d.fk, ACC, 18, "antb")
+        ak = {"role": "antenna", "pivot": (x, top + .6)}
+        b.C([(x, top + .6), (x, top - L)], .45, DARK, 17, "ant", keep=True, **ak)
+        b.E(x, top - L, 1.0 + .2 * d.fk, 1.0 + .2 * d.fk, ACC, 18, "antb", **ak)
     elif k == 1:
         for sd in (-1, 1):
-            b.C([(x + sd * d.hw * .45, top + .6), (x + sd * d.hw * .55, top - L)], .45, DARK, 17, "ant", keep=True)
-            b.E(x + sd * d.hw * .55, top - L, .9, .9, ACC, 18, "antb")
+            ak = {"role": "antenna", "pivot": (x + sd * d.hw * .45, top + .6), "side": sd}
+            b.C([(x + sd * d.hw * .45, top + .6), (x + sd * d.hw * .55, top - L)], .45, DARK, 17, "ant", keep=True,
+                **ak)
+            b.E(x + sd * d.hw * .55, top - L, .9, .9, ACC, 18, "antb", **ak)
     elif k == 2:
         for sd in (-1, 1):
-            b.E(x + sd * (d.hw + .4), d.hcy, 1.2 + .5 * d.fk, 1.6 + .9 * d.fk, ACC, 18, "bolt")
+            b.E(x + sd * (d.hw + .4), d.hcy, 1.2 + .5 * d.fk, 1.6 + .9 * d.fk, ACC, 18, "bolt", role="ear",
+                pivot=(x + sd * d.hw, d.hcy), side=sd)
     else:
         b.P([(x - 1.4, top + 1), (x + 1.4, top + 1), (x + d.side * 1.4, top - L), (x - d.side * .4, top - L * .4)],
-            ACC, 18, "fin")
+            ACC, 18, "fin", role="antenna", pivot=(x, top + 1))
 
 
 def maquina(b, g, P, t):
@@ -36,7 +40,8 @@ def maquina(b, g, P, t):
             on=("body",), flat=True)
         d.mouth_y = d.hcy + hr * hy * .36
         for hx, hy2 in d.hands[:1]:
-            b.E(d.bw * .42, d.by - d.bh * .22, d.ar * 1.15, d.ar * 1.15, MARK, 16, "joint", sym=True)
+            b.E(d.bw * .42, d.by - d.bh * .22, d.ar * 1.15, d.ar * 1.15, MARK, 16, "joint", sym=True,
+                  role="arm", pivot=d.shoulder)
         if t >= 3:
             b.R(d.bw * .25, d.btop - .8, d.bw * .62, d.btop + d.bh * .22, r=1.0, mat=ACC, z=17, name="pad", sym=True)
         if t >= 4:
@@ -72,9 +77,11 @@ def maquina(b, g, P, t):
         if t >= 3:
             for sd in (-1, 1):
                 b.C([(sd * hw_, -th - hh * .5), (sd * (hw_ + 2.5), -th - hh * .3), (sd * (hw_ + 3), -th - hh - 1)],
-                    [1.0, .9, .8], MARK, 12, "arm", keep=True)
+                    [1.0, .9, .8], MARK, 12, "arm", keep=True, role="arm", pivot=(sd * hw_, -th - hh * .5),
+                    side=sd)
                 b.P([(sd * (hw_ + 2.2), -th - hh - .6), (sd * (hw_ + 3.8), -th - hh - .6),
-                     (sd * (hw_ + 3), -th - hh - 3)], ACC, 13, "claw", keep=True)
+                     (sd * (hw_ + 3), -th - hh - 3)], ACC, 13, "claw", keep=True, role="arm",
+                     pivot=(sd * hw_, -th - hh * .5), side=sd)
             d.hands = [(hw_ + 3, -th - hh - 1), (-hw_ - 3, -th - hh - 1)]
         d.neck = (0, hcy + hr * .8, hr * 1.6)
     else:              # hover drone: round core, rotor on top, dangling claw arms, thruster
@@ -94,16 +101,19 @@ def maquina(b, g, P, t):
         b.R(-R * .35, cy + R * .8, R * .35, cy + R * 1.2, r=.4, mat=MARK, z=12, name="jetbox")
         b.E(0, cy + R + fl * .55, R * .28, fl * .55, ACC, 11, "flame")
         mast = lerp(1.0, 2.5, m)
-        b.C([(0, cy - R * .9), (0, cy - R - mast)], .5, DARK, 17, "mast", keep=True)
+        b.C([(0, cy - R * .9), (0, cy - R - mast)], .5, DARK, 17, "mast", keep=True, role="antenna",
+            pivot=(0, cy - R * .9))
         rw = lerp(3, 7, m) * (1 + .3 * d.cri)
-        b.E(0, cy - R - mast - .2, rw, .55 + .1 * m, ACC, 18, "rotor")
+        b.E(0, cy - R - mast - .2, rw, .55 + .1 * m, ACC, 18, "rotor", role="antenna",
+            pivot=(0, cy - R * .9))
         if t >= 1:
             for sd in (-1, 1):
                 a1 = (sd * (R + 1.5), cy + R * .3)
                 a2 = (sd * (R + 2.0 + m), cy + R * .9 + 1.5 * m)
-                b.C([(sd * R * .85, cy), a1, a2], [.8, .7, .6], MARK, 13, "arm", keep=True)
+                b.C([(sd * R * .85, cy), a1, a2], [.8, .7, .6], MARK, 13, "arm", keep=True, role="arm", pivot=(sd * R * .85, cy),
+                    side=sd)
                 b.P([(a2[0] - .9, a2[1]), (a2[0] + .9, a2[1]), (a2[0] + sd * .5, a2[1] + 1.8)], ACC, 14, "claw",
-                    keep=True)
+                    keep=True, role="arm", pivot=(sd * R * .85, cy), side=sd)
             d.hands = [(R + 2, cy + R), (-R - 2, cy + R)]
         if t >= 2:
             n = 16

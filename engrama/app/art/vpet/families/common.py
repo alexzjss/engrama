@@ -31,6 +31,7 @@ class D:
         self.facing = False
         self.neck = None
         self.hands = []
+        self.hip = self.shoulder = None      # joint anchors set by `upright` (legs / arms), for decorations
         self.mouth = "smile"
         self.mouth_x = None
         self.eyes = ("gem",)
@@ -73,11 +74,14 @@ def markings(b, g, d):
         b.E(0, -.4, 80, 1.5 if d.t else 1.1, mm, 21, "mk", on=("foot", "leg", "paw"), line=False)
 
 
-def leg(b, x0, y0, x1, r, mat=BODY, z=8, name="leg", sym=False, foot=1.0, toe=-1):
-    """Leg from (x0, y0) to the ground at x1, with a foot pointing to `toe` (-1 left, +1 right, 0 front)."""
-    b.C([(x0, y0), (x1, -r * .8)], [r, r * .9], mat, z, name, sym=sym)
+def leg(b, x0, y0, x1, r, mat=BODY, z=8, name="leg", sym=False, foot=1.0, toe=-1, side=None):
+    """Leg from (x0, y0) to the ground at x1, with a foot pointing to `toe` (-1 left, +1 right, 0 front).
+    `side` (+1/-1) is the alternation phase of a leg built on its own (non-sym), see Builder._add."""
+    b.C([(x0, y0), (x1, -r * .8)], [r, r * .9], mat, z, name, sym=sym, role="leg", pivot=(x0, y0),
+        side=side)
     if foot:
-        b.E(x1 + toe * r * .35, -r * .7, r * 1.2 * foot, r * .72, mat, z + 1, "foot", sym=sym)
+        b.E(x1 + toe * r * .35, -r * .7, r * 1.2 * foot, r * .72, mat, z + 1, "foot", sym=sym, role="leg",
+            pivot=(x0, y0), side=side)
 
 
 def upright(b, g, d, head_k=1.0, body_k=1.0, limb_k=1.0, leg_k=1.0, arms=True, legs=True, arm_mat=BODY,
@@ -112,16 +116,19 @@ def upright(b, g, d, head_k=1.0, body_k=1.0, limb_k=1.0, leg_k=1.0, arms=True, l
     hipx = bw * .3 * (1 + pear * .5)
     d.footx = hipx * (1 + .5 * d.pac)
     if t == 0:
-        b.E(hipx * 1.05, -.9, lr * 1.05, .95, BODY, 8, "foot", sym=True)
+        b.E(hipx * 1.05, -.9, lr * 1.05, .95, BODY, 8, "foot", sym=True, role="leg")
     elif legs:
-        b.C([(hipx, by + bh * .2), (d.footx, -lr * .8)], [lr, lr * .92], BODY, 8, "leg", sym=True)
-        b.E(d.footx + lr * .25, -lr * .72, lr * 1.2, lr * .75, BODY, 9, "foot", sym=True)
+        d.hip = (hipx, by + bh * .2)
+        b.C([(hipx, by + bh * .2), (d.footx, -lr * .8)], [lr, lr * .92], BODY, 8, "leg", sym=True, role="leg",
+            pivot=d.hip)
+        b.E(d.footx + lr * .25, -lr * .72, lr * 1.2, lr * .75, BODY, 9, "foot", sym=True, role="leg", pivot=d.hip)
     if arms and t >= 1:
         ang = math.radians(min(78, 30 + 110 * max(0, d.soc)) - 25 * max(0, d.pac - .05) - 20 * max(0, d.ind - .1))
         sx, sy = bw * .4, by - bh * .22
         hx, hy2 = sx + al * math.sin(ang), sy + al * math.cos(ang)
-        b.C([(sx, sy), (hx, hy2)], [ar * 1.05, ar * .9], arm_mat, 14, "arm", sym=True)
-        b.E(hx, hy2, ar * 1.05, ar, arm_mat, 15, "hand", sym=True)
+        d.shoulder = (sx, sy)
+        b.C([(sx, sy), (hx, hy2)], [ar * 1.05, ar * .9], arm_mat, 14, "arm", sym=True, role="arm", pivot=(sx, sy))
+        b.E(hx, hy2, ar * 1.05, ar, arm_mat, 15, "hand", sym=True, role="arm", pivot=(sx, sy))
         d.hands = [(hx, hy2), (-hx, hy2)]
         d.ar = ar
     d.neck = (0, btop + .6, bw * .48)
@@ -138,10 +145,11 @@ def quad(b, g, d, L, bh, ll, lr, neck_len, hr, tail=True, slim=1.0):
         b.E(-L * .05, by + bh * .3, L * .36, bh * .24, BELLY, 11, "belly", on=("body",))
     for k, x in enumerate((-L * .3, L * .3)):
         if t == 0:
-            b.E(x - .4, -.8, lr, .9, BODY, 12, "foot")
+            b.E(x - .4, -.8, lr, .9, BODY, 12, "foot", role="leg", side=1 - 2 * k)
             continue
-        leg(b, x + 1.0, by + bh * .1, x + 1.3, lr * .9 * slim, MARK, 5, "leg", toe=-1)        # far legs
-        leg(b, x, by + bh * .2, x - .2, lr * slim, BODY, 12, "leg", toe=-1)                      # near legs
+        # diagonal gait phases: front-near + back-far (+1) against front-far + back-near (-1)
+        leg(b, x + 1.0, by + bh * .1, x + 1.3, lr * .9 * slim, MARK, 5, "leg", toe=-1, side=2 * k - 1)    # far legs
+        leg(b, x, by + bh * .2, x - .2, lr * slim, BODY, 12, "leg", toe=-1, side=1 - 2 * k)              # near legs
     hx = -L * .5 + hr * .1
     hy = by - bh * .35 - neck_len - hr * .35
     if t >= 1:

@@ -5,9 +5,10 @@ from .common import D, lerp, markings, upright
 
 
 def _leaves(b, g, d, x, top, L, leaf=MARK):
-    b.C([(x, top + .6), (x, top - L * .4)], .5, leaf, 17, "stem", keep=True)
-    b.E(x + L * .45, top - L * .45, L * .5, L * .24, leaf, 18, "leaf", rot=-.5)
-    b.E(x - L * .45, top - L * .45, L * .5, L * .24, leaf, 18, "leaf", rot=.5)
+    ck = {"role": "antenna", "pivot": (x, top + .6)}       # the sprout on top of the head sways as one piece
+    b.C([(x, top + .6), (x, top - L * .4)], .5, leaf, 17, "stem", keep=True, **ck)
+    b.E(x + L * .45, top - L * .45, L * .5, L * .24, leaf, 18, "leaf", rot=-.5, **ck)
+    b.E(x - L * .45, top - L * .45, L * .5, L * .24, leaf, 18, "leaf", rot=.5, **ck)
 
 
 def planta(b, g, P, t):
@@ -26,15 +27,16 @@ def planta(b, g, P, t):
             L = 2.5 + 3 * d.fk
             r = 1.3 + 1.1 * d.fk
             b.C([(0, top + .6), (d.side * .8, top - L * .5), (d.side * .4, top - L)], .55, MARK, 17, "stem",
-                keep=True)
-            b.E(d.side * .4, top - L - r * .5, r, r * 1.15, ACC, 19, "bud")
+                keep=True, role="antenna", pivot=(0, top + .6))
+            b.E(d.side * .4, top - L - r * .5, r, r * 1.15, ACC, 19, "bud", role="antenna", pivot=(0, top + .6))
         if g["f1"] in (2, 3) and t >= 2:
             for a in (-.9, -.3, .3, .9):
                 L = 3 + 2.8 * d.fk
                 b.E(math.sin(a) * L * .7, top - math.cos(a) * L * .55, L * .22, L * .5,
-                    MARK if g["f1"] == 2 else ACC, 18, "leaf", rot=a)
+                    MARK if g["f1"] == 2 else ACC, 18, "leaf", rot=a, role="antenna", pivot=(0, top + .6))
         for hx, hy in d.hands[:1]:
-            b.E(hx + .6, hy + .3, d.ar * 1.6, d.ar * .9, MARK, 16, "leafhand", sym=True, rot=.6)
+            b.E(hx + .6, hy + .3, d.ar * 1.6, d.ar * .9, MARK, 16, "leafhand", sym=True, rot=.6, role="arm",
+                pivot=d.shoulder)
         if t >= 1:
             for x in (.6, -.6):
                 b.P([(d.bw * .3 + x, -1), (d.bw * .3 + x + .8, -1), (d.bw * .3 + x * 2.6, 0)], MARK, 7, "root",
@@ -52,7 +54,8 @@ def planta(b, g, P, t):
             for k, (y, sd) in enumerate(((.35, 1), (.6, -1))):
                 L = lerp(2.5, 5.5, m) * (1 + .3 * d.soc)
                 a = .35 + .5 * max(0, d.soc)
-                b.E(sd * (L * .5 + .6), -sh * y - L * .2 * a, L * .55, L * .25, MARK, 12, "leafarm", rot=sd * a)
+                b.E(sd * (L * .5 + .6), -sh * y - L * .2 * a, L * .55, L * .25, MARK, 12, "leafarm", rot=sd * a,
+                    role="arm", pivot=(sd * .6, -sh * y), side=sd)
             d.hands = [(L * .9, -sh * .35), (-L * .9, -sh * .6)]
         hr = 4.8 * d.hk
         hcy = -sh - hr * .7
@@ -86,7 +89,7 @@ def planta(b, g, P, t):
                 L = lerp(2.0, 5.0, m) * up
                 ar = lerp(1.1, 1.7, m)
                 b.C([(ax, -H * y), (sd * (r + L * .7), -H * y), (sd * (r + L * .8), -H * y - L * 1.1 * up)],
-                    [ar, ar, ar * .9], BODY, 12, "arm")
+                    [ar, ar, ar * .9], BODY, 12, "arm", role="arm", pivot=(ax, -H * y), side=sd)
             d.hands = [(d.side * (r + 2), -H * .45 - 2)]
         if t >= 2:
             fy = -H - r * .1
