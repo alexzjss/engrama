@@ -177,5 +177,7 @@
   "ui.models.embed_missing": "model not installed",
   "ui.memories.semantic_on": "remembers by meaning",
   "ui.memories.semantic_off": "remembers by words only",
-  "ui.mind.vectors": "memories with a vector"
+  "ui.mind.vectors": "memories with a vector",
+  "settings.autostart": "Start with the system",
+  "settings.autostart_dev": "Unavailable in dev mode (running from the repository)"
 }

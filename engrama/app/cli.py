@@ -51,6 +51,37 @@ def migrate_command(src: Path, dst: Path) -> int:
     return 0
 
 
+def desktop_command(install: bool, backend=None) -> int:
+    """`--install-desktop` / `--uninstall-desktop`: menu entry / Start menu shortcut. Autostart stays opt-in (F6)."""
+    import sys
+    from engrama.app.integration import is_dev, make_backend
+    if backend is None:
+        if is_dev():
+            print("Modo dev (checkout do repositório): nada a instalar. / "
+                  "Dev mode (repository checkout): nothing to install.", file=sys.stderr)
+            return 2
+        backend = make_backend()
+    if backend is None:
+        print("Sem integração com o desktop neste sistema. / No desktop integration on this system.", file=sys.stderr)
+        return 2
+    try:
+        paths = backend.install() if install else backend.uninstall()
+    except Exception as e:
+        print(f"Falhou: {e} / Failed: {e}", file=sys.stderr)
+        return 1
+    if install:
+        if paths:
+            print("Instalado / Installed: " + ", ".join(str(p) for p in paths))
+        else:
+            print("Já existe um atalho que não é do Engrama; nada foi alterado. / "
+                  "A shortcut that is not Engrama's already exists; nothing was changed.", file=sys.stderr)
+            return 2
+    else:
+        print("Removido / Removed: " + (", ".join(str(p) for p in paths) if paths
+                                        else "nada / nothing"))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     held: list = []
     try:
@@ -90,6 +121,10 @@ def _main(argv: list[str] | None, held: list) -> int:
     ap.add_argument("--data-dir", type=Path, default=None)
     ap.add_argument("--migrate-from", type=Path, default=None, metavar="PATH",
                     help="copy an old data dir into the current one (only if it has no save), then exit")
+    ap.add_argument("--install-desktop", action="store_true",
+                    help="add Engrama to the application menu (Linux) / Start menu (Windows), then exit")
+    ap.add_argument("--uninstall-desktop", action="store_true",
+                    help="remove only what --install-desktop (and the autostart option) wrote, then exit")
     ap.add_argument("--recipe", type=str, default=None,
                     help="recipe name (recipes/NAME.toml) or path; only for a new data dir (a saved creature keeps its own)")
     ap.add_argument("--seed", type=int, default=None)
@@ -103,6 +138,8 @@ def _main(argv: list[str] | None, held: list) -> int:
     ap.add_argument("--fake-perception", action="store_true", help="bench: scripted machine instead of the real one")
     a = ap.parse_args(argv)
 
+    if a.install_desktop or a.uninstall_desktop:
+        return desktop_command(install=a.install_desktop)
     requested = None
     if a.recipe is not None:
         requested = resolve_recipe_arg(a.recipe)
@@ -252,6 +289,8 @@ def _main(argv: list[str] | None, held: list) -> int:
         window.set_eyes_closed = set_eyes
         window.on_file_drop = on_file_drop
         window.perception_provider = _PerceptionProvider(memory, lambda: hotkey.error)
+        from engrama.app.integration import make_autostart
+        window.autostart = make_autostart()
         window.panels["models"] = lambda w: ModelsPanel(w)
         window.panels["settings"] = lambda w: SettingsPanel(w)
 

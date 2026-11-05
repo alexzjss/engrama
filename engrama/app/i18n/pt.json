@@ -177,5 +177,7 @@
   "ui.models.embed_missing": "modelo não instalado",
   "ui.memories.semantic_on": "lembra pelo sentido",
   "ui.memories.semantic_off": "lembra só por palavras",
-  "ui.mind.vectors": "memórias com vetor"
+  "ui.mind.vectors": "memórias com vetor",
+  "settings.autostart": "Iniciar com o sistema",
+  "settings.autostart_dev": "Indisponível em modo dev (rodando do repositório)"
 }
