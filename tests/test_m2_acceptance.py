@@ -1,11 +1,12 @@
 """M2 acceptance: the default mind is stable, perceives novelty, differs from minimal, and individuates."""
 import time
+from functools import lru_cache
 from pathlib import Path
 import numpy as np
 import pytest
 from engrama import balance as B
 from engrama.lab.metrics import compute_metrics
-from engrama.lab.runtime import Runtime, _Collector, run_days
+from engrama.lab.runtime import Runtime, _Collector
 from engrama.lab.simuser import PROFILES, SimUser
 from engrama.mind.recipe import load_recipe
 from engrama.vocab import TRAIT_KEYS, INITIAL_TRAITS
@@ -26,6 +27,7 @@ def _mod(rt: Runtime, name: str):
 
 
 @pytest.mark.slow
+@pytest.mark.xdist_group("m2-stable")
 def test_default_recipe_30_days_stable():
     col = _Collector()
     rt = _runtime(DEFAULT, "attentive", 1, col)
@@ -87,24 +89,34 @@ def test_novelty_signal_is_higher_for_rare_events_live(seed):
     assert ratio >= 1.1, (ratio, len(rare), len(common))
 
 
+@lru_cache(maxsize=None)
+def _sim(recipe: Path, profile: str, seed: int, days: int = 10):
+    """One deterministic run -> (runtime, metrics). Cached per worker: tests of the xdist group
+    "m2-individuation" share it instead of repeating the same recipe/profile/seed run."""
+    col = _Collector()
+    rt = _runtime(recipe, profile, seed, col)
+    rt.run(days * DAY, 60.0)
+    return rt, compute_metrics(col.rows, rt.lives + [rt.life_summary()])
+
+
 @pytest.mark.slow
+@pytest.mark.xdist_group("m2-individuation")
 def test_minimal_and_default_recipes_differ_on_a_metric():
     """A recipe difference (SNN, Q-learning, prefs and traits all differ), not an SNN-only claim."""
-    a = run_days(MINIMAL, 10, "attentive", 1, 60.0, None)
-    b = run_days(DEFAULT, 10, "attentive", 1, 60.0, None)
+    a, b = _sim(MINIMAL, "attentive", 1)[1], _sim(DEFAULT, "attentive", 1)[1]
     d_ent = abs(b["behavior_entropy"] - a["behavior_entropy"])
     d_ans = abs(b["answered_rate"] - a["answered_rate"])
     assert max(d_ent, d_ans) > 0.01, (a["behavior_entropy"], b["behavior_entropy"], a["answered_rate"], b["answered_rate"])
 
 
 def _final(profile: str, seed: int, days: int = 10):
-    rt = _runtime(DEFAULT, profile, seed)
-    rt.run(days * DAY, 60.0)
+    rt = _sim(DEFAULT, profile, seed, days)[0]
     tr = _mod(rt, "traits.drift").traits
     return int(np.argmax(_mod(rt, "prefs.food").liking)), np.array([tr[k] for k in TRAIT_KEYS])
 
 
 @pytest.mark.slow
+@pytest.mark.xdist_group("m2-individuation")
 @pytest.mark.parametrize("pair", [(1, 2), (3, 4)])
 def test_creatures_diverge(pair):
     (fa, ta), (fb, tb) = _final("attentive", pair[0]), _final("attentive", pair[1])
@@ -113,6 +125,7 @@ def test_creatures_diverge(pair):
 
 
 @pytest.mark.slow
+@pytest.mark.xdist_group("m2-individuation")
 def test_profiles_shape_different_personalities():
     _, ta = _final("attentive", 1)
     _, tb = _final("absent", 1)

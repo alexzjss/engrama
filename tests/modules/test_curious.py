@@ -125,6 +125,7 @@ def test_bad_mode_rejected_and_future_version_fails():
 NAMES = ("curious-v1", "curious-lp-v1")
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("name", NAMES)
 def test_recipe_runs_clean(name):
     K.run_clean(K.recipe(name), 3.0)

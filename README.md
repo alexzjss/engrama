@@ -7,7 +7,7 @@
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.15.0](https://img.shields.io/badge/version-0.15.0-blue)
+![Version 0.17.0](https://img.shields.io/badge/version-0.17.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Linhagens: ovo até a forma final, seis criaturas](docs/images/lineages.png)
@@ -333,12 +333,13 @@ pip install -e .[dev]                    # pytest, pytest-xdist, ruff
 ```
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m pytest -n auto
 $env:SDL_VIDEODRIVER="dummy"; $env:SDL_AUDIODRIVER="dummy"; python -m pytest -n auto   # Windows (PowerShell)
-python -m pytest -n auto -m "not perf"   # sem os testes de orçamento de tempo
+python -m pytest -n auto --dist loadgroup -m "not perf"   # tudo, menos os testes de orçamento de tempo (o que a CI roda)
+python -m pytest -n 4 -m "not slow and not perf"          # laço rápido do dia a dia (cerca de 1,5 min)
 python -m pytest -m perf                 # só os testes de orçamento (tempo, CPU, FPS)
 ruff check .                             # lint
 ```
 
-- Uma execução completa e serial leva cerca de 40 min; `-n auto` (pytest-xdist) é bem mais rápido.
+- Uma execução completa e serial leva cerca de 40 min; `-n auto` (pytest-xdist) é bem mais rápido. O laço rápido pula os testes marcados `slow` (simulações de dias e acordos de aceitação, acima de uns 5 s cada); rode a suíte completa antes de abrir o PR. Testes que dividem uma mesma simulação ficam no mesmo `xdist_group`, por isso o `--dist loadgroup`; `tests/conftest.py` põe os grupos mais longos para começar primeiro.
 - **Golden de sprites:** `tests/app/test_sprite_golden.py` compara o hash de cada sprite com `tests/fixtures/m12_sprite_hashes.json`, e pega mudança de arte que você não queria. Quando a mudança for intencional, regenere com `ENGRAMA_REGEN_GOLDEN=1 python -m pytest tests/app/test_sprite_golden.py` (PowerShell: `$env:ENGRAMA_REGEN_GOLDEN="1"`) e commite o JSON junto com a arte.
 - **CI** (`.github/workflows/ci.yml`), em cada PR: lint com ruff e testes funcionais (`-m "not perf"`, bloqueantes) em Ubuntu e Windows, Python 3.13. Os testes `perf` rodam depois, só informativos.
 
@@ -440,6 +441,7 @@ python tools/calibrate_sem.py --out resultado.json --md resultado.md            
 | M13 | Calibração com modelo real: persona (harness de conversas), limiares da busca por significado, smokes manuais | parcial |
 | M14 | Animação de membros e poses por família (pernas, braços, caudas, asas, nadadeiras) | feito |
 | M15 | Distribuição: pasta de dados do sistema, Ollama sem disco fixo, pacotes Windows e Linux, atalho e início automático opcional | feito |
+| M16 | Saúde 2: CI verde, testes mais rápidos | feito |
 | M17 | Habitação no desktop: overlay no Hyprland, geometria das janelas, andar nas bordas, pular, cair, reagir ao cursor | feito |
 
 **Limitações conhecidas**
@@ -471,7 +473,7 @@ Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.15.0](https://img.shields.io/badge/version-0.15.0-blue)
+![Version 0.17.0](https://img.shields.io/badge/version-0.17.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Lineages: egg to final form, six creatures](docs/images/lineages.png)
@@ -904,6 +906,7 @@ python tools/calibrate_sem.py --out result.json --md result.md                  
 | M13 | Calibration with a real model: persona (conversation harness), semantic-search thresholds, manual smokes | partial |
 | M14 | Limb animation and per-family poses (legs, arms, tails, wings, fins) | done |
 | M15 | Distribution: OS data folder, Ollama without a fixed drive, Windows and Linux bundles, shortcut and opt-in autostart | done |
+| M16 | Health 2: green CI, faster tests | done |
 | M17 | Desktop habitation: overlay on Hyprland, window geometry, walking on edges, hopping, falling, reacting to the cursor | done |
 
 **Known limitations**

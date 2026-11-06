@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "engrama"
-version = "0.15.0"
+version = "0.17.0"
 requires-python = ">=3.13"
 dependencies = ["pygame-ce", "numpy", "psutil"]
 
@@ -25,7 +25,7 @@ engrama = ["recipes/*.toml", "app/i18n/*.json", "app/assets/*"]
 testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
-    "slow: long-running acceptance tests (included in the default run)",
+    "slow: long-running acceptance tests (in the default and CI runs; skip with -m \"not slow\" for a quick loop)",
     "perf: asserts measured wall time, CPU or FPS against a budget (noisy on loaded runners; CI runs them apart)",
 ]
 

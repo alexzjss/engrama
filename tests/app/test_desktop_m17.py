@@ -1,4 +1,5 @@
 """M17: window geometry per platform, the Hyprland desktop and the GL presenter (all with fakes)."""
+import sys
 import pygame
 import pytest
 
@@ -130,6 +131,7 @@ def test_get_desktop_hyprland_native_wayland(monkeypatch):
     assert dk.get_desktop().unavailable_reason == "wayland"
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Hyprland/Wayland driver choice is Linux-only; returns False on Windows")
 def test_prefer_wayland_on_hyprland():
     hypr_env = {"XDG_SESSION_TYPE": "wayland", "HYPRLAND_INSTANCE_SIGNATURE": "x"}
     env = dict(hypr_env)

@@ -1,4 +1,5 @@
 import time
+from functools import lru_cache
 from pathlib import Path
 import numpy as np
 import pytest
@@ -108,7 +109,10 @@ def test_run_rebirths_and_records_lives():
     assert rt3.lives == [] and rt3.kernel.dead
 
 
+@lru_cache(maxsize=None)
 def _lives(profile, seed, days):
+    """Deterministic runs are cached per worker, so tests of the same xdist group never repeat one.
+    Callers only read the returned runtime."""
     rt = Runtime(load_recipe(RECIPE), seed)
     rt.run(days * DAY, 60.0, _user(seed, profile))
     return rt
@@ -117,10 +121,14 @@ def _lives(profile, seed, days):
 NEGLECT_BRANCHES = {"arisco", "sombrio", "rebelde", "sombra"}
 
 
+# Two xdist groups of about the same length (run with --dist loadgroup): the 110-day attentive run on its
+# own, and the 40-day runs that the neglect and branching tests share.
 @pytest.mark.slow
+@pytest.mark.xdist_group("rebirth-neglect")
 def test_neglectful_dies_before_final():
-    for seed in (1, 2):
-        rt = _lives("neglectful", seed, 30)
+    # seed 1 runs 40 days (shared with the branching test): its first life still has to end before day 30
+    for seed, days in ((1, 40), (2, 30)):
+        rt = _lives("neglectful", seed, days)
         assert rt.lives, seed
         first = rt.lives[0]
         assert first["cause"] == "neglect" and first["final_day"] is None
@@ -128,6 +136,7 @@ def test_neglectful_dies_before_final():
 
 
 @pytest.mark.slow
+@pytest.mark.xdist_group("rebirth-attentive")
 def test_attentive_reaches_final_and_dies_old():
     rt = _lives("attentive", 1, 110)
     first = rt.lives[0]
@@ -138,6 +147,7 @@ def test_attentive_reaches_final_and_dies_old():
 
 
 @pytest.mark.slow
+@pytest.mark.xdist_group("rebirth-neglect")
 def test_profiles_branch_differently():
     att = _lives("attentive", 1, 40)
     neg = _lives("neglectful", 1, 40)
