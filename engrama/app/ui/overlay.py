@@ -21,6 +21,7 @@ from engrama.app.desktop import COLORKEY, Desktop, Rect
 from engrama.app.ui import hud, menus
 from engrama.app.ui.chat import _wrap
 from engrama.app.ui.scene import FAREWELL_BUBBLE_AT, Scene
+from engrama.app.ui.world import Surface, Walker, edge_surfaces_for, flee_target, temper_of
 
 SCALE = 4
 BASE_TOP = 130            # room above the sprite for bubbles / balloons (screen px)
@@ -30,6 +31,9 @@ PANEL_SIZE = (600, 560)   # food / digital / settings panels reuse the terrarium
 MENU_W, BTN_H = 200, 30
 DRAG_PX = 5
 PEEK_PERMISSION = "active_window"
+TIGHT_W, TIGHT_H = 88, 28      # extra room around the sprite when the OS cannot pass clicks through (Wayland)
+ROOM_HOLD_S = 1.0              # keep the roomy window this long after a bubble goes away (no resize flapping)
+CALM_ACTIONS = ("idle", "wander", "explore", "play_alone", "show_something", "ask_attention")
 
 
 @dataclass(frozen=True)
@@ -67,6 +71,17 @@ class OverlayController:
         self.cursor: tuple[int, int] | None = None
         self.cursor_near = False
         self.fg: Rect | None = None
+        self.wins: list[Rect] = []
+        self.surfaces: list[Surface] = []
+        self.walker = Walker()
+        self.feet: float = float(self.area[1] + self.area[3])
+        self.airborne = False
+        self.temper = "calm"
+        self._last_win_poll = -1e9
+        self._hop_at = 0.0
+        self._room_until = 0.0
+        self._room = False
+        self._gl_screen: pygame.Surface | None = None
         self.facing = 1
         self.scene = Scene((1, 1))
         self.low = pygame.Surface((1, 1))
@@ -95,6 +110,8 @@ class OverlayController:
         sp = self._sprite_px(snap)
         if self.window.panel is not None:
             w, h = PANEL_SIZE
+        elif not self.desktop.click_through and not (self._room or self.menu_open or self.chat_open or snap.dead):
+            w, h = sp + TIGHT_W, sp + TIGHT_H     # the window blocks clicks: stay close to the body
         else:
             w, h = max(300, sp + 120), sp + BASE_TOP
             if self.menu_open and not snap.dead:
@@ -109,7 +126,7 @@ class OverlayController:
         ww, wh = self._dims(snap)
         ax, ay, aw, ah = self.area
         wx = int(round(_clamp(self.x - ww / 2, ax, max(ax, ax + aw - ww))))
-        wy = ay + ah - wh
+        wy = int(round(_clamp(self.feet - wh, ay, max(ay, ay + ah - wh))))
         return (wx, wy, ww, wh)
 
     def _hwnd(self) -> int:
@@ -126,7 +143,15 @@ class OverlayController:
 
     def _resize(self, ww: int, wh: int) -> bool:
         self.size = (ww, wh)
-        self.window.screen = pygame.display.set_mode((ww, wh), pygame.NOFRAME)
+        self.desktop.prepare_window()
+        real = pygame.display.set_mode((ww, wh), pygame.NOFRAME | self.desktop.display_flags)
+        if self.desktop.offscreen:
+            # The real window is a GL surface; everything is drawn on a plain Surface that present() shows.
+            self._gl_screen = pygame.Surface((ww, wh))
+            self.window.screen = self._gl_screen
+        else:
+            self._gl_screen = None
+            self.window.screen = real
         try:
             pygame.key.start_text_input()
         except Exception:
@@ -147,6 +172,12 @@ class OverlayController:
             snap = self.window._snap
             self.hidden = False
             self.x = (self.strip.x0 + self.strip.x1) / 2
+            self.feet = float(self.strip.floor_y)
+            self.walker = Walker(random.Random(int((snap.look or {}).get("seed", 0))))
+            self.walker.place(self.x, self.feet)
+            self._hop_at = 0.0
+            self._last_win_poll = -1e9
+            self.wins, self.surfaces = [], []
             self._target = None
             self._rng = random.Random(int((snap.look or {}).get("seed", 0)))
             self._last_poll = -1e9
@@ -180,6 +211,10 @@ class OverlayController:
         self.hidden = False
         self.window.screen = pygame.display.set_mode(self.window.size)
         try:
+            pygame.display.set_caption("Engrama")
+        except Exception:
+            pass
+        try:
             pygame.key.start_text_input()
         except Exception:
             pass
@@ -199,76 +234,144 @@ class OverlayController:
         self.fg = self.desktop.foreground_rect() if allowed else None   # never touched without the permission
         near = False
         if self.cursor is not None:
-            cy = self.strip.floor_y - self._sprite_px(snap) / 2
+            cy = self.feet - self._sprite_px(snap) / 2
             near = math.hypot(self.cursor[0] - self.x, self.cursor[1] - cy) <= balance.CURSOR_NEAR_PX
         self.cursor_near = near
+        if now - self._last_win_poll >= 1.0 / max(1, balance.WINDOWS_POLL_HZ):
+            self._last_win_poll = now
+            try:
+                self.wins = list(self.desktop.windows())   # geometry only, never titles
+            except Exception:
+                self.wins = []
+            self.surfaces = edge_surfaces_for(self.wins, self.area, self._sprite_px(snap))
 
     @property
     def peek_ok(self) -> bool:
         return self.fg is not None
 
+    def _surface_list(self) -> list[Surface]:
+        st = self.strip
+        return [Surface(st.x0, st.x1, float(st.floor_y), "strip")] + self.surfaces
+
+    def _needs_room(self, snap, now: float) -> bool:
+        w = self.window
+        chat = w.chat
+        need = bool(snap.dead or w.digital_fx is not None or getattr(snap, "digital_request", "")
+                    or (chat.bubble and now < chat.bubble_until) or chat.busy)
+        if need:
+            self._room_until = now + ROOM_HOLD_S
+        return need or now < self._room_until
+
     def update(self, snap, dt: float, now: float) -> None:
         self._poll(snap, now)
         self.window.refresh_variant(snap)
+        self._room = self._needs_room(snap, now)
+        self.temper = temper_of(getattr(snap, "branch", ""), getattr(snap, "traits", None))
         if snap.fullscreen != self.hidden:
             self.hidden = bool(snap.fullscreen)
             self.desktop.show(self.hwnd, not self.hidden)
         if self.hidden:
             self.moving = False
             return
-        self._move(snap, dt)
+        self._move(snap, dt, now)
         self._apply_geometry(snap)
 
-    def _wander_target(self, strip: Strip) -> float | None:
-        if strip.x1 - strip.x0 < 8:
+    def _wander_target(self, lo: float, hi: float) -> float | None:
+        if hi - lo < 8:
             return None
-        if self._target is None or not strip.x0 <= self._target <= strip.x1:
-            self._target = self._rng.uniform(strip.x0, strip.x1)
+        if self._target is None or not lo <= self._target <= hi:
+            self._target = self._rng.uniform(lo, hi)
         return self._target
 
-    def _move(self, snap, dt: float) -> None:
+    def _plan_hop(self, surfaces: list[Surface], now: float) -> None:
+        wk = self.walker
+        lo, hi = balance.OVERLAY_HOP_S
+        if self._hop_at == 0.0:                       # just arrived: settle before the first outing
+            self._hop_at = now + self._rng.uniform(lo, hi)
+            return
+        if now < self._hop_at or wk.goal is not None or len(surfaces) < 2:
+            return
+        self._hop_at = now + self._rng.uniform(lo, hi)
+        top = self.surfaces[0] if self.surfaces else None     # topmost visible window = the active one
+        wk.choose_goal(surfaces, prefer=top)
+
+    def _move(self, snap, dt: float, now: float = 0.0) -> None:
         w = self.window
         strip = self.strip
+        wk = self.walker
         ax, _ay, aw, _ah = self.area
+        surfaces = self._surface_list()
+        wk.x = self.x
         frozen = (self.menu_open or self.chat_open or w.panel is not None or self._dragging or snap.dead
                   or snap.stage == "egg")
         self.moving = False
+        here = wk.support(surfaces)
+        lo, hi = (here.x0, here.x1) if here is not None else (strip.x0, strip.x1)
         if self._dragging:
-            self.x = _clamp(self.x, strip.x0, strip.x1)
+            self.x = _clamp(self.x, lo, hi)
+            wk.x = self.x
             return
         if frozen:
+            if wk.airborne:
+                self.moving = wk.update(dt, surfaces, None, 0.0)
+                self.x, self.feet, self.airborne = wk.x, wk.y, wk.airborne
             return
         action, variant = snap.action, w.variant
         target: float | None = None
+        speed = float(balance.OVERLAY_WALK_PX_S)
         hiding = action == "hide" and not snap.asleep
+        on_strip = here is None or here.kind == "strip"
+        if (snap.asleep or hiding) and not on_strip and wk.goal is None:
+            wk.goal = surfaces[0]                    # sleeping and hiding happen on the floor
         if snap.asleep:
-            if action == "sleep" and variant == "nap_clock":
+            if action == "sleep" and variant == "nap_clock" and on_strip:
                 target = strip.x1
+            elif action == "sleep" and on_strip:
+                target = strip.x1 if self.x >= (strip.x0 + strip.x1) / 2 else strip.x0   # a corner to curl up in
         elif hiding:
-            target = float(ax if self.x < ax + aw / 2 else ax + aw)   # half the body slides out of view
+            if on_strip:
+                target = float(ax if self.x < ax + aw / 2 else ax + aw)   # half the body slides out of view
         elif variant == "peek" and self.fg is not None:
             target = self.fg[0] + self.fg[2] / 2
         elif variant == "chase" and self.cursor is not None:
             target = float(self.cursor[0])
-        elif action in ("wander", "explore"):
-            target = self._wander_target(strip)
+        else:
+            react = self._react(snap, here, lo, hi) if action in CALM_ACTIONS else None
+            if react is not None:
+                target, speed = react
+            elif action in ("wander", "explore"):
+                target = self._wander_target(lo, hi)
+        if not snap.asleep and not hiding and action in CALM_ACTIONS:
+            self._plan_hop(surfaces, now)
         if target is not None and not hiding:
-            target = _clamp(target, strip.x0, strip.x1)
-        if target is None and not hiding and not strip.x0 <= self.x <= strip.x1:
-            target = _clamp(self.x, strip.x0, strip.x1)   # came back from hiding: walk into the strip
-        if target is not None:
-            step = balance.OVERLAY_WALK_PX_S * max(0.0, dt)
-            d = target - self.x
-            if abs(d) <= step:
-                self.x = target
-                if action in ("wander", "explore") and variant not in ("chase", "peek"):
-                    self._target = None
-            else:
-                self.x += step if d > 0 else -step
-                self.moving = True
-                self.facing = 1 if d > 0 else -1
-        if variant == "look_cursor" and self.cursor is not None and abs(self.cursor[0] - self.x) > 8:
+            target = _clamp(target, lo, hi)
+        if target is None and not hiding and here is not None and not lo <= self.x <= hi:
+            target = _clamp(self.x, lo, hi)   # came back from hiding: walk into the strip
+        old = self.x
+        self.moving = wk.update(dt, surfaces, target, speed)
+        self.x, self.feet, self.airborne = wk.x, wk.y, wk.airborne
+        if target is not None and not hiding and action in ("wander", "explore") and variant not in ("chase", "peek") \
+                and abs(self.x - target) < 1e-6:
+            self._target = None
+        if abs(self.x - old) > 0.01:
+            self.facing = 1 if self.x > old else -1
+        if (variant == "look_cursor" or self.temper == "curious" and self.cursor_near) and self.cursor is not None \
+                and abs(self.cursor[0] - self.x) > 8 and not self.moving:
             self.facing = 1 if self.cursor[0] > self.x else -1
+
+    def _react(self, snap, here: Surface | None, lo: float, hi: float) -> tuple[float, float] | None:
+        """Cursor reaction by temper: skittish flees, playful follows (curious only looks, see _move)."""
+        if self.cursor is None or not self.cursor_near or here is None:
+            return None
+        cx = float(self.cursor[0])
+        if self.temper == "skittish":
+            goal = flee_target(self.x, cx, Surface(lo, hi, here.y, here.kind))
+            if abs(goal - self.x) < 6 and self.walker.goal is None and len(self.surfaces) > 0:
+                self._hop_at = -1.0      # cornered: look for another ledge now
+            return goal, float(balance.OVERLAY_FLEE_PX_S)
+        if self.temper == "playful" and abs(cx - self.x) > 70:
+            return cx, float(balance.OVERLAY_WALK_PX_S)
+        return None
 
     def _apply_geometry(self, snap) -> None:
         rect = self._layout(snap)
@@ -278,6 +381,12 @@ class OverlayController:
             self.rect = rect
             self._last_rect = rect
             self.desktop.place(self.hwnd, rect)
+
+    def present(self, screen: pygame.Surface | None = None) -> None:
+        """Flip the finished frame (offscreen desktops upload the surface to their GL window first)."""
+        if self.desktop.offscreen and self._gl_screen is not None:
+            self.desktop.present(self._gl_screen)
+        pygame.display.flip()
 
     # ---------------------------------------------------------------- drawing
     def _creature_screen_rect(self) -> pygame.Rect:
@@ -296,7 +405,9 @@ class OverlayController:
             self._sig = None
             return False
         r = self.scene.creature_rect
-        sig = (self.low.get_buffer().raw, self.size, self.rect, hud.mood_kind(snap), bool(snap.grave), bool(snap.sick),
+        # Where the window sits does not change what it shows; only desktops that repaint on every move need it.
+        where = self.rect if self.desktop.click_through else self.size
+        sig = (self.low.get_buffer().raw, self.size, where, hud.mood_kind(snap), bool(snap.grave), bool(snap.sick),
                (r.x, r.y, r.w, r.h))
         if sig == self._sig and self._sig_screen is screen and 0.0 <= now - self._sig_at < 2.0:
             return True
@@ -309,10 +420,11 @@ class OverlayController:
         self.low.fill(COLORKEY)
         scene_snap = dataclasses.replace(snap, action="idle") if snap.action == "hide" else snap
         pos_x = int((self.x - self.rect[0]) / SCALE)
+        ground = max(0, min(self.low.get_height(), int(round((self.feet - self.rect[1]) / SCALE))))
         flip = self.facing < 0 and not snap.dead
         self.scene.draw(self.low, scene_snap, now, eating=now_mono() < w.eat_until, variant=w.variant,
                         background=False, item=w.variant_item, flip=flip, pos_x=pos_x,
-                        ground=self.low.get_height())
+                        ground=ground)
         if self._identical(screen, snap, now):
             return False
         pygame.transform.scale(self.low, self.size, screen)   # nearest neighbour: COLORKEY stays exact

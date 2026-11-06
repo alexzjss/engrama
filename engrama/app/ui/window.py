@@ -248,6 +248,8 @@ class Window:
         else:
             base = balance.FPS_FOCUSED if self._busy_ui() else balance.FPS_STILL
         if self.mode == "overlay" and self._overlay is not None and self._overlay.moving:
+            if self._overlay.airborne:
+                return max(base, balance.FPS_OVERLAY_AIR)
             return max(base, balance.FPS_OVERLAY_MOVING)   # walking needs a few more frames than standing
         return base
 
@@ -398,7 +400,7 @@ class Window:
             ov = self.overlay
             ov.update(snap, dt, now)
             if not ov.hidden and ov.draw(self.screen, snap, now) is not False:
-                pygame.display.flip()
+                ov.present()
             return
         self.refresh_variant(snap)
         self.scene.draw(self.low, snap, now, eating=time.monotonic() < self.eat_until, variant=self.variant,

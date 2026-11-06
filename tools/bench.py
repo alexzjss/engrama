@@ -133,7 +133,8 @@ def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict
     data_dir.mkdir(parents=True, exist_ok=True)
     cfg = Config(data_dir=data_dir)
     host = Host(cfg, data_dir, ROOT / "engrama" / "recipes" / "default-v1.toml", seed=1)
-    desk = FakeDesktop(work=(0, 0, 1920, 1040), cur=(900, 500))
+    # M17: two fake windows (one drifting) so the creature also hops, perches and falls during the bench
+    desk = FakeDesktop(work=(0, 0, 1920, 1040), cur=(900, 500), wins=[(300, 300, 600, 500), (1000, 500, 500, 400)])
     window = Window(host.snapshot, host.post)
     window.desktop = desk
     window.config = cfg
@@ -149,6 +150,7 @@ def bench_overlay(seconds: float, data_dir: Path, sample_s: float = 0.5) -> dict
     while time.perf_counter() - wall0 < seconds:
         el = time.perf_counter() - wall0
         desk.cur = (int(960 + 800 * math.sin(el / 3.0)), int(500 + 300 * math.sin(el / 5.0)))   # fake cursor
+        desk.wins[1] = (1000 + int(200 * math.sin(el / 4.0)), 500, 500, 400)
         for e in pygame.event.get():
             if e.type != pygame.WINDOWFOCUSGAINED:   # the dummy driver "focuses" the window; the real overlay never has focus
                 window.handle_event(e)

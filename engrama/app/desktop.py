@@ -11,6 +11,8 @@ import sys
 import numpy as np
 import pygame
 
+from engrama.app.glpresent import GLPresenter
+from engrama.osapi import hyprland
 from engrama.osapi.session import detect
 from engrama.osapi.x11 import X11
 
@@ -23,6 +25,9 @@ _FALLBACK_WORK: Rect = (0, 0, 1280, 720)
 class Desktop:
     available: bool = False
     unavailable_reason: str = ""
+    click_through: bool = True       # False: the OS cannot let clicks fall through transparent pixels (window stays tight)
+    display_flags: int = 0           # extra pygame.display.set_mode flags for the overlay window (OPENGL on Wayland)
+    offscreen: bool = False          # True: the overlay draws on a plain Surface that present() shows
 
     def work_area(self) -> Rect:
         return _FALLBACK_WORK
@@ -31,6 +36,18 @@ class Desktop:
         return None
 
     def foreground_rect(self) -> Rect | None:
+        return None
+
+    def windows(self) -> list[Rect]:
+        """Visible top-level windows (x, y, w, h), topmost first. Geometry only: never titles, classes or PIDs."""
+        return []
+
+    def prepare_window(self) -> None:
+        """Called right before the overlay window is (re)created."""
+        return None
+
+    def present(self, surface: pygame.Surface) -> None:
+        """Show the offscreen overlay surface (only for desktops with offscreen = True)."""
         return None
 
     def make_overlay(self, hwnd: int) -> bool:
@@ -62,10 +79,11 @@ class FakeDesktop(Desktop):
     available = True
 
     def __init__(self, work: Rect = _FALLBACK_WORK, cur: tuple[int, int] | None = None,
-                 fg: Rect | None = None) -> None:
+                 fg: Rect | None = None, wins: list[Rect] | None = None) -> None:
         self.work = work
         self.cur = cur
         self.fg = fg
+        self.wins: list[Rect] = list(wins or [])
         self.calls: list[tuple] = []
         self._last: dict[int, Rect] = {}
         self._shape: dict[int, tuple] = {}
@@ -78,6 +96,9 @@ class FakeDesktop(Desktop):
 
     def foreground_rect(self) -> Rect | None:
         return self.fg
+
+    def windows(self) -> list[Rect]:
+        return list(self.wins)
 
     def make_overlay(self, hwnd: int) -> bool:
         self.calls.append(("make_overlay", hwnd))
@@ -127,8 +148,27 @@ _SWP_FRAMECHANGED = 0x0020
 _SWP_NOOWNERZORDER = 0x0200
 _HWND_TOPMOST = -1
 _HWND_NOTOPMOST = -2
+_DWMWA_CLOAKED = 14
+_DWMWA_EXTENDED_FRAME_BOUNDS = 9
+_SHELL_CLASSES = frozenset({"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Windows.UI.Core.CoreWindow"})
 _SW_HIDE = 0
 _SW_SHOWNA = 8
+
+
+def filter_win_windows(entries: list[dict]) -> list[Rect]:
+    """Keep the real, visible app windows (pure; `entries` come from EnumWindows, already topmost first)."""
+    out: list[Rect] = []
+    for e in entries:
+        try:
+            if e.get("cloaked") or e.get("minimized") or e.get("toolwindow") or e.get("cls") in _SHELL_CLASSES:
+                continue
+            x, y, w, h = (int(v) for v in e["rect"])
+            if w < 40 or h < 24 or x <= -30000 or y <= -30000:    # minimized windows park at -32000
+                continue
+            out.append((x, y, w, h))
+        except Exception:
+            continue
+    return out
 
 
 class WinDesktop(Desktop):
@@ -230,6 +270,43 @@ class WinDesktop(Desktop):
             return (int(r.left), int(r.top), int(r.right - r.left), int(r.bottom - r.top))
         except Exception:
             return None
+
+    def windows(self) -> list[Rect]:
+        try:
+            return self._enum_windows()
+        except Exception:
+            return []
+
+    def _enum_windows(self) -> list[Rect]:
+        ct, wt, u = self._ct, self._wt, self._u
+        dwm = ct.windll.dwmapi  # type: ignore[attr-defined]
+        own = self._own_hwnd()
+        entries: list[dict] = []
+
+        @ct.WINFUNCTYPE(wt.BOOL, wt.HWND, wt.LPARAM)
+        def cb(hwnd, _lparam):
+            try:
+                h = int(hwnd)
+                if h == own or h in self._orig or not u.IsWindowVisible(hwnd):
+                    return True
+                cloaked = wt.DWORD(0)
+                dwm.DwmGetWindowAttribute(hwnd, _DWMWA_CLOAKED, ct.byref(cloaked), ct.sizeof(cloaked))
+                r = wt.RECT()
+                if dwm.DwmGetWindowAttribute(hwnd, _DWMWA_EXTENDED_FRAME_BOUNDS, ct.byref(r), ct.sizeof(r)) != 0 \
+                        and not u.GetWindowRect(hwnd, ct.byref(r)):
+                    return True
+                ex = int(self._get(h, _GWL_EXSTYLE))
+                buf = ct.create_unicode_buffer(64)
+                u.GetClassNameW(hwnd, buf, 64)
+                entries.append({"rect": (int(r.left), int(r.top), int(r.right - r.left), int(r.bottom - r.top)),
+                                "cloaked": bool(cloaked.value), "minimized": bool(u.IsIconic(hwnd)),
+                                "toolwindow": bool(ex & _WS_EX_TOOLWINDOW), "cls": buf.value})
+            except Exception:
+                pass
+            return True
+
+        u.EnumWindows(cb, 0)     # EnumWindows already walks top to bottom
+        return filter_win_windows(entries)
 
     def make_overlay(self, hwnd: int) -> bool:
         try:
@@ -343,6 +420,12 @@ class X11Desktop(Desktop):
         except Exception:
             return None
 
+    def windows(self) -> list[Rect]:
+        try:
+            return self._x.windows(os.getpid())
+        except Exception:
+            return []
+
     def make_overlay(self, hwnd: int) -> bool:
         try:
             win = self._win()
@@ -408,6 +491,158 @@ class X11Desktop(Desktop):
             pass
 
 
+OVERLAY_CLASS = "engrama-overlay"      # app_id of the overlay window on Wayland (the Hyprland rules match it)
+
+
+class HyprlandDesktop(Desktop):
+    """Overlay on Hyprland, native Wayland (M17).
+
+    SDL2 on Wayland cannot position a window nor pass clicks through transparent pixels, so: transparency comes
+    from an EGL surface with alpha (GLPresenter), position and flags from Hyprland (window rules + IPC dispatch),
+    and the window stays tight around the creature (click_through = False) so it blocks as little as possible.
+    """
+
+    available = True
+    click_through = False
+    display_flags = pygame.OPENGL
+    offscreen = True
+    _WORK_TTL = 1.0
+    _CURSOR_TTL = 0.18       # the cursor is read over IPC: 5 times a second is plenty for "is it near me"
+
+    def __init__(self, env=None, clock=None) -> None:
+        import time
+        self._env = env
+        self._clock = clock or time.monotonic
+        self._ipc = hyprland
+        self._gl = GLPresenter(COLORKEY)
+        self._rules_done = False
+        self._fresh = False           # the overlay toplevel was created with our app_id
+        self._last: Rect | None = None
+        self._work: tuple[float, Rect] | None = None
+        self._cursor: tuple[float, tuple[int, int] | None] | None = None
+
+    def _win(self):
+        try:
+            return pygame.Window.from_display_module()
+        except Exception:
+            return None
+
+    def work_area(self) -> Rect:
+        now = self._clock()
+        if self._work is not None and now - self._work[0] < self._WORK_TTL:
+            return self._work[1]
+        try:
+            r = self._ipc.work_area(self._env)
+        except Exception:
+            r = None
+        if r is None:
+            return self._work[1] if self._work else _FALLBACK_WORK
+        self._work = (now, r)
+        return r
+
+    def cursor(self) -> tuple[int, int] | None:
+        now = self._clock()
+        if self._cursor is not None and now - self._cursor[0] < self._CURSOR_TTL:
+            return self._cursor[1]
+        try:
+            pos = self._ipc.cursor_pos(self._env)
+        except Exception:
+            pos = None
+        self._cursor = (now, pos)
+        return pos
+
+    def foreground_rect(self) -> Rect | None:
+        try:
+            a = self._ipc.active_window(self._env)
+            if a is None or a.rect is None or a.pid == os.getpid() or a.cls == OVERLAY_CLASS:
+                return None
+            return tuple(a.rect)  # type: ignore[return-value]
+        except Exception:
+            return None
+
+    def windows(self) -> list[Rect]:
+        try:
+            return self._ipc.windows(self._env, own_pid=os.getpid(), own_class=OVERLAY_CLASS)
+        except Exception:
+            return []
+
+    def prepare_window(self) -> None:
+        os.environ["SDL_VIDEO_EGL_ALLOW_TRANSPARENCY"] = "1"
+        os.environ["SDL_VIDEO_WAYLAND_WMCLASS"] = OVERLAY_CLASS
+        if not self._rules_done:
+            self._rules_done = bool(self._ipc.apply_overlay_rules(OVERLAY_CLASS, self._env))
+        if not self._fresh:
+            self._recreate_display()     # SDL fixes the Wayland app_id when the toplevel is created
+            self._fresh = True
+        try:
+            pygame.display.gl_set_attribute(pygame.GL_ALPHA_SIZE, 8)      # EGL config with an alpha channel
+            pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MAJOR_VERSION, 2)
+            pygame.display.gl_set_attribute(pygame.GL_CONTEXT_MINOR_VERSION, 1)
+        except Exception:
+            pass
+        self._gl.reset()
+        self._last = None
+
+    @staticmethod
+    def _recreate_display() -> None:
+        try:
+            pygame.display.quit()
+            pygame.display.init()
+        except Exception:
+            pass
+
+    def make_overlay(self, hwnd: int) -> bool:
+        self._last = None
+        return self._gl.ok and self._rules_done
+
+    def present(self, surface: pygame.Surface) -> None:
+        try:
+            self._gl.present(surface)
+        except Exception:
+            pass
+
+    def place(self, hwnd: int, rect: Rect) -> None:
+        try:
+            rect = tuple(int(v) for v in rect)  # type: ignore[assignment]
+            if self._last is not None and self._last[:2] == rect[:2]:
+                return
+            if self._ipc.move_window(OVERLAY_CLASS, rect[0], rect[1], self._env):
+                self._last = rect
+        except Exception:
+            pass
+
+    def show(self, hwnd: int, visible: bool) -> None:
+        try:
+            win = self._win()
+            if win is not None:
+                win.show() if visible else win.hide()
+        except Exception:
+            pass
+
+    def restore(self, hwnd: int) -> None:
+        self._last = None
+        self._gl.reset()
+        os.environ.pop("SDL_VIDEO_WAYLAND_WMCLASS", None)
+        if self._fresh:
+            self._fresh = False
+            self._recreate_display()     # the next window is the ordinary terrarium one, outside the overlay rules
+
+
+def prefer_wayland_on_hyprland(env=None) -> bool:
+    """On Hyprland, ask SDL for its native Wayland driver (XWayland ignores the window shape), unless the user chose one."""
+    env = os.environ if env is None else env
+    if env.get("SDL_VIDEODRIVER") or sys.platform == "win32":
+        return False
+    try:
+        s = detect(env)
+    except Exception:
+        return False
+    if s.kind == "wayland" and s.compositor == "hyprland":
+        env["SDL_VIDEODRIVER"] = "wayland"
+        return True
+    return False
+
+
 def get_desktop() -> Desktop:
     if os.environ.get("SDL_VIDEODRIVER") == "dummy":
         return NullDesktop("unsupported")
@@ -420,6 +655,8 @@ def get_desktop() -> Desktop:
         try:
             kind = detect().kind
             if kind == "wayland":
+                if detect().compositor == "hyprland" and pygame.display.get_driver() == "wayland":
+                    return HyprlandDesktop()
                 return NullDesktop("wayland")
             if kind == "x11" and pygame.display.get_driver() == "x11":
                 x = X11.open()

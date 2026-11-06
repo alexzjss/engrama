@@ -165,7 +165,7 @@
   "ui.overlay.unavailable": "Modo sobreposição indisponível neste sistema; ficando no terrário.",
   "ui.overlay.back": "Voltar ao terrário",
   "ui.overlay.talk": "Conversar",
-  "ui.overlay.unavailable_wayland": "O overlay ainda não funciona no Wayland",
+  "ui.overlay.unavailable_wayland": "O overlay só funciona no Hyprland (Wayland) por enquanto",
   "ui.perm.hotkey_wayland": "No Wayland, crie um atalho do sistema que rode: engrama --eyes toggle",
   "cli.eyes.not_running": "O Engrama não está rodando.",
   "cli.eyes.windows": "No Windows, use o atalho global dos olhos.",

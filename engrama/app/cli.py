@@ -96,6 +96,8 @@ def _main(argv: list[str] | None, held: list) -> int:
     import signal
     import sys
     import pygame
+    from engrama.app.desktop import prefer_wayland_on_hyprland
+    prefer_wayland_on_hyprland()
     from engrama.app.ui.menus import ModelsPanel, SettingsPanel
     from engrama.app.ui.window import Window
     from engrama.config import Config, default_data_dir
