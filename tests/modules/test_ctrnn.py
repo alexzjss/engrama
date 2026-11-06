@@ -177,5 +177,6 @@ def test_step_within_budget():
     assert ms <= B.EXP_BUDGET_MS
 
 
+@pytest.mark.slow
 def test_shadow_ctrnn_live_identical_to_default():
     K.assert_same_live_actions(K.recipe("shadow-ctrnn-v1"), K.recipe("default-v1"))

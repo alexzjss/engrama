@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 import tempfile
 import time
 from pathlib import Path
