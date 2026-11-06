@@ -165,7 +165,7 @@
   "ui.overlay.unavailable": "Overlay mode isn't available on this system; staying in the terrarium.",
   "ui.overlay.back": "Back to the terrarium",
   "ui.overlay.talk": "Talk",
-  "ui.overlay.unavailable_wayland": "The overlay does not work on Wayland yet",
+  "ui.overlay.unavailable_wayland": "The overlay only works on Hyprland under Wayland (for now)",
   "ui.perm.hotkey_wayland": "On Wayland, create a system shortcut that runs: engrama --eyes toggle",
   "cli.eyes.not_running": "Engrama is not running.",
   "cli.eyes.windows": "On Windows, use the global eyes shortcut.",

@@ -7,7 +7,7 @@
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.16.0](https://img.shields.io/badge/version-0.16.0-blue)
+![Version 0.17.0](https://img.shields.io/badge/version-0.17.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Linhagens: ovo até a forma final, seis criaturas](docs/images/lineages.png)
@@ -111,8 +111,8 @@ flowchart LR
 | **Memória viva** | Fatos sobre você, assuntos (atuais e passados), opiniões próprias (ela pode discordar de você) e reflexões depois de conversas. Você vê e apaga tudo no painel Memórias (F7). |
 | **Busca por significado (opcional)** | Com um modelo de embedding, ela lembra pelo sentido, mesmo entre idiomas. Sem ele, tudo funciona por palavras. |
 | **Percepção do PC (opt-in)** | Com a sua permissão, fonte por fonte: app em foco, título da janela, ociosidade, horário, tela cheia, carga do PC. Só categoria e tema curto são guardados. Olhos fechados pausa tudo. |
-| **Presença** | Modo terrário (janela) ou sobreposição: ela anda sobre a barra de tarefas, numa janela transparente sem borda. Mini-menu, mundo digital de brincadeira, variantes de ação por humor e personalidade. Arraste um arquivo para ela comentar. |
-| **Windows e Linux** | Windows completo; Linux com X11 (tudo) e Wayland (percepção conforme o compositor, sem overlay). |
+| **Presença** | Modo terrário (janela) ou sobreposição: ela anda sobre a barra de tarefas e sobre a borda de cima das janelas abertas (senta na janela ativa, pula entre bordas, cai quando a janela some, dorme num canto), numa janela transparente sem borda. Reage ao cursor pelo temperamento: o curioso olha, o brincalhão segue, o arisco foge. Só a geometria das janelas é lida, nunca o título. Mini-menu, mundo digital de brincadeira, variantes de ação por humor e personalidade. Arraste um arquivo para ela comentar. |
+| **Windows e Linux** | Windows completo; Linux com X11 (tudo) e Wayland (percepção conforme o compositor; overlay no Hyprland). |
 | **Laboratório de experimentos** | Simule semanas de vida em segundos, compare receitas de mente, rode experimentos de ML opcionais (CTRNN, modelo de mundo com curiosidade, Thompson, inferência ativa). |
 
 ### Como a criatura "pensa"
@@ -284,18 +284,19 @@ O que a sessão não oferece fica inerte, sem erro. No Windows nada mudou.
 | Sessão | App em foco, título, tela cheia | Ociosidade | Atalho dos olhos | Overlay (F11) |
 |---|---|---|---|---|
 | X11 (qualquer gerenciador EWMH) | sim | sim (XScreenSaver) | sim, global (`ctrl+alt+e`) | sim |
-| Wayland: Hyprland | sim (IPC do Hyprland) | sim (`ext-idle-notify`) | comando `engrama --eyes toggle` | não (aviso no F11) |
+| Wayland: Hyprland | sim (IPC do Hyprland) | sim (`ext-idle-notify`) | comando `engrama --eyes toggle` | sim (Wayland nativo + regras do Hyprland) |
 | Wayland: Sway | sim (IPC do Sway) | sim (`ext-idle-notify`) | comando `engrama --eyes toggle` | não (aviso no F11) |
 | Wayland: KDE (Plasma 6) | não | sim (`ext-idle-notify` ou DBus) | comando `engrama --eyes toggle` | não (aviso no F11) |
 | Wayland: GNOME | não | sim (DBus do Mutter) | comando `engrama --eyes toggle` | não (aviso no F11) |
 
 - Sessão Wayland nunca usa X11: mesmo com `DISPLAY` presente (XWayland), percepção e overlay não consultam o X.
+- **Overlay no Hyprland (M17):** o app usa a janela Wayland nativa do SDL (num Hyprland, ele já escolhe `SDL_VIDEODRIVER=wayland` se você não definiu nada). A transparência vem de uma superfície OpenGL com alfa, e a posição e as flags vêm do próprio Hyprland: ao ligar o overlay o Engrama registra, na sessão em andamento, regras para a janela de classe `engrama-overlay` (flutuante, fixa, sem borda, sombra, desfoque nem animação, sem foco inicial) e a move por `hyprctl dispatch`. Nada é gravado nos seus arquivos de configuração; as regras somem no próximo `hyprctl reload` (ligar o overlay de novo as refaz). Funciona com a sintaxe Lua (Hyprland 0.5x) e com a antiga. O SDL2 não deixa o clique atravessar pixels transparentes no Wayland, então a janela fica justa em volta do corpo e só cresce para balões, menu, conversa e painéis.
 - O Engrama nunca mexe na configuração do compositor. Ligue `engrama --eyes toggle` a um atalho seu. Como o app costuma rodar do ambiente virtual, use o caminho completo (ou `python -m engrama --eyes toggle` na pasta do repositório; sem `--data-dir`, os dois usam a pasta de dados padrão):
   - Hyprland (`~/.config/hypr/hyprland.conf`): `bind = CTRL ALT, E, exec, /caminho/do/engrama/.venv/bin/engrama --eyes toggle`
   - Sway (`~/.config/sway/config`): `bindsym ctrl+alt+e exec /caminho/do/engrama/.venv/bin/engrama --eyes toggle`
   - KDE: Configurações do Sistema > Atalhos > Adicionar comando, com o mesmo comando.
   - GNOME: Configurações > Teclado > Atalhos personalizados, com o mesmo comando.
-- Em Wayland o F11 mostra "o overlay ainda não funciona no Wayland" e fica no terrário.
+- Nos outros compositores Wayland (Sway, KDE, GNOME) o F11 mostra "o overlay só funciona no Hyprland (Wayland) por enquanto" e fica no terrário.
 
 ## Arte
 
@@ -441,11 +442,12 @@ python tools/calibrate_sem.py --out resultado.json --md resultado.md            
 | M14 | Animação de membros e poses por família (pernas, braços, caudas, asas, nadadeiras) | feito |
 | M15 | Distribuição: pasta de dados do sistema, Ollama sem disco fixo, pacotes Windows e Linux, atalho e início automático opcional | feito |
 | M16 | Saúde 2: CI verde, testes mais rápidos | feito |
+| M17 | Habitação no desktop: overlay no Hyprland, geometria das janelas, andar nas bordas, pular, cair, reagir ao cursor | feito |
 
 **Limitações conhecidas**
 
 - Smokes manuais de alguns marcos continuam pendentes de relato (por exemplo a busca por significado com o modelo real baixado).
-- Overlay não funciona em Wayland (só X11 e Windows).
+- Overlay: funciona em Windows, X11 e Hyprland. Em Sway, KDE e GNOME (Wayland) ainda não. No Hyprland o clique não atravessa a janela justa em volta do corpo, e o conversar (teclado) depende de o Hyprland dar foco à janela (com `follow_mouse` ligado ele passa o foco quando o cursor está sobre ela).
 - No Wayland, KDE e GNOME não expõem app em foco/título/tela cheia à percepção.
 - Os experimentos de ML não foram promovidos: o padrão continua sendo `default-v1`.
 - O orçamento de 2% de CPU é por núcleo; em notebooks de baixo consumo o número medido pode ser maior que no PC de referência.
@@ -471,7 +473,7 @@ Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.16.0](https://img.shields.io/badge/version-0.16.0-blue)
+![Version 0.17.0](https://img.shields.io/badge/version-0.17.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Lineages: egg to final form, six creatures](docs/images/lineages.png)
@@ -575,8 +577,8 @@ flowchart LR
 | **Living memory** | Facts about you, topics (current and past), opinions of its own (it may disagree with you) and reflections after conversations. You see and delete everything in the Memories panel (F7). |
 | **Semantic search (optional)** | With an embedding model it remembers by meaning, even across languages. Without it, everything works by words. |
 | **PC perception (opt-in)** | With your permission, source by source: focused app, window title, idle time, time of day, fullscreen, PC load. Only a category and a short topic are stored. Closed eyes pauses everything. |
-| **Presence** | Terrarium (window) or overlay mode: it walks on the taskbar in a borderless transparent window. Mini-menu, a playful digital world, action variants by mood and personality. Drag a file onto it and it comments. |
-| **Windows and Linux** | Full on Windows; on Linux, X11 (everything) and Wayland (perception depending on the compositor, no overlay). |
+| **Presence** | Terrarium (window) or overlay mode: it walks on the taskbar and on the top edges of open windows (sits on the active window, hops between edges, falls when the window goes away, sleeps in a corner), in a borderless transparent window. It reacts to the cursor by temperament: curious ones look, playful ones follow, skittish ones flee. Only window geometry is read, never titles. Mini-menu, a playful digital world, action variants by mood and personality. Drag a file onto it and it comments. |
+| **Windows and Linux** | Full on Windows; on Linux, X11 (everything) and Wayland (perception depending on the compositor; overlay on Hyprland). |
 | **Experiment lab** | Simulate weeks of life in seconds, compare mind recipes, run optional ML experiments (CTRNN, world model with curiosity, Thompson, active inference). |
 
 ### How the creature "thinks"
@@ -748,7 +750,7 @@ What the session does not offer stays inert, without error. Nothing changed on W
 | Session | Focused app, title, fullscreen | Idle time | Eyes hotkey | Overlay (F11) |
 |---|---|---|---|---|
 | X11 (any EWMH window manager) | yes | yes (XScreenSaver) | yes, global (`ctrl+alt+e`) | yes |
-| Wayland: Hyprland | yes (Hyprland IPC) | yes (`ext-idle-notify`) | `engrama --eyes toggle` command | no (notice on F11) |
+| Wayland: Hyprland | yes (Hyprland IPC) | yes (`ext-idle-notify`) | `engrama --eyes toggle` command | yes (native Wayland + Hyprland rules) |
 | Wayland: Sway | yes (Sway IPC) | yes (`ext-idle-notify`) | `engrama --eyes toggle` command | no (notice on F11) |
 | Wayland: KDE (Plasma 6) | no | yes (`ext-idle-notify` or DBus) | `engrama --eyes toggle` command | no (notice on F11) |
 | Wayland: GNOME | no | yes (Mutter DBus) | `engrama --eyes toggle` command | no (notice on F11) |
@@ -759,7 +761,8 @@ What the session does not offer stays inert, without error. Nothing changed on W
   - Sway (`~/.config/sway/config`): `bindsym ctrl+alt+e exec /path/to/engrama/.venv/bin/engrama --eyes toggle`
   - KDE: System Settings > Shortcuts > Add command, with the same command.
   - GNOME: Settings > Keyboard > Custom shortcuts, with the same command.
-- On Wayland, F11 shows "the overlay does not work on Wayland yet" and stays in the terrarium.
+- On the other Wayland compositors (Sway, KDE, GNOME), F11 shows "the overlay only works on Hyprland under Wayland (for now)" and stays in the terrarium.
+- **Overlay on Hyprland (M17):** the app uses SDL's native Wayland window (on Hyprland it picks `SDL_VIDEODRIVER=wayland` itself when you set nothing). Transparency comes from an OpenGL surface with alpha; position and flags come from Hyprland: when the overlay turns on, Engrama registers, in the running session, rules for the window with class `engrama-overlay` (floating, pinned, no border, shadow, blur or animation, no initial focus) and moves it with `hyprctl dispatch`. Nothing is written to your config files; the rules go away on the next `hyprctl reload` (turning the overlay on again recreates them). It works with the Lua syntax (Hyprland 0.5x) and the old one. SDL2 cannot let clicks fall through transparent pixels on Wayland, so the window stays tight around the body and only grows for bubbles, menu, chat and panels.
 
 ## Art
 
@@ -904,11 +907,12 @@ python tools/calibrate_sem.py --out result.json --md result.md                  
 | M14 | Limb animation and per-family poses (legs, arms, tails, wings, fins) | done |
 | M15 | Distribution: OS data folder, Ollama without a fixed drive, Windows and Linux bundles, shortcut and opt-in autostart | done |
 | M16 | Health 2: green CI, faster tests | done |
+| M17 | Desktop habitation: overlay on Hyprland, window geometry, walking on edges, hopping, falling, reacting to the cursor | done |
 
 **Known limitations**
 
 - Manual smoke tests of some milestones are still pending a report (for example semantic search with the real downloaded model).
-- The overlay does not work on Wayland (X11 and Windows only).
+- Overlay: works on Windows, X11 and Hyprland. Not yet on Sway, KDE and GNOME (Wayland). On Hyprland clicks do not pass through the tight window around the body, and chat (keyboard) depends on Hyprland giving the window focus (with `follow_mouse` on it hands focus over while the cursor is over it).
 - On Wayland, KDE and GNOME do not expose focused app/title/fullscreen to perception.
 - The ML experiments were not promoted: the default is still `default-v1`.
 - The 2% CPU budget is per core; on low-power laptops the measured number may be higher than on the reference PC.
