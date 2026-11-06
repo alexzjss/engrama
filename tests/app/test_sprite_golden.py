@@ -64,6 +64,7 @@ def test_seeds_cover_every_family_and_plan():
     assert combos == {(f, p) for f in vpet.FAMILIES for p in range(3)}
 
 
+@pytest.mark.slow
 def test_sprite_golden_hashes():
     current = _compute()
     if os.environ.get("ENGRAMA_REGEN_GOLDEN") == "1":

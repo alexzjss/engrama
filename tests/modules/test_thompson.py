@@ -145,6 +145,7 @@ def test_recipe_is_default_with_thompson():
     assert rec.name == "thompson-v1"
 
 
+@pytest.mark.slow
 def test_thompson_runs_attentive_three_days():
     rt = K.run_clean(K.recipe("thompson-v1"), 3.0)
     assert rt.kernel.t > 0

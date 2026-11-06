@@ -1,5 +1,7 @@
 import random
 
+import pytest
+
 from engrama.services.language.initiative import InitiativePolicy
 from tests.services.language.test_initiative import make, run
 from tests.services.language.test_reflection import Client, make as make_svc, ready
@@ -19,6 +21,7 @@ def test_initiative_ancestral_rare_and_quota(tmp_path):
     s.close()
 
 
+@pytest.mark.slow
 def test_initiative_ancestral_is_minority(tmp_path):
     s, clock = make(tmp_path)
     s.add_episode("ancestral", "sonho raro", 0.0, 0.6)

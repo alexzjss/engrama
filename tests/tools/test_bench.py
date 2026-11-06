@@ -16,6 +16,7 @@ def dummy_sdl(monkeypatch):
     monkeypatch.setenv("SDL_AUDIODRIVER", "dummy")
 
 
+@pytest.mark.slow
 def test_bench_app_steady_state_config(tmp_path):
     d = tmp_path / "steady"
     d.mkdir()
@@ -30,6 +31,7 @@ def test_bench_app_steady_state_config(tmp_path):
     assert not (d2 / "config.json").exists() or not json.loads((d2 / "config.json").read_text(encoding="utf-8")).get("perception_asked")
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="/proc only")
 def test_bench_threads_key_on_linux(tmp_path):
     d = tmp_path / "thr"

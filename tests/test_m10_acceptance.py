@@ -104,6 +104,7 @@ def test_every_new_recipe_save_load_identical(name, tmp_path):
 
 # 4 -- shadows -----------------------------------------------------------------------------------------
 
+@pytest.mark.slow
 @pytest.mark.parametrize("name", SHADOWS)
 def test_shadows_keep_live_identical(name):
     K.assert_same_live_actions(K.recipe(name), K.recipe("default-v1"), days=2.0)

@@ -170,6 +170,7 @@ def test_state_dict_version_and_viz():
     assert set(m.lab_metrics()) == {"novelty_share", "g_spread_mean", "pragmatic_mean"}
 
 
+@pytest.mark.slow
 def test_recipe_runs_clean():
     rec = kit.recipe("aif-v1")
     assert [m.type for m in rec.modules].count("policy.aif") == 1
