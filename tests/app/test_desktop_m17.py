@@ -85,16 +85,22 @@ def test_hyprland_work_area_is_cached_for_a_second():
     assert d.work_area() == (0, 0, 10, 10)
 
 
-def test_hyprland_place_moves_only_on_change_and_retries_failures():
-    d = hypr()
+def test_hyprland_place_moves_only_on_change_throttled_and_retries_failures():
+    t = [0.0]
+    d = hypr(lambda: t[0])
     d.place(0, (10, 20, 100, 50))
     d.place(0, (10, 20, 120, 60))        # same position, new size: no move
+    t[0] = 1.0
     d.place(0, (11, 20, 100, 50))
+    d.place(0, (12, 20, 100, 50))        # too soon: held back
     assert d._ipc.moved == [(10, 20), (11, 20)]
+    t[0] = 1.2
+    d.cursor()                           # the next poll flushes the last position
+    assert d._ipc.moved[-1] == (12, 20) and d._pending is None
     d._ipc.move_window = lambda *a, **k: False
+    t[0] = 3.0
     d.place(0, (50, 50, 1, 1))
-    d._ipc.move_window = FakeIpc().move_window
-    assert d._last[:2] == (11, 20)       # a failed move is not remembered
+    assert d._last[:2] == (12, 20)       # a failed move is not remembered
 
 
 def test_hyprland_prepare_installs_rules_once_and_sets_env(monkeypatch):
@@ -164,7 +170,8 @@ def test_presenter_uploads_a_texture_and_draws_a_quad():
     s = pygame.Surface((4, 4))
     p.present(s)
     p.present(s)
-    assert gl.calls.count("glGenTextures") == 1 and gl.calls.count("glTexImage2D") == 2
+    assert gl.calls.count("glGenTextures") == 1 and gl.calls.count("glTexImage2D") == 1
+    assert gl.calls.count("glTexSubImage2D") == 1
     assert gl.calls.count("glVertex2f") == 8
     p.reset()
     p.present(s)

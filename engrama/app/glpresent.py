@@ -34,7 +34,9 @@ def load_gl(find=ctypes.util.find_library, cdll=ctypes.CDLL):
                 "glEnable": [c.c_uint], "glDisable": [c.c_uint], "glGenTextures": [c.c_int, c.POINTER(c.c_uint)],
                 "glBindTexture": [c.c_uint, c.c_uint], "glTexParameteri": [c.c_uint, c.c_uint, c.c_int],
                 "glTexImage2D": [c.c_uint, c.c_int, c.c_int, c.c_int, c.c_int, c.c_int, c.c_uint, c.c_uint,
-                                 c.c_void_p],
+                                 c.c_char_p],
+                "glTexSubImage2D": [c.c_uint, c.c_int, c.c_int, c.c_int, c.c_int, c.c_int, c.c_uint, c.c_uint,
+                                    c.c_char_p],
                 "glBegin": [c.c_uint], "glEnd": [], "glTexCoord2f": [c.c_float] * 2,
                 "glVertex2f": [c.c_float] * 2, "glDeleteTextures": [c.c_int, c.POINTER(c.c_uint)],
             }
@@ -47,16 +49,27 @@ def load_gl(find=ctypes.util.find_library, cdll=ctypes.CDLL):
     return None
 
 
+_scratch: dict[tuple[int, int], tuple[None, pygame.Surface]] = {}
+
+
 def rgba_bytes(surface: pygame.Surface, key: tuple[int, int, int]) -> bytes:
     """RGBA from the bottom row up (as GL wants it): the colour key becomes (0, 0, 0, 0), the rest is opaque.
 
-    Done with blits (all in C): a colour-keyed copy blitted onto a cleared per-pixel-alpha surface leaves the key
+    Done with blits (all in C): a colour-keyed surface blitted onto a cleared per-pixel-alpha surface leaves the key
     pixels untouched, so RGB is 0 wherever alpha is 0, which is what premultiplied-alpha compositors expect.
+    The scratch surface is reused per size; the source gets the colour key set in place.
     """
-    tmp = surface.copy()
-    tmp.set_colorkey(key)
-    out = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-    out.blit(tmp, (0, 0))
+    size = surface.get_size()
+    pair = _scratch.get(size)
+    if pair is None:
+        if len(_scratch) > 8:
+            _scratch.clear()
+        pair = _scratch[size] = (None, pygame.Surface(size, pygame.SRCALPHA))
+    _, out = pair
+    if surface.get_colorkey() != (*key, 255):
+        surface.set_colorkey(key)       # only affects the surface when it is used as a blit source
+    out.fill((0, 0, 0, 0))
+    out.blit(surface, (0, 0))
     return pygame.image.tobytes(out, "RGBA", True)
 
 
@@ -94,10 +107,12 @@ class GLPresenter:
             gl.glGenTextures(1, ctypes.byref(t))
             self.tex = int(t.value)
         gl.glBindTexture(_GL_TEXTURE_2D, self.tex)
-        gl.glTexParameteri(_GL_TEXTURE_2D, _GL_TEXTURE_MIN_FILTER, _GL_NEAREST)
-        gl.glTexParameteri(_GL_TEXTURE_2D, _GL_TEXTURE_MAG_FILTER, _GL_NEAREST)
-        buf = ctypes.create_string_buffer(data, len(data))
-        gl.glTexImage2D(_GL_TEXTURE_2D, 0, _GL_RGBA, w, h, 0, _GL_RGBA, _GL_UNSIGNED_BYTE, ctypes.addressof(buf))
+        if self.size != (w, h):
+            gl.glTexParameteri(_GL_TEXTURE_2D, _GL_TEXTURE_MIN_FILTER, _GL_NEAREST)
+            gl.glTexParameteri(_GL_TEXTURE_2D, _GL_TEXTURE_MAG_FILTER, _GL_NEAREST)
+            gl.glTexImage2D(_GL_TEXTURE_2D, 0, _GL_RGBA, w, h, 0, _GL_RGBA, _GL_UNSIGNED_BYTE, data)
+        else:
+            gl.glTexSubImage2D(_GL_TEXTURE_2D, 0, 0, 0, w, h, _GL_RGBA, _GL_UNSIGNED_BYTE, data)
         gl.glBegin(_GL_QUADS)
         for tx, ty, vx, vy in ((0, 0, -1, -1), (1, 0, 1, -1), (1, 1, 1, 1), (0, 1, -1, 1)):
             gl.glTexCoord2f(tx, ty)

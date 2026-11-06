@@ -507,6 +507,7 @@ class HyprlandDesktop(Desktop):
     display_flags = pygame.OPENGL
     offscreen = True
     _WORK_TTL = 1.0
+    _MOVE_GAP = 0.06         # at most ~16 moves a second over IPC
     _CURSOR_TTL = 0.18       # the cursor is read over IPC: 5 times a second is plenty for "is it near me"
 
     def __init__(self, env=None, clock=None) -> None:
@@ -520,6 +521,8 @@ class HyprlandDesktop(Desktop):
         self._last: Rect | None = None
         self._work: tuple[float, Rect] | None = None
         self._cursor: tuple[float, tuple[int, int] | None] | None = None
+        self._pending: Rect | None = None
+        self._moved_at = -1e9
 
     def _win(self):
         try:
@@ -542,6 +545,8 @@ class HyprlandDesktop(Desktop):
 
     def cursor(self) -> tuple[int, int] | None:
         now = self._clock()
+        if self._pending is not None:
+            self._send_move(self._pending, now)
         if self._cursor is not None and now - self._cursor[0] < self._CURSOR_TTL:
             return self._cursor[1]
         try:
@@ -593,6 +598,7 @@ class HyprlandDesktop(Desktop):
 
     def make_overlay(self, hwnd: int) -> bool:
         self._last = None
+        self._pending = None
         return self._gl.ok and self._rules_done
 
     def present(self, surface: pygame.Surface) -> None:
@@ -605,11 +611,21 @@ class HyprlandDesktop(Desktop):
         try:
             rect = tuple(int(v) for v in rect)  # type: ignore[assignment]
             if self._last is not None and self._last[:2] == rect[:2]:
+                self._pending = None
                 return
-            if self._ipc.move_window(OVERLAY_CLASS, rect[0], rect[1], self._env):
-                self._last = rect
+            now = self._clock()
+            if self._last is not None and now - self._moved_at < self._MOVE_GAP:
+                self._pending = rect          # too soon: flushed by the next poll (cursor())
+                return
+            self._send_move(rect, now)
         except Exception:
             pass
+
+    def _send_move(self, rect: Rect, now: float) -> None:
+        self._pending = None
+        if self._ipc.move_window(OVERLAY_CLASS, rect[0], rect[1], self._env):
+            self._last = rect
+            self._moved_at = now
 
     def show(self, hwnd: int, visible: bool) -> None:
         try:
@@ -621,6 +637,7 @@ class HyprlandDesktop(Desktop):
 
     def restore(self, hwnd: int) -> None:
         self._last = None
+        self._pending = None
         self._gl.reset()
         os.environ.pop("SDL_VIDEO_WAYLAND_WMCLASS", None)
         if self._fresh:
