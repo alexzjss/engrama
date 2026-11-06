@@ -124,6 +124,11 @@ DIGITAL_REQUEST_P = 0.35          # chance de um ask_attention virar pedido digi
 CURSOR_POLL_HZ = 10
 CURSOR_NEAR_PX = 150
 OVERLAY_WALK_PX_S = 40
+# M17: living on the desktop
+WINDOWS_POLL_HZ = 2          # window geometry is polled slower than the cursor
+OVERLAY_FLEE_PX_S = 110      # a skittish creature running from the cursor
+OVERLAY_HOP_S = (8.0, 20.0)  # how long it stays on a ledge before thinking of another one
+FPS_OVERLAY_AIR = 30         # falling or hopping needs smoother frames than walking
 
 # Task M8
 FPS_FOCUSED = 20

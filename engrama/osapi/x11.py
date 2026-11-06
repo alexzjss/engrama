@@ -67,6 +67,35 @@ def _workarea_from(cards, current_desktop) -> Rect | None:
         return None
 
 
+def filter_x11_windows(entries, current_desktop, own_pid: int | None = None) -> list[Rect]:
+    """Retângulos das janelas visíveis, da de cima para a de baixo (só geometria).
+
+    `entries`: dicts com rect, desktop (int ou None), states (nomes de atoms), types (nomes de atoms), pid.
+    Fica quem é visível na área de trabalho atual, não minimizada, de tipo normal, e que não seja a nossa.
+    """
+    out: list[Rect] = []
+    for e in entries:
+        try:
+            rect = e.get("rect")
+            if not rect or rect[2] < 40 or rect[3] < 24:
+                continue
+            if own_pid and e.get("pid") == own_pid:
+                continue
+            d = e.get("desktop")
+            if d is not None and d != 0xFFFFFFFF and current_desktop is not None and d != current_desktop:
+                continue
+            states = set(e.get("states") or ())
+            if "_NET_WM_STATE_HIDDEN" in states or "_NET_WM_STATE_SKIP_TASKBAR" in states:
+                continue
+            types = set(e.get("types") or ())
+            if types and not types & {"_NET_WM_WINDOW_TYPE_NORMAL", "_NET_WM_WINDOW_TYPE_DIALOG"}:
+                continue
+            out.append((int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3])))
+        except Exception:
+            continue
+    return out
+
+
 # --- estruturas ------------------------------------------------------------
 
 class _XErrorEvent(ctypes.Structure):
@@ -270,6 +299,37 @@ class X11:
                                              c.byref(dx), c.byref(dy), c.byref(child)):
             return None
         return (dx.value, dy.value, int(w.value), int(h.value))
+
+    def _atom_names(self, win: int, name: str) -> list[str]:
+        ids = self._cardinals(win, name) or []
+        return [n for n, a in self._atoms.items() if a in ids]
+
+    def windows(self, own_pid: int | None = None) -> list[Rect]:
+        """Janelas visíveis de topo (de cima para baixo) via _NET_CLIENT_LIST_STACKING; só geometria."""
+        try:
+            with self._lock:
+                stack = self._cardinals(self._root, "_NET_CLIENT_LIST_STACKING") or []
+                cur = self._cardinals(self._root, "_NET_CURRENT_DESKTOP")
+                for n in ("_NET_WM_STATE_HIDDEN", "_NET_WM_STATE_SKIP_TASKBAR", "_NET_WM_WINDOW_TYPE_NORMAL",
+                          "_NET_WM_WINDOW_TYPE_DIALOG"):
+                    self._atom(n)
+                entries = []
+                for win in reversed(stack[-64:]):
+                    rect = self._rect(win)
+                    if rect is None:
+                        continue
+                    ext = self._cardinals(win, "_NET_FRAME_EXTENTS")   # esquerda, direita, topo, baixo
+                    if ext and len(ext) >= 4:
+                        rect = (rect[0] - ext[0], rect[1] - ext[2], rect[2] + ext[0] + ext[1], rect[3] + ext[2] + ext[3])
+                    d = self._cardinals(win, "_NET_WM_DESKTOP")
+                    pid_l = self._cardinals(win, "_NET_WM_PID")
+                    entries.append({"rect": rect, "desktop": d[0] if d else None,
+                                    "states": self._atom_names(win, "_NET_WM_STATE"),
+                                    "types": self._atom_names(win, "_NET_WM_WINDOW_TYPE"),
+                                    "pid": pid_l[0] if pid_l else None})
+                return filter_x11_windows(entries, cur[0] if cur else None, own_pid)
+        except Exception:
+            return []
 
     def idle_ms(self) -> int | None:
         try:
