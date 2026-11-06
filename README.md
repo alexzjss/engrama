@@ -4,6 +4,12 @@
 
 > Uma criatura digital que vive no seu desktop. Local, offline, com mente de verdade.
 
+![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
+![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
+![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
+![Version 0.15.0](https://img.shields.io/badge/version-0.15.0-blue)
+[![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+
 ![Linhagens: ovo até a forma final, seis criaturas](docs/images/lineages.png)
 
 <sub>Arte do M11 ([Arte](#arte)): seis linhagens, do ovo à forma final.</sub>
@@ -12,8 +18,77 @@ Engrama é um companheiro virtual no estilo tamagotchi/V-Pet que mora no seu com
 
 Por baixo, a "mente" não é só texto de LLM: é uma simulação de verdade (necessidades, afeto, aprendizado por reforço, uma rede de disparos temporal) que escolhe as ações. O LLM só dá voz.
 
+## Em ação
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/ui-terrarium.png" alt="Terrário: a criatura, o humor e a caixa de conversa"><br><sub><b>Terrário.</b> A criatura, os indicadores de humor e necessidades (canto) e a caixa de conversa.</sub></td>
+<td width="50%"><img src="docs/images/ui-mind-view.png" alt="Visão da Mente (F2)"><br><sub><b>Visão da Mente (F2).</b> O grafo da receita, as propostas do tick (a vencedora destacada) e o custo em ms de cada módulo.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/images/ui-foods.png" alt="Painel de comidas (F4)"><br><sub><b>Comidas (F4).</b> Comidas de verdade, "comidas digitais" de brincadeira e remédio.</sub></td>
+<td><img src="docs/images/ui-permissions.png" alt="Painel de permissões (F8)"><br><sub><b>Permissões (F8).</b> Toda percepção do PC começa desligada, fonte por fonte.</sub></td>
+</tr>
+</table>
+
+<sub>Capturas reais do app, geradas por `tools/screenshots.py` (SDL sem janela, sem LLM). Mais criaturas em [Arte](#arte).</sub>
+
+## Comece em 1 minuto
+
+1. Baixe o pacote da [página de Releases](https://github.com/alexzjss/engrama/releases) (Windows `.zip`, Linux `.tar.gz`), extraia e abra `engrama` (não precisa de Python).
+2. Responda à tela de permissões (pode dizer "agora não" para tudo).
+3. Um ovo aparece: clique para fazer carinho, **F4** para alimentar, **Enter** para conversar.
+4. Opcional: instale o [Ollama](https://ollama.com) e baixe o modelo no **F5** para ela falar de verdade. Sem ele, ela balbucia e continua viva.
+
+Do código-fonte: `pip install -e .[dev]` e `python -m engrama` (detalhes em [Requisitos e instalação](#requisitos-e-instalação)).
+
+## Como funciona por dentro
+
+```mermaid
+flowchart LR
+    subgraph Corpo["Corpo: engrama/kernel (determinístico)"]
+        N[Necessidades] --- E[Estágios e ramos]
+        E --- A[Ações e recompensas]
+    end
+    subgraph Mente["Mente: engrama/mind + modules"]
+        BB[(Quadro-negro)]
+        D[drives] --> BB
+        S[SNN temporal] --> BB
+        P[afeto PAD, traços, preferências] --> BB
+        BB --> ARB{{Árbitro softmax}}
+        Q[utilidade + Q-learning] --> ARB
+    end
+    subgraph Serv["Serviços: engrama/services"]
+        L[Linguagem: Ollama local, com fallback de balbucio]
+        M[(Memória SQLite)]
+        PC[Percepção do PC, opt-in]
+    end
+    Corpo <--> BB
+    ARB -- ação escolhida --> Corpo
+    ARB -- intenção --> L
+    PC --> BB
+    L <--> M
+    L -- fala --> UI[App pygame: terrário e overlay]
+    Corpo --> UI
+```
+
+| Camada | Pacote | Papel | Detalhe técnico |
+|---|---|---|---|
+| **Corpo** | `engrama/kernel` | Necessidades, estágios, ações, recompensas, genoma | Determinístico: mesma semente, mesmo resultado |
+| **Mente** | `engrama/mind`, `engrama/modules` | Módulos trocáveis que propõem ações | Contrato `Module` (`reads`, `writes`, `rate_hz`, `step`, `propose`, `learn`), quadro-negro e árbitro softmax; receitas TOML escolhem módulos e pesos |
+| **Voz** | `engrama/services/language` | Transforma intenção em frase | Fila de jobs priorizada (conversa > comentário > reflexão > fatos), nunca levanta exceção para quem chama; **nunca escolhe ações** |
+| **Memória** | `engrama/services/memory` | Fatos, assuntos, opiniões, reflexões | SQLite local, tetos fixos, busca por palavras e (opcional) por significado com embeddings |
+| **Percepção** | `engrama/services/perception`, `engrama/osapi` | App em foco, ociosidade, tela cheia, carga | Opt-in por fonte, lista de bloqueio, só categoria e tema curto são guardados; backends Windows, X11, Wayland |
+| **Laboratório** | `engrama/lab` | Simula semanas em segundos | Perfis de usuário simulados, log de experiência em SQLite, replay, métricas, suíte de comparação de receitas |
+| **App** | `engrama/app` | Janela, arte, áudio, i18n PT/EN | pygame-ce, sprites **procedurais** a partir da semente (8 famílias × 3 planos), sobreposição sem borda |
+
+- **Orçamento de recursos:** alvo de 150 MB de RAM e 2% de CPU em regime estável (`tools/bench.py`), com descanso manual e automático (2 FPS, mente em ritmo reduzido, LLM descarregado).
+- **Mente de verdade:** a SNN temporal avança em compassos de 60 s de tempo simulado; afeto em três eixos (PAD); Q-learning e utilidade disputam cada tick; a Visão da Mente mostra tudo ao vivo.
+- **Regras de dependência** entre camadas são verificadas por `tests/test_architecture.py`; a CI roda ruff e testes em Ubuntu e Windows.
+
 ## Sumário
 
+- [Em ação](#em-ação) · [Comece em 1 minuto](#comece-em-1-minuto) · [Como funciona por dentro](#como-funciona-por-dentro)
 - [Funcionalidades](#funcionalidades)
 - [Privacidade e offline](#privacidade-e-offline)
 - [Requisitos e instalação](#requisitos-e-instalação)
@@ -391,6 +466,12 @@ Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs
 
 > A digital creature that lives on your desktop. Local, offline, with a real mind.
 
+![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
+![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
+![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
+![Version 0.15.0](https://img.shields.io/badge/version-0.15.0-blue)
+[![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+
 ![Lineages: egg to final form, six creatures](docs/images/lineages.png)
 
 <sub>M11 art ([Art](#art)): six lineages, from egg to final form.</sub>
@@ -399,8 +480,77 @@ Engrama is a tamagotchi/V-Pet-style virtual companion that lives on your compute
 
 Underneath, the "mind" is not just LLM text: it is a real simulation (needs, affect, reinforcement learning, a temporal spiking network) that chooses the actions. The LLM only gives it a voice.
 
+## In action
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/ui-terrarium.png" alt="Terrarium: the creature, mood indicators and chat box"><br><sub><b>Terrarium.</b> The creature, the mood and needs indicators (corner) and the chat box.</sub></td>
+<td width="50%"><img src="docs/images/ui-mind-view.png" alt="Mind View (F2)"><br><sub><b>Mind View (F2).</b> The recipe graph, the tick's proposals (winner highlighted) and each module's cost in ms.</sub></td>
+</tr>
+<tr>
+<td><img src="docs/images/ui-foods.png" alt="Foods panel (F4)"><br><sub><b>Foods (F4).</b> Real foods, joke "digital foods" and medicine.</sub></td>
+<td><img src="docs/images/ui-permissions.png" alt="Permissions panel (F8)"><br><sub><b>Permissions (F8).</b> All PC perception starts off, source by source.</sub></td>
+</tr>
+</table>
+
+<sub>Real captures of the app, generated by `tools/screenshots.py` (headless SDL, no LLM). More creatures in [Art](#art).</sub>
+
+## Quick start (1 minute)
+
+1. Download the bundle from the [Releases page](https://github.com/alexzjss/engrama/releases) (Windows `.zip`, Linux `.tar.gz`), extract it and open `engrama` (no Python needed).
+2. Answer the permissions screen (you can say "not now" to everything).
+3. An egg appears: click to pet it, **F4** to feed it, **Enter** to chat.
+4. Optional: install [Ollama](https://ollama.com) and download the model with **F5** so it can really talk. Without it, it babbles and stays alive.
+
+From source: `pip install -e .[dev]` and `python -m engrama` (details in [Requirements and install](#requirements-and-install)).
+
+## How it works inside
+
+```mermaid
+flowchart LR
+    subgraph Body["Body: engrama/kernel (deterministic)"]
+        N[Needs] --- E[Stages and branches]
+        E --- A[Actions and rewards]
+    end
+    subgraph Mind["Mind: engrama/mind + modules"]
+        BB[(Blackboard)]
+        D[drives] --> BB
+        S[temporal SNN] --> BB
+        P[PAD affect, traits, preferences] --> BB
+        BB --> ARB{{Softmax arbiter}}
+        Q[utility + Q-learning] --> ARB
+    end
+    subgraph Svc["Services: engrama/services"]
+        L[Language: local Ollama, babble fallback]
+        M[(SQLite memory)]
+        PC[PC perception, opt-in]
+    end
+    Body <--> BB
+    ARB -- chosen action --> Body
+    ARB -- intent --> L
+    PC --> BB
+    L <--> M
+    L -- speech --> UI[pygame app: terrarium and overlay]
+    Body --> UI
+```
+
+| Layer | Package | Role | Technical detail |
+|---|---|---|---|
+| **Body** | `engrama/kernel` | Needs, stages, actions, rewards, genome | Deterministic: same seed, same outcome |
+| **Mind** | `engrama/mind`, `engrama/modules` | Swappable modules that propose actions | `Module` contract (`reads`, `writes`, `rate_hz`, `step`, `propose`, `learn`), blackboard and softmax arbiter; TOML recipes pick modules and weights |
+| **Voice** | `engrama/services/language` | Turns intent into a sentence | Prioritised job queue (chat > remark > reflection > facts), never raises into the caller; **never picks actions** |
+| **Memory** | `engrama/services/memory` | Facts, subjects, opinions, reflections | Local SQLite, fixed caps, keyword and (optional) embedding-based meaning search |
+| **Perception** | `engrama/services/perception`, `engrama/osapi` | Focused app, idleness, fullscreen, load | Opt-in per source, blocklist, only category and a short theme are stored; Windows, X11, Wayland backends |
+| **Lab** | `engrama/lab` | Simulates weeks in seconds | Simulated user profiles, SQLite experience log, replay, metrics, recipe comparison suite |
+| **App** | `engrama/app` | Window, art, audio, PT/EN i18n | pygame-ce, **procedural** sprites from the seed (8 families × 3 body plans), borderless overlay |
+
+- **Resource budget:** target of 150 MB RAM and 2% CPU at steady state (`tools/bench.py`), with manual and automatic rest (2 FPS, reduced-rate mind, LLM unloaded).
+- **A real mind:** the temporal SNN advances in 60 s sim-time bins; three-axis affect (PAD); Q-learning and utility compete on every tick; Mind View shows it all live.
+- **Dependency rules** between layers are enforced by `tests/test_architecture.py`; CI runs ruff and tests on Ubuntu and Windows.
+
 ## Contents
 
+- [In action](#in-action) · [Quick start](#quick-start-1-minute) · [How it works inside](#how-it-works-inside)
 - [Features](#features)
 - [Privacy and offline](#privacy-and-offline)
 - [Requirements and install](#requirements-and-install)
