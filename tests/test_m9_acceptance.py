@@ -37,7 +37,7 @@ from tests.services.fake_embedder import FakeEmbedder
 from tests.services.memory.golden_recall import CASES, FIXTURE as GOLDEN, build_store
 
 ROOT = Path(__file__).resolve().parents[1]
-MINIMAL = ROOT / "recipes" / "minimal-v1.toml"
+MINIMAL = ROOT / "engrama" / "recipes" / "minimal-v1.toml"
 LAB_FIXTURE = ROOT / "tests" / "fixtures" / "m6_sim_1d_seed1_attentive.json"
 M8_DB = ROOT / "tests" / "fixtures" / "m8_memory_v2.sqlite"
 ENV = {**os.environ, "SDL_VIDEODRIVER": "dummy", "SDL_AUDIODRIVER": "dummy"}
@@ -648,7 +648,7 @@ def test_odd_http_errors_harmless(tmp_path):
 @pytest.mark.slow
 def test_lab_identical_to_m8(capsys):
     from engrama.lab.cli import main as lab_main
-    assert lab_main(["sim", "--recipe", str(ROOT / "recipes" / "default-v1.toml"), "--days", "1", "--seed", "1",
+    assert lab_main(["sim", "--recipe", str(ROOT / "engrama" / "recipes" / "default-v1.toml"), "--days", "1", "--seed", "1",
                      "--profile", "attentive"]) == 0
     assert json.loads(capsys.readouterr().out) == json.loads(LAB_FIXTURE.read_text(encoding="utf-8"))
 

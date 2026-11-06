@@ -9,7 +9,7 @@ from engrama.lab.simuser import PROFILES, SimUser
 from engrama.mind.recipe import load_recipe
 from engrama.vocab import INITIAL_TRAITS, TRAIT_KEYS
 
-RECIPE = Path(__file__).resolve().parents[2] / "recipes" / "default-v1.toml"
+RECIPE = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "default-v1.toml"
 DAY = 86400.0
 BUDGET_RECIPE = "minimal-v1.toml"   # the default recipe (SNN) needs ~3.5 s per sim-day here
 

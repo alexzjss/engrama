@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 import numpy as np
 from engrama.lab.explog import read_log, run_identity
+from engrama.resources import recipes_dir
 from engrama.lab.metrics import compute_metrics
 from engrama.lab.replay import replay_module
 from engrama.lab.runtime import run_days
@@ -63,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="engrama.lab")
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("sim", help="run a simulated creature and print metrics")
-    s.add_argument("--recipe", type=Path, default=Path("recipes/default-v1.toml"))
+    s.add_argument("--recipe", type=Path, default=recipes_dir() / "default-v1.toml")
     s.add_argument("--days", type=float, default=1.0)
     s.add_argument("--profile", default="attentive")
     s.add_argument("--seed", type=int, default=1)

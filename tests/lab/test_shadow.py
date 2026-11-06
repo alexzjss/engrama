@@ -4,7 +4,7 @@ from engrama.lab.runtime import Runtime, run_days
 from engrama.lab.simuser import PROFILES, SimUser
 from engrama.mind.recipe import load_recipe
 
-BASE = Path(__file__).resolve().parents[2] / "recipes" / "minimal-v1.toml"
+BASE = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "minimal-v1.toml"
 DAY = 86400.0
 
 

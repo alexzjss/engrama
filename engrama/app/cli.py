@@ -6,7 +6,9 @@ import time
 from pathlib import Path
 
 from engrama.app import i18n
+from engrama.resources import recipes_dir
 from engrama.app.host import FORGET_EVERY_S, Host
+from engrama.paths import has_save, legacy_save_dir, migrate_data_dir
 from engrama.app.providers import (_Activity, _build_persona, _memory_provider, _NullServer, _PerceptionProvider)
 
 
@@ -26,8 +28,58 @@ def resolve_recipe_arg(arg: str | Path) -> Path | None:
     p = Path(arg)
     if p.exists():
         return p
-    q = Path(__file__).resolve().parents[2] / "recipes" / (p.name if p.suffix == ".toml" else p.name + ".toml")
+    q = recipes_dir() / (p.name if p.suffix == ".toml" else p.name + ".toml")
     return q if q.exists() else None
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parents[1]
+
+
+def migrate_command(src: Path, dst: Path) -> int:
+    """`--migrate-from`: copy an old data dir into `dst`; refuses if `dst` already has a save."""
+    import sys
+    r = migrate_data_dir(src, dst)
+    if r == "missing":
+        print(f"Pasta de origem não encontrada: {src}. / Source folder not found: {src}.", file=sys.stderr)
+        return 2
+    if r == "has_save":
+        print(f"A pasta de destino já tem um save ({dst}); nada foi copiado. / "
+              f"The destination already has a save ({dst}); nothing was copied.", file=sys.stderr)
+        return 2
+    print(f"Copiado de {src} para {dst} (a pasta antiga foi mantida). / "
+          f"Copied from {src} to {dst} (the old folder was kept).")
+    return 0
+
+
+def desktop_command(install: bool, backend=None) -> int:
+    """`--install-desktop` / `--uninstall-desktop`: menu entry / Start menu shortcut. Autostart stays opt-in (F6)."""
+    import sys
+    from engrama.app.integration import is_dev, make_backend
+    if backend is None:
+        if is_dev():
+            print("Modo dev (checkout do repositório): nada a instalar. / "
+                  "Dev mode (repository checkout): nothing to install.", file=sys.stderr)
+            return 2
+        backend = make_backend()
+    if backend is None:
+        print("Sem integração com o desktop neste sistema. / No desktop integration on this system.", file=sys.stderr)
+        return 2
+    try:
+        paths = backend.install() if install else backend.uninstall()
+    except Exception as e:
+        print(f"Falhou: {e} / Failed: {e}", file=sys.stderr)
+        return 1
+    if install:
+        if paths:
+            print("Instalado / Installed: " + ", ".join(str(p) for p in paths))
+        else:
+            print("Já existe um atalho que não é do Engrama; nada foi alterado. / "
+                  "A shortcut that is not Engrama's already exists; nothing was changed.", file=sys.stderr)
+            return 2
+    else:
+        print("Removido / Removed: " + (", ".join(str(p) for p in paths) if paths
+                                        else "nada / nothing"))
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -67,6 +119,12 @@ def _main(argv: list[str] | None, held: list) -> int:
 
     ap =argparse.ArgumentParser(prog="engrama", description="Engrama: a local virtual companion.")
     ap.add_argument("--data-dir", type=Path, default=None)
+    ap.add_argument("--migrate-from", type=Path, default=None, metavar="PATH",
+                    help="copy an old data dir into the current one (only if it has no save), then exit")
+    ap.add_argument("--install-desktop", action="store_true",
+                    help="add Engrama to the application menu (Linux) / Start menu (Windows), then exit")
+    ap.add_argument("--uninstall-desktop", action="store_true",
+                    help="remove only what --install-desktop (and the autostart option) wrote, then exit")
     ap.add_argument("--recipe", type=str, default=None,
                     help="recipe name (recipes/NAME.toml) or path; only for a new data dir (a saved creature keeps its own)")
     ap.add_argument("--seed", type=int, default=None)
@@ -80,6 +138,8 @@ def _main(argv: list[str] | None, held: list) -> int:
     ap.add_argument("--fake-perception", action="store_true", help="bench: scripted machine instead of the real one")
     a = ap.parse_args(argv)
 
+    if a.install_desktop or a.uninstall_desktop:
+        return desktop_command(install=a.install_desktop)
     requested = None
     if a.recipe is not None:
         requested = resolve_recipe_arg(a.recipe)
@@ -88,7 +148,14 @@ def _main(argv: list[str] | None, held: list) -> int:
                   f"Recipe not found: {a.recipe} (use a name from recipes/ or a path).", file=sys.stderr)
             return 2
     data_dir = Path(a.data_dir) if a.data_dir else default_data_dir()
+    if a.migrate_from is not None:
+        return migrate_command(a.migrate_from, data_dir)
+    first_open = not has_save(data_dir)
     data_dir.mkdir(parents=True, exist_ok=True)
+    legacy = legacy_save_dir(PACKAGE_ROOT)
+    if first_open and legacy is not None and legacy.resolve() != data_dir.resolve():
+        print(f"Há um save antigo em {legacy}; para copiá-lo: engrama --migrate-from \"{legacy}\" / "
+              f"Old save found at {legacy}; to copy it: engrama --migrate-from \"{legacy}\"", file=sys.stderr)
     from engrama.app.instance import InstanceLock, send_eyes_toggle
     if a.eyes == "toggle":
         cfg0 = Config.load(data_dir / "config.json") if (data_dir / "config.json").exists() else None
@@ -112,7 +179,7 @@ def _main(argv: list[str] | None, held: list) -> int:
         cfg.time_scale = a.time_scale
     if cfg.ui_lang in ("pt", "en"):
         i18n.set_lang(cfg.ui_lang)
-    recipe = requested or Path(__file__).resolve().parents[2] / "recipes" / f"{cfg.recipe}.toml"
+    recipe = requested or recipes_dir() / f"{cfg.recipe}.toml"
 
     host = Host(cfg, data_dir, recipe, seed=a.seed, warn_recipe_mismatch=requested is not None)
     memory = MemoryStore(data_dir / "memory.sqlite")
@@ -222,6 +289,8 @@ def _main(argv: list[str] | None, held: list) -> int:
         window.set_eyes_closed = set_eyes
         window.on_file_drop = on_file_drop
         window.perception_provider = _PerceptionProvider(memory, lambda: hotkey.error)
+        from engrama.app.integration import make_autostart
+        window.autostart = make_autostart()
         window.panels["models"] = lambda w: ModelsPanel(w)
         window.panels["settings"] = lambda w: SettingsPanel(w)
 

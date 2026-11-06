@@ -9,7 +9,7 @@ from engrama.lab.simuser import PROFILES, SimUser
 from engrama.mind.contracts import AskCredit, credit_rows, reward_combine
 from engrama.mind.recipe import load_recipe
 
-DEFAULT = Path(__file__).resolve().parents[2] / "recipes" / "default-v1.toml"
+DEFAULT = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "default-v1.toml"
 R = lambda **k: {"need_relief": 0.0, "user_response": 0.0, "ignored": 0.0, **k}
 
 

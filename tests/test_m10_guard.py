@@ -13,7 +13,7 @@ from engrama.mind.contracts import CHANNELS
 from engrama.vocab import EVENT_KINDS, FOOD_IDS, NEED_KEYS, TRAIT_KEYS
 
 ROOT = Path(__file__).resolve().parents[1]
-RECIPES = ROOT / "recipes"
+RECIPES = ROOT / "engrama" / "recipes"
 M6_FIXTURE = ROOT / "tests" / "fixtures" / "m6_sim_1d_seed1_attentive.json"
 M9_FIXTURE = ROOT / "tests" / "fixtures" / "m9_sim_7d_seed1_neglectful.json"
 

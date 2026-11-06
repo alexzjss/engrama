@@ -16,7 +16,7 @@ from engrama.services.generations import load_generations
 from engrama.services.memory.store import MemoryStore, WorkingMemory
 
 ROOT = Path(__file__).resolve().parents[1]
-MINIMAL = ROOT / "recipes" / "minimal-v1.toml"
+MINIMAL = ROOT / "engrama" / "recipes" / "minimal-v1.toml"
 
 
 class FakeTime:

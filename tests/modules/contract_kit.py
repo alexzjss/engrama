@@ -19,7 +19,7 @@ from engrama.services.persistence import load_run, save_run
 from engrama.vocab import ACTIONS
 
 ROOT = Path(__file__).resolve().parents[2]
-RECIPES = ROOT / "recipes"
+RECIPES = ROOT / "engrama" / "recipes"
 DAY = 86400.0
 
 _NP_GLOBAL = ("random", "rand", "randn", "normal", "uniform", "choice", "integers", "standard_normal", "seed")

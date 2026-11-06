@@ -16,7 +16,7 @@ from engrama.kernel.kernel import Kernel
 from engrama.lab.runtime import Runtime
 from engrama.mind.contracts import VizSpec
 
-RECIPES = Path(__file__).resolve().parents[2] / "recipes"
+RECIPES = Path(__file__).resolve().parents[2] / "engrama" / "recipes"
 MINIMAL, DEFAULT = RECIPES / "minimal-v1.toml", RECIPES / "default-v1.toml"
 
 

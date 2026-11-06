@@ -63,7 +63,7 @@ Arisco, sombrio, rebelde e sombra são os ramos de negligência.
 
 Este é o ponto central do projeto, não um detalhe.
 
-- **Tudo local.** O LLM roda no seu Ollama; o app não fala com nenhum servidor remoto. Os dados ficam numa pasta no seu disco (`data/`), que você pode apagar ou copiar quando quiser.
+- **Tudo local.** O LLM roda no seu Ollama; o app não fala com nenhum servidor remoto. Os dados ficam numa pasta no seu disco (no Windows, `%APPDATA%\Engrama`; no Linux, `~/.local/share/engrama`), que você pode apagar ou copiar quando quiser.
 - **Percepção é opt-in, fonte por fonte.** Na primeira execução uma tela pergunta o que ela pode olhar. Tudo começa **desligado**; "agora não" é uma resposta válida. O painel Permissões (F8) muda isso a qualquer momento.
 - **Olhos fechados** (F9 ou atalho global `Ctrl+Alt+E`) pausam toda a percepção, mesmo com a janela sem foco.
 - **Lista de bloqueio.** Apps e títulos com termos como banco, senha ou gerenciador de senhas já vêm bloqueados; você adiciona os seus. Um app bloqueado chega como `privado`: nem nome nem título saem do serviço de percepção.
@@ -84,6 +84,13 @@ Este é o ponto central do projeto, não um detalhe.
 
 **Instalar**
 
+Para usar, sem instalar Python: baixe o pacote da [página de Releases](https://github.com/alexzjss/engrama/releases) e extraia.
+
+- *Windows:* `engrama-<versão>-windows-x64.zip`. Extraia e rode `engrama\engrama.exe`. O SmartScreen avisa na primeira vez, porque o build não é assinado: clique em **Mais informações** e depois em **Executar assim mesmo**.
+- *Linux:* `engrama-<versão>-linux-x64.tar.gz`. Extraia (`tar -xzf engrama-<versão>-linux-x64.tar.gz`) e rode `./engrama/engrama`.
+
+Para desenvolver, instale a partir do código:
+
 ```
 python -m venv .venv
 .venv\Scripts\activate             # Windows
@@ -94,7 +101,8 @@ pip install -e .[dev]              # pygame-ce, numpy, psutil (+ pytest)
 
 **Ollama**
 
-- *Windows:* o app espera o Ollama em `E:\Ollama` (`ollama.exe`, `home`, `models`; os caminhos vêm de `Config`) e inicia o `ollama serve` sozinho, em segundo plano, com tudo apontado para o E:. Encerra ao sair se foi ele quem iniciou.
+- O Ollama é instalado à parte, pelo [instalador oficial](https://ollama.com). O app o procura no PATH e, no Windows, também na pasta do instalador (`%LOCALAPPDATA%\Programs\Ollama`) e em `%ProgramFiles%\Ollama`. Se não achar, a tela de Modelos (F5) diz que o Ollama não foi encontrado.
+- *Windows:* o app inicia o `ollama serve` sozinho, em segundo plano, e o encerra ao sair se foi ele quem iniciou. Não há caminho fixo em `E:\`.
 - *Linux:* usa o `ollama` do `PATH` (em geral o serviço systemd) e não mexe em `HOME` nem em `OLLAMA_MODELS`. Se não estiver rodando e o binário existir, o Engrama inicia `ollama serve` e o encerra ao sair. Caminhos `E:\` de um `config.json` vindo do Windows são ignorados.
 - O modelo só fica carregado durante e logo após a conversa (`keep_alive` de 600 s).
 
@@ -143,8 +151,10 @@ Clique na criatura no modo sobreposição para abrir o mini-menu: Comida, Reméd
 
 | Flag | Efeito |
 |---|---|
-| `--data-dir DIR` | Pasta de dados (padrão: `data/` na raiz do repositório) |
-| `--recipe NOME\|CAMINHO` | Receita da mente (`recipes/NOME.toml` ou caminho). Só vale em pasta de dados **nova**; com save existente é ignorada (aviso no log). Nome inexistente sai com código 2 |
+| `--data-dir DIR` | Pasta de dados (padrão: a variável `ENGRAMA_DATA_DIR` se definida; em checkout de desenvolvimento, `data/` na raiz do repositório; instalado, a pasta do sistema) |
+| `--migrate-from PATH` | Copia (não move) uma pasta de dados antiga para a pasta de dados atual, se a atual ainda não tiver save. Recusa se já houver save; nunca roda sozinho |
+| `--install-desktop` / `--uninstall-desktop` | Cria ou remove o atalho do sistema (Linux: entrada no menu de aplicativos com ícone; Windows: atalho no Menu Iniciar) e sai |
+| `--recipe NOME\|CAMINHO` | Receita da mente (`engrama/recipes/NOME.toml` ou caminho). Só vale em pasta de dados **nova**; com save existente é ignorada (aviso no log). Nome inexistente sai com código 2 |
 | `--seed N` | Semente da criatura nova |
 | `--time-scale N` | Multiplicador de tempo (para testar) |
 | `--dev` | Mostra números e escala de tempo |
@@ -168,7 +178,12 @@ Rara e por estágio: criança puxa o assunto atual, adulto opina, perfeito/final
 
 ### Onde ficam os dados
 
-Em `Config.data_dir` (padrão `data/` na raiz do repositório; com o repositório no E:, nada vai para o C:). Linux: a mesma pasta, sem XDG e sem migração.
+A pasta de dados é, nesta ordem: `--data-dir`; a variável `ENGRAMA_DATA_DIR`; em um checkout do repositório (modo de desenvolvimento), o `data/` da raiz; e, no restante, a pasta do sistema:
+
+- Windows: `%APPDATA%\Engrama`
+- Linux: `$XDG_DATA_HOME/engrama` (padrão `~/.local/share/engrama`)
+
+Na primeira abertura com a pasta vazia, o app cria a criatura nova ali. Se você tinha um `data/` antigo (de um checkout), copie o save com `engrama --migrate-from "<pasta antiga>"`: o comando copia e mantém a pasta original; não move nada e não roda sozinho. Se a pasta nova já tiver save, ele recusa. Sem save na pasta nova, mas com `data/save` ao lado do pacote, o app só escreve uma linha no log sugerindo o comando.
 
 | Arquivo | Conteúdo |
 |---|---|
@@ -180,6 +195,12 @@ Em `Config.data_dir` (padrão `data/` na raiz do repositório; com o repositóri
 | `generations.json`, `generations/<n>/` | Registro das vidas e arquivo (memória + save) de cada uma |
 
 Tetos da memória: 2000 episódios, 300 fatos, 300 assuntos; episódios antigos e pouco importantes são compactados (ao abrir e a cada 6 h).
+
+### Atalho e início automático
+
+- `engrama --install-desktop` cria o atalho: no Linux, `~/.local/share/applications/engrama.desktop` com o ícone (aparece no menu de aplicativos); no Windows, `Engrama.lnk` no Menu Iniciar. `engrama --uninstall-desktop` remove só o que ele gravou.
+- **Iniciar com o sistema** é opcional e vem desligado. Ligue em **F6** (Configurações). Linux: `~/.config/autostart/engrama.desktop`; Windows: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. A tela lê o estado do próprio sistema, então não diverge do que está gravado.
+- Em checkout de desenvolvimento (rodando do repositório) nada disso é instalado, e a opção do F6 aparece indisponível, com a explicação.
 
 ## Linux: o que cada sessão oferece
 
@@ -194,7 +215,7 @@ O que a sessão não oferece fica inerte, sem erro. No Windows nada mudou.
 | Wayland: GNOME | não | sim (DBus do Mutter) | comando `engrama --eyes toggle` | não (aviso no F11) |
 
 - Sessão Wayland nunca usa X11: mesmo com `DISPLAY` presente (XWayland), percepção e overlay não consultam o X.
-- O Engrama nunca mexe na configuração do compositor. Ligue `engrama --eyes toggle` a um atalho seu. Como o app costuma rodar do ambiente virtual, use o caminho completo (ou `python -m engrama --eyes toggle` na pasta do repositório; sem `--data-dir`, os dois usam o `data/` do repositório):
+- O Engrama nunca mexe na configuração do compositor. Ligue `engrama --eyes toggle` a um atalho seu. Como o app costuma rodar do ambiente virtual, use o caminho completo (ou `python -m engrama --eyes toggle` na pasta do repositório; sem `--data-dir`, os dois usam a pasta de dados padrão):
   - Hyprland (`~/.config/hypr/hyprland.conf`): `bind = CTRL ALT, E, exec, /caminho/do/engrama/.venv/bin/engrama --eyes toggle`
   - Sway (`~/.config/sway/config`): `bindsym ctrl+alt+e exec /caminho/do/engrama/.venv/bin/engrama --eyes toggle`
   - KDE: Configurações do Sistema > Atalhos > Adicionar comando, com o mesmo comando.
@@ -251,7 +272,7 @@ ruff check .                             # lint
 - `engrama/mind`, `engrama/modules`: contratos, registro e módulos da mente.
 - `engrama/lab`: runtime de simulação, log de experiência (SQLite), replay, métricas e CLI.
 - `engrama/app`: o app (interface, arte, host, `cli.py` para a linha de comando, serviços de percepção, memória, LLM).
-- `recipes/`: receitas TOML que escolhem os módulos e seus pesos; `docs/superpowers/` guarda especificações, planos e relatórios de cada marco.
+- `engrama/recipes/`: receitas TOML que escolhem os módulos e seus pesos; `docs/superpowers/` guarda especificações, planos e relatórios de cada marco.
 
 Regra de dependência (verificada por `tests/test_architecture.py`): `kernel` não importa `mind`, `modules`, `lab` nem `services`; `mind` não importa `kernel` nem `modules`; um módulo só importa `engrama.mind`, `engrama.vocab`, `engrama.balance`, a própria família, numpy e a stdlib.
 
@@ -275,9 +296,9 @@ Resumo do [relatório de comparação](docs/superpowers/reports/2026-11-08-m10-e
 ### Laboratório
 
 ```
-python -m engrama.lab sim --recipe recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
+python -m engrama.lab sim --recipe engrama/recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
 python -m engrama.lab report --log data/run.db
-python -m engrama.lab compare --a recipes/minimal-v1.toml --b recipes/default-v1.toml --days 10
+python -m engrama.lab compare --a engrama/recipes/minimal-v1.toml --b engrama/recipes/default-v1.toml --days 10
 python -m engrama.lab replay --log data/run.db --module temporal.snn --param readout_hidden=false
 python -m engrama.lab suite --recipes default-v1 thompson-v1 --profiles attentive --seeds 1 --days 1 --out suite.json --md suite.md
 python -m engrama.lab suite --preset m10 --jobs 4 --out suite.json --md tabela.md   # 8 receitas x 4 perfis x 3 sementes
@@ -342,6 +363,7 @@ python tools/calibrate_sem.py --out resultado.json --md resultado.md            
 | M12 | Saúde do projeto: CI Linux/Windows, lint, testes paralelos, divisão dos arquivos grandes, bench no Wayland | feito |
 | M13 | Calibração com modelo real: persona (harness de conversas), limiares da busca por significado, smokes manuais | parcial |
 | M14 | Animação de membros e poses por família (pernas, braços, caudas, asas, nadadeiras) | feito |
+| M15 | Distribuição: pasta de dados do sistema, Ollama sem disco fixo, pacotes Windows e Linux, atalho e início automático opcional | feito |
 
 **Limitações conhecidas**
 
@@ -350,11 +372,11 @@ python tools/calibrate_sem.py --out resultado.json --md resultado.md            
 - No Wayland, KDE e GNOME não expõem app em foco/título/tela cheia à percepção.
 - Os experimentos de ML não foram promovidos: o padrão continua sendo `default-v1`.
 - O orçamento de 2% de CPU é por núcleo; em notebooks de baixo consumo o número medido pode ser maior que no PC de referência.
+- Sem ícone na bandeja do sistema nesta versão: a própria janela (ou o modo sobreposição) é a presença.
 
 **Próximos passos** (ciclo seguinte; detalhes no [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
 
 1. **M13:** fechar o aceite (média de 3 repetições do harness, atendente no texto final e CI) e a checklist humana; relatório em [`docs/superpowers/reports/`](docs/superpowers/reports/2026-11-04-m13-calibracao.md).
-2. **M15:** distribuição: pastas de dados por sistema operacional, builds e início automático.
 
 Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs/superpowers/).
 
@@ -428,7 +450,7 @@ Arisco, sombrio, rebelde and sombra are the neglect branches.
 
 This is the central point of the project, not a detail.
 
-- **Everything local.** The LLM runs in your Ollama; the app talks to no remote server. Data lives in a folder on your disk (`data/`) that you can delete or copy at any time.
+- **Everything local.** The LLM runs in your Ollama; the app talks to no remote server. Data lives in a folder on your disk (on Windows, `%APPDATA%\Engrama`; on Linux, `~/.local/share/engrama`) that you can delete or copy at any time.
 - **Perception is opt-in, source by source.** On first run a screen asks what it may look at. Everything starts **off**; "not now" is a valid answer. The Permissions panel (F8) changes this at any time.
 - **Closed eyes** (F9 or the global hotkey `Ctrl+Alt+E`) pause all perception, even when the window is unfocused.
 - **Blocklist.** Apps and titles with terms such as bank, password or password manager are blocked by default; you add your own. A blocked app arrives as `privado`: neither name nor title leaves the perception service.
@@ -449,6 +471,13 @@ This is the central point of the project, not a detail.
 
 **Install**
 
+For use, without installing Python: download the bundle from the [Releases page](https://github.com/alexzjss/engrama/releases) and extract it.
+
+- *Windows:* `engrama-<version>-windows-x64.zip`. Extract it and run `engrama\engrama.exe`. SmartScreen warns the first time because the build is not signed: click **More info**, then **Run anyway**.
+- *Linux:* `engrama-<version>-linux-x64.tar.gz`. Extract it (`tar -xzf engrama-<version>-linux-x64.tar.gz`) and run `./engrama/engrama`.
+
+For development, install from the source:
+
 ```
 python -m venv .venv
 .venv\Scripts\activate             # Windows
@@ -459,7 +488,8 @@ pip install -e .[dev]              # pygame-ce, numpy, psutil (+ pytest)
 
 **Ollama**
 
-- *Windows:* the app expects Ollama in `E:\Ollama` (`ollama.exe`, `home`, `models`; paths come from `Config`) and starts `ollama serve` itself, in the background, with everything pointed at E:. It stops it on exit if it was the one that started it.
+- Ollama is installed separately, from the [official installer](https://ollama.com). The app looks for it on `PATH` and, on Windows, also in the installer's folder (`%LOCALAPPDATA%\Programs\Ollama`) and in `%ProgramFiles%\Ollama`. If it is not found, the Models screen (F5) says Ollama was not found.
+- *Windows:* the app starts `ollama serve` itself, in the background, and stops it on exit if it was the one that started it. There is no fixed `E:\` path.
 - *Linux:* uses the `ollama` on `PATH` (usually the systemd service) and does not touch `HOME` or `OLLAMA_MODELS`. If it is not running and the binary exists, Engrama starts `ollama serve` and stops it on exit. `E:\` paths in a `config.json` coming from Windows are ignored.
 - The model stays loaded only during and shortly after a conversation (`keep_alive` of 600 s).
 
@@ -508,8 +538,10 @@ Click the creature in overlay mode to open the mini-menu: Food, Medicine (hidden
 
 | Flag | Effect |
 |---|---|
-| `--data-dir DIR` | Data folder (default: `data/` at the repository root) |
-| `--recipe NAME\|PATH` | Mind recipe (`recipes/NAME.toml` or a path). Only applies to a **new** data dir; with an existing save it is ignored (warning in the log). An unknown name exits with code 2 |
+| `--data-dir DIR` | Data folder (default: the `ENGRAMA_DATA_DIR` variable if set; in a development checkout, `data/` at the repository root; installed, the OS data folder) |
+| `--migrate-from PATH` | Copies (does not move) an old data folder into the current one, if the current one has no save yet. Refuses if there is a save; never runs by itself |
+| `--install-desktop` / `--uninstall-desktop` | Creates or removes the system shortcut (Linux: applications menu entry with icon; Windows: Start menu shortcut), then exits |
+| `--recipe NAME\|PATH` | Mind recipe (`engrama/recipes/NAME.toml` or a path). Only applies to a **new** data dir; with an existing save it is ignored (warning in the log). An unknown name exits with code 2 |
 | `--seed N` | Seed of a new creature |
 | `--time-scale N` | Time multiplier (for testing) |
 | `--dev` | Shows numbers and the time scale |
@@ -533,7 +565,12 @@ Rare and per stage: a child brings up the current topic, an adult gives an opini
 
 ### Where the data lives
 
-In `Config.data_dir` (default `data/` at the repository root; with the repository on E:, nothing goes to C:). Linux: the same folder, no XDG and no migration.
+The data folder is, in this order: `--data-dir`; the `ENGRAMA_DATA_DIR` variable; in a repository checkout (development mode), the `data/` at the root; otherwise the OS folder:
+
+- Windows: `%APPDATA%\Engrama`
+- Linux: `$XDG_DATA_HOME/engrama` (default `~/.local/share/engrama`)
+
+On first open with an empty folder, the app creates a new creature there. If you had an old `data/` folder (from a checkout), copy its save with `engrama --migrate-from "<old folder>"`: the command copies and keeps the original folder; it moves nothing and never runs by itself. If the new folder already has a save, it refuses. With no save in the new folder but a `data/save` next to the package, the app only writes one log line suggesting the command.
 
 | File | Contents |
 |---|---|
@@ -545,6 +582,12 @@ In `Config.data_dir` (default `data/` at the repository root; with the repositor
 | `generations.json`, `generations/<n>/` | Record of the lives and each one's archive (memory + save) |
 
 Memory caps: 2000 episodes, 300 facts, 300 topics; old, unimportant episodes are compacted (on open and every 6 h).
+
+### Shortcut and autostart
+
+- `engrama --install-desktop` creates the shortcut: on Linux, `~/.local/share/applications/engrama.desktop` with the icon (it shows in the applications menu); on Windows, `Engrama.lnk` in the Start menu. `engrama --uninstall-desktop` removes only what it wrote.
+- **Start with the system** is optional and off by default. Turn it on in **F6** (Settings). Linux: `~/.config/autostart/engrama.desktop`; Windows: `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`. The screen reads the state from the system itself, so it cannot disagree with what is written.
+- In a development checkout (running from the repository) none of this is installed, and the F6 option shows as unavailable, with the explanation.
 
 ## Linux: what each session offers
 
@@ -559,7 +602,7 @@ What the session does not offer stays inert, without error. Nothing changed on W
 | Wayland: GNOME | no | yes (Mutter DBus) | `engrama --eyes toggle` command | no (notice on F11) |
 
 - A Wayland session never uses X11: even with `DISPLAY` set (XWayland), perception and overlay do not query X.
-- Engrama never edits the compositor configuration. Bind `engrama --eyes toggle` to a shortcut of yours. Since the app usually runs from the virtual environment, use the full path (or `python -m engrama --eyes toggle` from the repository folder; without `--data-dir`, both use the repository's `data/`):
+- Engrama never edits the compositor configuration. Bind `engrama --eyes toggle` to a shortcut of yours. Since the app usually runs from the virtual environment, use the full path (or `python -m engrama --eyes toggle` from the repository folder; without `--data-dir`, both use the default data folder):
   - Hyprland (`~/.config/hypr/hyprland.conf`): `bind = CTRL ALT, E, exec, /path/to/engrama/.venv/bin/engrama --eyes toggle`
   - Sway (`~/.config/sway/config`): `bindsym ctrl+alt+e exec /path/to/engrama/.venv/bin/engrama --eyes toggle`
   - KDE: System Settings > Shortcuts > Add command, with the same command.
@@ -616,7 +659,7 @@ ruff check .                             # lint
 - `engrama/mind`, `engrama/modules`: contracts, registry and mind modules.
 - `engrama/lab`: simulation runtime, experience log (SQLite), replay, metrics and CLI.
 - `engrama/app`: the app (UI, art, host, `cli.py` for the command line, perception services, memory, LLM).
-- `recipes/`: TOML recipes that choose the modules and their weights; `docs/superpowers/` holds the specs, plans and reports of each milestone.
+- `engrama/recipes/`: TOML recipes that choose the modules and their weights; `docs/superpowers/` holds the specs, plans and reports of each milestone.
 
 Dependency rule (checked by `tests/test_architecture.py`): `kernel` does not import `mind`, `modules`, `lab` or `services`; `mind` does not import `kernel` or `modules`; a module only imports `engrama.mind`, `engrama.vocab`, `engrama.balance`, its own family, numpy and the stdlib.
 
@@ -640,9 +683,9 @@ Summary of the [comparison report](docs/superpowers/reports/2026-11-08-m10-exper
 ### Lab
 
 ```
-python -m engrama.lab sim --recipe recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
+python -m engrama.lab sim --recipe engrama/recipes/default-v1.toml --days 7 --profile gamer --seed 1 --log data/run.db
 python -m engrama.lab report --log data/run.db
-python -m engrama.lab compare --a recipes/minimal-v1.toml --b recipes/default-v1.toml --days 10
+python -m engrama.lab compare --a engrama/recipes/minimal-v1.toml --b engrama/recipes/default-v1.toml --days 10
 python -m engrama.lab replay --log data/run.db --module temporal.snn --param readout_hidden=false
 python -m engrama.lab suite --recipes default-v1 thompson-v1 --profiles attentive --seeds 1 --days 1 --out suite.json --md suite.md
 python -m engrama.lab suite --preset m10 --jobs 4 --out suite.json --md table.md   # 8 recipes x 4 profiles x 3 seeds
@@ -707,6 +750,7 @@ python tools/calibrate_sem.py --out result.json --md result.md                  
 | M12 | Project health: Linux/Windows CI, lint, parallel tests, split of large files, bench on Wayland | done |
 | M13 | Calibration with a real model: persona (conversation harness), semantic-search thresholds, manual smokes | partial |
 | M14 | Limb animation and per-family poses (legs, arms, tails, wings, fins) | done |
+| M15 | Distribution: OS data folder, Ollama without a fixed drive, Windows and Linux bundles, shortcut and opt-in autostart | done |
 
 **Known limitations**
 
@@ -715,11 +759,11 @@ python tools/calibrate_sem.py --out result.json --md result.md                  
 - On Wayland, KDE and GNOME do not expose focused app/title/fullscreen to perception.
 - The ML experiments were not promoted: the default is still `default-v1`.
 - The 2% CPU budget is per core; on low-power laptops the measured number may be higher than on the reference PC.
+- No system tray icon in this version: the window itself (or the overlay mode) is the presence.
 
 **Next steps** (next cycle; details in the [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
 
 1. **M13:** close the acceptance (3-repetition average of the harness, no assistant phrasing in the final text, and CI) and the human checklist; report in [`docs/superpowers/reports/`](docs/superpowers/reports/2026-11-04-m13-calibracao.md) (Portuguese).
-2. **M15:** distribution: OS-specific data folders, builds and autostart.
 
 Specs, plans and reports of each milestone: [`docs/superpowers/`](docs/superpowers/).
 

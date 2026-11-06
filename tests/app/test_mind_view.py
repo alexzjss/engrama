@@ -15,7 +15,7 @@ from engrama.config import Config
 from engrama.lab.runtime import Runtime
 from engrama.mind.recipe import load_recipe
 
-DEFAULT = Path(__file__).resolve().parents[2] / "recipes" / "default-v1.toml"
+DEFAULT = Path(__file__).resolve().parents[2] / "engrama" / "recipes" / "default-v1.toml"
 RECT = pygame.Rect(0, 0, 200, 120)
 
 

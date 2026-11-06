@@ -23,7 +23,7 @@ from engrama.services.perception.themes import make_theme_sink
 pytestmark = pytest.mark.slow
 
 ROOT = Path(__file__).resolve().parents[1]
-MINIMAL = ROOT / "recipes" / "minimal-v1.toml"
+MINIMAL = ROOT / "engrama" / "recipes" / "minimal-v1.toml"
 BANK_TITLE = "Bradesco Internet Banking - Meu Extrato Secreto"
 GAME_TITLE = "Hollow Knight - Greenpath Segredo"
 
