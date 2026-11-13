@@ -55,6 +55,10 @@ def _default_ollama_models(platform: str | None = None) -> Path | None:
     return None
 
 
+def _default_action_permissions() -> dict[str, bool]:
+    return {"reminders": False, "focus": False, "notes": False}
+
+
 def _default_permissions() -> dict[str, bool]:
     return {"time": False, "idle": False, "active_window": False, "process": False, "system_load": False}
 
@@ -83,6 +87,7 @@ class Config:
     embed_model: str = "embeddinggemma"          # M9: "" = semantic recall off
     semantic_recall: bool = True
     recommended_embed_models: tuple[str, ...] = ("embeddinggemma", "nomic-embed-text", "bge-m3")
+    action_permissions: dict[str, bool] = field(default_factory=_default_action_permissions)   # M20: all opt-in
     creature_name: str = ""                      # given by the user after the hatch (or in Settings); "" = unnamed
 
     @classmethod
@@ -109,6 +114,9 @@ class Config:
                 v = tuple(v)
             elif f.name == "permissions":
                 v = {**_default_permissions(), **v}
+            elif f.name == "action_permissions":
+                v = {k: bool(v.get(k, False)) for k in _default_action_permissions()} if isinstance(v, dict) \
+                    else _default_action_permissions()
             elif f.name == "perception_blocklist":
                 v = [str(x) for x in v]
             elif f.name == "display_mode":

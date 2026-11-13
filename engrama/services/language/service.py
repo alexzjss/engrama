@@ -302,6 +302,30 @@ class LanguageService:
         t_msg = self._now()
         self._enqueue(P_CHAT, lambda: self._chat(text, t_msg))
 
+    def request_structured(self, text: str, messages: list[dict], schema: dict,
+                           handler: Callable[[str], bool]) -> None:
+        """M20: a message that may be a command. With the model ready, ask for JSON under `schema` and hand the raw
+        text to `handler`; when it returns False (or the model is not ready, or the call fails) the message is
+        answered as ordinary chat. The LLM only fills the JSON: what happens with it is the caller's decision."""
+        text = (text or "").strip()[:MAX_INPUT]
+        if not text:
+            return
+        t_msg = self._now()
+
+        def work():
+            handled = False
+            if self.status == "ready":
+                self._chatting += 1
+                try:
+                    handled = bool(handler(self.client.chat_json(self.cfg.model, messages, schema)))
+                except Exception:
+                    handled = False
+                finally:
+                    self._chatting -= 1
+            if not handled:
+                self._chat(text, t_msg)
+        self._enqueue(P_CHAT, work)
+
     def share_file(self, glimpse) -> None:
         """The user dropped a file: comment on it (chat priority). Content lives in memory only."""
         self._enqueue(P_CHAT, lambda: self._share(glimpse))

@@ -11,7 +11,8 @@ GAP = 4
 MARGIN = 10
 # id -> (i18n key of the name, key label shown in the tooltip)
 BUTTONS: tuple[tuple[str, str, str], ...] = (
-    ("food", "ui.menu.food", "F4"), ("digital", "ui.menu.digital", "F1"), ("memories", "ui.memories.title", "F7"),
+    ("food", "ui.menu.food", "F4"), ("digital", "ui.menu.digital", "F1"), ("actions", "ui.actions.title", ""),
+    ("memories", "ui.memories.title", "F7"),
     ("mind", "ui.mind.title", "F2"), ("models", "ui.menu.models", "F5"), ("permissions", "ui.perm.title", "F8"),
     ("generations", "ui.menu.generations", "F10"), ("settings", "ui.menu.settings", "F6"), ("help", "ui.help.title", ""))
 
@@ -23,6 +24,9 @@ _ART: dict[str, tuple[tuple[tuple[int, int, int], ...], tuple[str, ...]]] = {
     "digital": (((90, 200, 220), (200, 240, 250), (50, 110, 150)), (
         "............", ".##########.", ".#--------#.", ".#-o----o-#.", ".#--------#.", ".#--oooo--#.",
         ".#--------#.", ".##########.", ".....##.....", "...######...", "............", "............")),
+    "actions": (((226, 226, 238), (250, 250, 250), (70, 64, 96)), (
+        "............", "...######...", "..#------#..", ".#---o----#.", ".#---o----#.", ".#---o----#.",
+        ".#---ooo--#.", ".#--------#.", "..#------#..", "...######...", "............", "............")),
     "memories": (((150, 110, 200), (245, 240, 230), (150, 140, 160)), (
         "............", ".####..####.", "#----##----#", "#-oo-##-oo-#", "#----##----#", "#-oo-##-oo-#",
         "#----##----#", "#-oo-##-oo-#", "#----##----#", ".####..####.", ".....##.....", "............")),
