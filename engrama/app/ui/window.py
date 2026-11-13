@@ -384,6 +384,8 @@ class Window:
         if bid is not None:
             self.toggle_panel(bid)
             return True
+        if getattr(self.panel, "fullscreen", False):
+            return False
         if menus.close_rect(self.screen).collidepoint(pos) or not menus.panel_rect(self.screen).collidepoint(pos):
             self.close_panel()
             return True
@@ -404,6 +406,8 @@ class Window:
         hit = pygame.Rect(r.x * SCALE, r.y * SCALE, r.w * SCALE, r.h * SCALE).inflate(16, 16)
         if hit.collidepoint(pos):
             self.post("click" if self.scene.is_egg else "pet", None)
+            if not self.scene.is_egg:
+                self.scene.burst("heart", self._prev_now if self._prev_now is not None else time.monotonic())
 
     # --- frame loop
     def _drain_host_events(self) -> None:
@@ -451,9 +455,10 @@ class Window:
             self.chat.draw(self.screen, self.scene.creature_rect, now)
         self._draw_digital(snap)
         if snap.eyes_closed and not snap.dead:
-            draw_text(self.screen, i18n.t("ui.eyes.closed"), (self.size[0] // 2, 20), (170, 180, 240), 20, "midtop")
+            draw_text(self.screen, i18n.t("ui.eyes.closed"), (self.size[0] // 2, 20), (190, 198, 250), 20, "midtop", shadow=True)
         if self._notice[0] and time.monotonic() < self._notice[1]:
-            draw_text(self.screen, self._notice[0], (self.size[0] // 2, self.size[1] - 24), (240, 160, 120), 22, "midbottom")
+            draw_text(self.screen, self._notice[0], (self.size[0] // 2, self.size[1] - 44), (250, 180, 140), 22, "midbottom",
+                      shadow=True)
         if self.panel is not None:
             self.panel.draw(self.screen, snap)
         if self.panel_name != "first_use":

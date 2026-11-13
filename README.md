@@ -7,7 +7,7 @@
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.18.0](https://img.shields.io/badge/version-0.18.0-blue)
+![Version 0.19.0](https://img.shields.io/badge/version-0.19.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Linhagens: ovo até a forma final, seis criaturas](docs/images/lineages.png)
@@ -19,6 +19,10 @@ Engrama é um companheiro virtual no estilo tamagotchi/V-Pet que mora no seu com
 Por baixo, a "mente" não é só texto de LLM: é uma simulação de verdade (necessidades, afeto, aprendizado por reforço, uma rede de disparos temporal) que escolhe as ações. O LLM só dá voz.
 
 ## Em ação
+
+![O terrário em quatro horas do dia: ovo no ninho ao amanhecer, criança de dia, perfeito ao entardecer, adulto dormindo na cama à noite](docs/images/ui-daynight.png)
+
+<sub>O terrário segue o relógio do seu PC: amanhecer, dia, entardecer e noite. A casa ganha objetos conforme ela cresce.</sub>
 
 <table>
 <tr>
@@ -112,6 +116,7 @@ flowchart LR
 | **Busca por significado (opcional)** | Com um modelo de embedding, ela lembra pelo sentido, mesmo entre idiomas. Sem ele, tudo funciona por palavras. |
 | **Percepção do PC (opt-in)** | Com a sua permissão, fonte por fonte: app em foco, título da janela, ociosidade, horário, tela cheia, carga do PC. Só categoria e tema curto são guardados. Olhos fechados pausa tudo. |
 | **Presença** | Modo terrário (janela) ou sobreposição: ela anda sobre a barra de tarefas e sobre a borda de cima das janelas abertas (senta na janela ativa, pula entre bordas, cai quando a janela some, dorme num canto), numa janela transparente sem borda. Reage ao cursor pelo temperamento: o curioso olha, o brincalhão segue, o arisco foge. Só a geometria das janelas é lida, nunca o título. Mini-menu, mundo digital de brincadeira, variantes de ação por humor e personalidade. Arraste um arquivo para ela comentar. |
+| **Casa e ritmo** | O terrário tem céu, sol, lua, estrelas, nuvens e colinas, e muda com a hora real. A casa cresce com ela: ninho para o ovo, depois pote, bola, cama (onde ela dorme) e planta, nas cores da própria criatura. Emotes mostram o que ela sente sem nenhum número: Zzz no sono, nota quando está animada, gota quando triste, raio quando irritada, corações no carinho. |
 | **Windows e Linux** | Windows completo; Linux com X11 (tudo) e Wayland (percepção conforme o compositor; overlay no Hyprland). |
 | **Laboratório de experimentos** | Simule semanas de vida em segundos, compare receitas de mente, rode experimentos de ML opcionais (CTRNN, modelo de mundo com curiosidade, Thompson, inferência ativa). |
 
@@ -445,6 +450,8 @@ python tools/calibrate_sem.py --out resultado.json --md resultado.md            
 | M15 | Distribuição: pasta de dados do sistema, Ollama sem disco fixo, pacotes Windows e Linux, atalho e início automático opcional | feito |
 | M16 | Saúde 2: CI verde, testes mais rápidos | feito |
 | M17 | Habitação no desktop: overlay no Hyprland, geometria das janelas, andar nas bordas, pular, cair, reagir ao cursor | feito |
+| MVP 1 | UI/UX: barra de botões, ajuda, HUD com ícones e dicas, painéis que fecham, nome da criatura | feito |
+| M18 | Casa e ritmo: terrário com dia e noite, objetos da casa, emotes pelo afeto, sombra e balões com contorno | feito |
 
 **Limitações conhecidas**
 
@@ -475,7 +482,7 @@ Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.18.0](https://img.shields.io/badge/version-0.18.0-blue)
+![Version 0.19.0](https://img.shields.io/badge/version-0.19.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Lineages: egg to final form, six creatures](docs/images/lineages.png)
@@ -487,6 +494,10 @@ Engrama is a tamagotchi/V-Pet-style virtual companion that lives on your compute
 Underneath, the "mind" is not just LLM text: it is a real simulation (needs, affect, reinforcement learning, a temporal spiking network) that chooses the actions. The LLM only gives it a voice.
 
 ## In action
+
+![The terrarium at four hours of the day: egg in its nest at dawn, child by day, perfect at dusk, adult asleep in bed at night](docs/images/ui-daynight.png)
+
+<sub>The terrarium follows your PC clock: dawn, day, dusk and night. The home gains objects as the creature grows.</sub>
 
 <table>
 <tr>
@@ -580,6 +591,7 @@ flowchart LR
 | **Semantic search (optional)** | With an embedding model it remembers by meaning, even across languages. Without it, everything works by words. |
 | **PC perception (opt-in)** | With your permission, source by source: focused app, window title, idle time, time of day, fullscreen, PC load. Only a category and a short topic are stored. Closed eyes pauses everything. |
 | **Presence** | Terrarium (window) or overlay mode: it walks on the taskbar and on the top edges of open windows (sits on the active window, hops between edges, falls when the window goes away, sleeps in a corner), in a borderless transparent window. It reacts to the cursor by temperament: curious ones look, playful ones follow, skittish ones flee. Only window geometry is read, never titles. Mini-menu, a playful digital world, action variants by mood and personality. Drag a file onto it and it comments. |
+| **Home and rhythm** | The terrarium has a sky, sun, moon, stars, clouds and hills, and changes with the real hour. The home grows with the creature: a nest for the egg, then a bowl, a ball, a bed (where it sleeps) and a plant, in the creature's own colours. Emotes show what it feels without a single number: Zzz in sleep, a note when lively, a drop when sad, a bolt when cross, hearts when petted. |
 | **Windows and Linux** | Full on Windows; on Linux, X11 (everything) and Wayland (perception depending on the compositor; overlay on Hyprland). |
 | **Experiment lab** | Simulate weeks of life in seconds, compare mind recipes, run optional ML experiments (CTRNN, world model with curiosity, Thompson, active inference). |
 
@@ -912,6 +924,8 @@ python tools/calibrate_sem.py --out result.json --md result.md                  
 | M15 | Distribution: OS data folder, Ollama without a fixed drive, Windows and Linux bundles, shortcut and opt-in autostart | done |
 | M16 | Health 2: green CI, faster tests | done |
 | M17 | Desktop habitation: overlay on Hyprland, window geometry, walking on edges, hopping, falling, reacting to the cursor | done |
+| MVP 1 | UI/UX: toolbar, help, HUD with icons and tooltips, panels that close, creature name | done |
+| M18 | Home and rhythm: terrarium with day and night, home objects, emotes from affect, shadow and outlined bubbles | done |
 
 **Known limitations**
 

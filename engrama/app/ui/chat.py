@@ -160,7 +160,8 @@ class ChatBox:
         self.status_rect = pygame.Rect(0, 0, 0, 0)
         if line:
             missing = self._status == "missing"   # not an error: she babbles; the line doubles as a way into Models
-            self.status_rect = hud.draw_text(surface, line, (field.x + 2, y), (170, 165, 195) if missing else (230, 190, 120), 16).inflate(8, 6)
+            self.status_rect = hud.draw_text(surface, line, (field.x + 2, y), (200, 196, 222) if missing else (240, 200, 130), 16,
+                                             shadow=True).inflate(8, 6)
             y -= 14
         live = self.bubble if self.bubble and now < self.bubble_until else None
         for item in reversed(self.history):
@@ -168,7 +169,7 @@ class ChatBox:
                 continue
             if y < 60:
                 break
-            hud.draw_text(surface, item, (field.x + 2, y), (150, 150, 170), 16)
+            hud.draw_text(surface, item, (field.x + 2, y), (214, 214, 228), 16, shadow=True)
             y -= 14
 
     def _draw_thinking(self, surface: pygame.Surface, creature_rect: pygame.Rect, now: float) -> None:
@@ -198,6 +199,9 @@ class ChatBox:
         top = (creature_rect.y * SCALE if known else 200) - bh - 12
         box = pygame.Rect(0, max(50, top), bw, bh)
         box.centerx = max(bw // 2 + 4, min(sw - bw // 2 - 4, cx))
+        pygame.draw.rect(surface, (40, 36, 50), box.inflate(4, 4), border_radius=10)
+        pygame.draw.polygon(surface, (40, 36, 50), [(box.centerx - 8, box.bottom), (box.centerx + 8, box.bottom),
+                                                    (box.centerx, box.bottom + 11)])
         pygame.draw.rect(surface, (250, 250, 245), box, border_radius=8)
         pygame.draw.polygon(surface, (250, 250, 245), [(box.centerx - 6, box.bottom),
                                                        (box.centerx + 6, box.bottom), (box.centerx, box.bottom + 8)])
