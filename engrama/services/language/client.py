@@ -98,6 +98,22 @@ class OllamaClient:
             raise
         return strip_think(d["message"]["content"])
 
+    def chat_json(self, model: str, messages: list[dict], schema: dict, num_predict: int = 80,
+                  timeout: float = 45) -> str:
+        """Structured output (M20): the reply is constrained to `schema` by Ollama's `format`. Raw JSON text back."""
+        body = {"model": model, "messages": messages, "stream": False, "think": False, "format": schema,
+                "keep_alive": self._keep_alive(),
+                "options": {"num_ctx": CHAT_NUM_CTX, "num_predict": num_predict, "temperature": 0.0}}
+        try:
+            d = self._json(self._url("/api/chat"), body, timeout)
+        except Exception as e:
+            if _is_timeout(e):
+                raise LLMTimeout(str(e)) from e
+            if isinstance(e, (urllib.error.URLError, ConnectionError, OSError)):
+                raise LLMOffline(str(e)) from e
+            raise
+        return strip_think(d["message"]["content"])
+
     def embed(self, model: str, texts: list[str], timeout: float) -> list[list[float]]:
         body = {"model": model, "input": texts, "truncate": True, "keep_alive": self._keep_alive()}
         try:

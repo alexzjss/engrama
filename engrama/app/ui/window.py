@@ -68,7 +68,13 @@ register_panel("permissions", lambda w: menus.PlaceholderPanel("ui.perm.title"))
 register_panel("first_use", lambda w: menus.PlaceholderPanel("ui.perm.first.title"))
 register_panel("generations", lambda w: _generations_factory(w))
 register_panel("help", lambda w: menus.HelpPanel())
+register_panel("actions", lambda w: _actions_factory(w))
 register_panel("name", lambda w: menus.NamePanel(w))
+
+
+def _actions_factory(win: "Window"):
+    from engrama.app.ui.actions_panel import ActionsPanel
+    return ActionsPanel(win)
 
 
 def _generations_factory(win: "Window"):
@@ -103,6 +109,8 @@ class Window:
         self.chat = ChatBox(language, post, self.growler, valence_fn,
                             lambda: look_of(self._snap.look).voice_pitch)
         self.chat.reserve_right = self.toolbar.width + 4
+        self.actions = None                       # M20, duck-typed (engrama.app.actions.Actions); None = feature off
+        self.chat.on_text = lambda text: self.actions is not None and bool(self.actions.handle_text(text))
         self.toolbar.layout(size)
         self.panels: dict[str, Callable[["Window"], object]] = dict(PANELS)
         self.panel_name: str | None = None
@@ -384,6 +392,8 @@ class Window:
         if bid is not None:
             self.toggle_panel(bid)
             return True
+        if getattr(self.panel, "fullscreen", False):
+            return False
         if menus.close_rect(self.screen).collidepoint(pos) or not menus.panel_rect(self.screen).collidepoint(pos):
             self.close_panel()
             return True
@@ -404,6 +414,8 @@ class Window:
         hit = pygame.Rect(r.x * SCALE, r.y * SCALE, r.w * SCALE, r.h * SCALE).inflate(16, 16)
         if hit.collidepoint(pos):
             self.post("click" if self.scene.is_egg else "pet", None)
+            if not self.scene.is_egg:
+                self.scene.burst("heart", self._prev_now if self._prev_now is not None else time.monotonic())
 
     # --- frame loop
     def _drain_host_events(self) -> None:
@@ -451,9 +463,11 @@ class Window:
             self.chat.draw(self.screen, self.scene.creature_rect, now)
         self._draw_digital(snap)
         if snap.eyes_closed and not snap.dead:
-            draw_text(self.screen, i18n.t("ui.eyes.closed"), (self.size[0] // 2, 20), (170, 180, 240), 20, "midtop")
+            draw_text(self.screen, i18n.t("ui.eyes.closed"), (self.size[0] // 2, 20), (190, 198, 250), 20, "midtop", shadow=True)
         if self._notice[0] and time.monotonic() < self._notice[1]:
-            draw_text(self.screen, self._notice[0], (self.size[0] // 2, self.size[1] - 24), (240, 160, 120), 22, "midbottom")
+            draw_text(self.screen, self._notice[0], (self.size[0] // 2, self.size[1] - 44), (250, 180, 140), 22, "midbottom",
+                      shadow=True)
+        self._draw_focus()
         if self.panel is not None:
             self.panel.draw(self.screen, snap)
         if self.panel_name != "first_use":
@@ -475,11 +489,29 @@ class Window:
         r = self.scene.creature_rect
         sig = (self.low.get_buffer().raw, self.hud.key(snap, self.dev), bool(snap.eyes_closed),
                getattr(snap, "digital_request", ""), tuple(self.chat.history), self.chat.status_line(now),
-               (r.x, r.y, r.w, r.h), self.size, self.toolbar.key(self.panel_name))
+               (r.x, r.y, r.w, r.h), self.size, self.toolbar.key(self.panel_name), self._focus_px())
         if (sig == self._sig and self._sig_screen is self.screen and 0.0 <= now - self._sig_at < KEEPALIVE_S):
             return True
         self._sig, self._sig_at, self._sig_screen = sig, now, self.screen
         return False
+
+    def _focus_px(self) -> int:
+        """Filled pixels of the focus bar (0 = no session): part of what the frame shows."""
+        store = getattr(self.actions, "store", None)
+        if store is None or not store.focus_active:
+            return 0
+        return 1 + int(119 * store.focus_progress())
+
+    def _draw_focus(self) -> None:
+        px = self._focus_px()
+        if not px:
+            return
+        bar = pygame.Rect(0, 0, 120, 8)
+        bar.midtop = (self.size[0] // 2, 30)
+        draw_text(self.screen, i18n.t("ui.actions.focus"), (bar.centerx, bar.y - 4), (235, 235, 245), 18, "midbottom",
+                  shadow=True)
+        pygame.draw.rect(self.screen, (30, 26, 40), bar.inflate(4, 4), border_radius=5)
+        pygame.draw.rect(self.screen, (130, 210, 140), (bar.x, bar.y, px, bar.h), border_radius=4)
 
     def _draw_farewell_bubble(self) -> None:
         text = (self.farewell_text or "").strip()

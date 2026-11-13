@@ -2,10 +2,11 @@
 from __future__ import annotations
 from typing import Callable
 import pygame
+from engrama import balance
 from engrama.app import i18n
 from engrama.app.snapshot import Snapshot
 
-NEED_THRESHOLD = 0.6
+NEED_THRESHOLD = balance.NEED_URGENT   # snapshot needs are on the kernel scale (0-100)
 MAX_NEED_ICONS = 3
 _fonts: dict[int, pygame.font.Font] = {}
 _hooks: list[Callable[[str], None]] = []
@@ -31,20 +32,33 @@ def font(size: int) -> pygame.font.Font:
     return _fonts[size]
 
 
-def draw_text(surface: pygame.Surface, text: str, pos: tuple[int, int], color=(235, 235, 240), size: int = 20,
-              anchor: str = "topleft") -> pygame.Rect:
-    for h in list(_hooks):
-        try:
-            h(text)
-        except Exception:
-            pass
+SHADOW = (24, 22, 36)
+
+
+def _render(text: str, color, size: int) -> pygame.Surface:
     key = (text, tuple(color), size)
     img = _rendered.get(key)
     if img is None:   # antialiased rendering is the costliest part of a frame; most strings repeat every frame
         if len(_rendered) >= MAX_RENDERED:
             _rendered.clear()
         img = _rendered[key] = font(size).render(text, True, color)
+    return img
+
+
+def draw_text(surface: pygame.Surface, text: str, pos: tuple[int, int], color=(235, 235, 240), size: int = 20,
+              anchor: str = "topleft", shadow: bool = False) -> pygame.Rect:
+    """`shadow` adds a dark copy one pixel down and right: for text that sits straight on the scene (sky, grass)."""
+    for h in list(_hooks):
+        try:
+            h(text)
+        except Exception:
+            pass
+    img = _render(text, color, size)
     r = img.get_rect(**{anchor: pos})
+    if shadow:
+        dark = _render(text, SHADOW, size)
+        surface.blit(dark, r.move(1, 1))
+        surface.blit(dark, r.move(0, 1))
     surface.blit(img, r)
     return r
 
@@ -173,25 +187,25 @@ class Hud:
             draw_text(surface, tip, box.center, (235, 235, 245), 18, "center")
         top = 10
         if self.name and not snap.dead:
-            draw_text(surface, fit(self.name, 24, w // 3), (w - 10, top), (245, 245, 250), 24, "topright")
+            draw_text(surface, fit(self.name, 24, w // 3), (w - 10, top), (245, 245, 250), 24, "topright", shadow=True)
             top += 22
         if snap.stage != "egg" and not snap.dead:
             branch = snap.branch_name or i18n.t(f"branch.{snap.branch or 'base'}")
             line = f"{i18n.t(f'stage.{snap.stage}')} · {branch}" if self.name else branch
-            draw_text(surface, line, (w - 10, top), (200, 200, 215), 18, "topright")
+            draw_text(surface, line, (w - 10, top), (200, 200, 215), 18, "topright", shadow=True)
             top += 18
         if snap.resting:
-            draw_text(surface, "z z  " + i18n.t("ui.rest.on"), (w - 10, top + 2), (170, 180, 240), 20, "topright")
+            draw_text(surface, "z z  " + i18n.t("ui.rest.on"), (w - 10, top + 2), (170, 180, 240), 20, "topright", shadow=True)
         if snap.stage != "egg" and not snap.dead:
             y = 44
             if snap.grave:   # urgent: the creature asks for help
-                draw_text(surface, i18n.t("ui.life.grave"), (w // 2, y), (250, 120, 110), 22, "midtop")
+                draw_text(surface, i18n.t("ui.life.grave"), (w // 2, y), (250, 120, 110), 22, "midtop", shadow=True)
             elif snap.sick:
-                draw_text(surface, i18n.t("ui.life.sick"), (w // 2, y), (170, 220, 120), 20, "midtop")
+                draw_text(surface, i18n.t("ui.life.sick"), (w // 2, y), (170, 220, 120), 20, "midtop", shadow=True)
             if snap.old:
-                draw_text(surface, i18n.t("ui.life.old"), (w // 2, y + 22), (190, 190, 205), 18, "midtop")
+                draw_text(surface, i18n.t("ui.life.old"), (w // 2, y + 22), (190, 190, 205), 18, "midtop", shadow=True)
         if snap.stage == "egg":
-            draw_text(surface, i18n.t("ui.egg.hint"), (w // 2, 44), (225, 225, 235), 20, "midtop")
+            draw_text(surface, i18n.t("ui.egg.hint"), (w // 2, 44), (225, 225, 235), 20, "midtop", shadow=True)
         if dev:
             y = 44
             for k, v in snap.needs.items():

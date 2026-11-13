@@ -288,6 +288,24 @@ def _main(argv: list[str] | None, held: list) -> int:
             language.share_file(glimpse)
             return True
 
+        from engrama.app.actions import Actions
+        from engrama.services.actions import ActionStore
+
+        def alert(line: str) -> None:   # a reminder or the end of a focus session: make sure it is noticed
+            window._notice = (line, time.monotonic() + 8.0)
+            try:
+                window.growler.growl(300.0, "ask")
+            except Exception:
+                pass
+
+        def speak(line: str) -> None:
+            from engrama.services.language.service import Reply
+            language.replies.put(Reply(line, i18n.get_lang(), "babble"))
+
+        actions = Actions(ActionStore(cfg.data_dir / "actions.json", time.time), cfg, memory, language, host.snapshot,
+                          save_config=lambda: cfg.save(cfg_path), say=speak, on_alert=alert)
+        window.actions = actions
+        host.on_digital_ask = lambda did: None if actions.quiet else say(f"digital.ask.{did}")
         window.set_eyes_closed = set_eyes
         window.on_file_drop = on_file_drop
         window.perception_provider = _PerceptionProvider(memory, lambda: hotkey.error)
@@ -337,6 +355,10 @@ def _main(argv: list[str] | None, held: list) -> int:
             if now_w >= next_policy:
                 next_policy = now_w + 1.0
                 try:
+                    actions.tick()
+                except Exception:
+                    logging.getLogger("engrama.app").exception("actions tick failed")
+                try:
                     snap = host.snapshot()
                     res = policy.update(
                         now_w, stage=snap.stage, user_active=now_w - last_input < ACTIVE_WINDOW_S,
@@ -344,7 +366,7 @@ def _main(argv: list[str] | None, held: list) -> int:
                         fullscreen=snap.rest_reason == "fullscreen", action=snap.action,
                         activity=activity.current() if cfg.permissions.get("process") else None,
                         eyes_closed=cfg.eyes_closed)
-                    if res:
+                    if res and not actions.quiet:   # in a focus session she keeps to herself
                         language.spontaneous(res[0], res[1])
                 except Exception:
                     logging.getLogger("engrama.app").exception("initiative failed")
