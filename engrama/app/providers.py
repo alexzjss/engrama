@@ -24,7 +24,7 @@ class _GenerationsProvider:
 
 def _build_persona(snap: Snapshot, memory, name: str = ""):
     from engrama.services.language.persona import PersonaState
-    needs = sorted(((v, n) for n, v in snap.needs.items() if v > 0.6), reverse=True)
+    needs = sorted(((v, n) for n, v in snap.needs.items() if v > B.NEED_URGENT), reverse=True)
     liking = sorted(snap.food_liking.items(), key=lambda kv: kv[1])
     try:
         memories = memory.recent(3)

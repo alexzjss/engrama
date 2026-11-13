@@ -1,7 +1,7 @@
 """Capture README screenshots of the real app (headless SDL). Usage:
     python tools/screenshots.py --out docs/images --seed 3
 Runs the app in-process on a scratch data dir with a fast clock and saves PNGs of the
-terrarium, Mind View, Memories, Permissions and Foods panels, plus a strip of the terrarium at four hours of the
+terrarium, Mind View, Memories, Permissions, Foods and Actions panels, plus a strip of the terrarium at four hours of the
 day (ui-daynight.png). The app shots are pinned at ten in the morning. No LLM, no network."""
 from __future__ import annotations
 
@@ -50,12 +50,17 @@ def main() -> int:
     cfg = Config(data_dir=data)
     cfg.perception_asked = True
     cfg.creature_name = "Mika"   # named already, so the name question does not cover the shots
+    cfg.action_permissions = {"reminders": True, "focus": True, "notes": False}
+    import json
+    (data / "actions.json").write_text(json.dumps({"reminders": [
+        {"id": 1, "due": time.time() + 12 * 60, "text": "tirar o bolo do forno"},
+        {"id": 2, "due": time.time() + 95 * 60, "text": "ligar pra Ana"}]}), encoding="utf-8")
     cfg.save(data / "config.json")
     # plan: (wall seconds from start, key to press, filename)
     t0 = time.monotonic()
     plan = [(a.wait, None, "ui-terrarium.png"), (a.wait + 3, pygame.K_F2, "ui-mind-view.png"),
             (a.wait + 7, pygame.K_F4, "ui-foods.png"), (a.wait + 10, pygame.K_F7, "ui-memories.png"),
-            (a.wait + 13, pygame.K_F8, "ui-permissions.png")]
+            (a.wait + 13, pygame.K_F8, "ui-permissions.png"), (a.wait + 16, "actions", "ui-actions.png")]
     state = {"i": 0, "pending": None}
     orig = W.Window.frame
 
@@ -78,7 +83,9 @@ def main() -> int:
             if time.monotonic() - t0 >= at:
                 if state["i"] > 0:
                     self.close_panel()
-                if key is not None:
+                if isinstance(key, str):   # a panel with no key of its own
+                    self.open_panel(key)
+                elif key is not None:
                     self.handle_event(pygame.event.Event(pygame.KEYDOWN, key=key, mod=0, unicode=""))
                 state["pending"] = (name, time.monotonic() + 1.0)
 

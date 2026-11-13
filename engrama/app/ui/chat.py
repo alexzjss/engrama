@@ -48,6 +48,7 @@ class ChatBox:
         self._status_at = -1e9
         self.reserve_right = 0                      # px kept free at the right of the field (the toolbar lives there)
         self.status_rect = pygame.Rect(0, 0, 0, 0)  # where the LLM status line was last drawn (click target)
+        self.on_text: Callable[[str], bool] | None = None   # M20: True = the message was a command, do not chat
         try:
             pygame.key.start_text_input()
         except Exception:
@@ -87,6 +88,11 @@ class ChatBox:
             except Exception:
                 v = 0.0
         self.post("message", {"valence": v})
+        try:
+            if callable(self.on_text) and self.on_text(text):
+                return
+        except Exception:
+            pass
         try:
             self.language.request(text)
         except Exception:

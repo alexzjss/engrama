@@ -42,7 +42,7 @@ def test_frame_renders_headless():
         for i in range(30):
             w.frame(i * 0.1)
     for a in ACTIONS:
-        h["s"] = snap(stage="child", action=a, needs={"fome": 0.9, "sono": 0.7})
+        h["s"] = snap(stage="child", action=a, needs={"fome": 90, "sono": 70})
         for i in range(30):
             w.frame(i * 0.1)
     w.eat_until = 1e18
@@ -112,7 +112,7 @@ def test_no_digits_rendered_in_normal_mode():
     hud.add_text_hook(seen.append)
     try:
         w, _, _ = make(snap(stage="child", resting=True,
-                            needs={"fome": 0.9, "sono": 0.8, "tedio": 0.7, "carinho": 0.65, "apoio": 0.1},
+                            needs={"fome": 90, "sono": 80, "tedio": 70, "carinho": 65, "apoio": 10},
                             t=12345.0, egg_clicks=2))
         w.frame(1.0)
         w.open_panel("food")
@@ -248,7 +248,7 @@ def _run_frames(skip, snaps, nows, mutate=None):
 
 
 def test_skip_identical_same_pixels():
-    base = dict(stage="child", action="idle", needs={"fome": 0.7})
+    base = dict(stage="child", action="idle", needs={"fome": 70})
     snaps = [snap(**base) for _ in range(60)]
     nows = [3.0 + (i // 3) * 0.1 for i in range(60)]   # repeated clock values: many truly identical frames
     ha, fa = _run_frames(True, snaps, nows)
@@ -256,7 +256,7 @@ def test_skip_identical_same_pixels():
     assert ha == hb
     assert fb == 60 and fa < fb
     # a snapshot change in the middle (HUD values) is never swallowed
-    snaps2 = snaps[:30] + [snap(**dict(base, needs={"fome": 0.9, "sono": 0.8})) for _ in range(30)]
+    snaps2 = snaps[:30] + [snap(**dict(base, needs={"fome": 90, "sono": 80})) for _ in range(30)]
     ha, _ = _run_frames(True, snaps2, nows)
     hb, _ = _run_frames(False, snaps2, nows)
     assert ha == hb and ha[29] != ha[-1]
@@ -333,3 +333,17 @@ def test_overlay_target_fps_and_skip():
     finally:
         pygame.display.flip = real
     assert len(counted) <= 1
+
+
+def test_need_icons_use_the_kernel_scale_so_a_calm_creature_shows_none():
+    """Snapshot needs are 0-100. With the threshold on a 0-1 scale every need looked urgent, all the time."""
+    from engrama.app.providers import _build_persona
+    calm = snap(stage="child", needs={"fome": 20.0, "sono": 5.0, "carinho": 59.0})
+    needy = snap(stage="child", needs={"fome": 20.0, "sono": 95.0, "carinho": 61.0})
+    w, _, h = make(calm)
+    w.frame(1.0)
+    assert len(w.hud._spots) == 1                      # the mood face only
+    h["s"] = needy
+    w.frame(1.1)
+    assert [t for _r, t in w.hud._spots[1:]] == [hud.i18n.t("need.sono"), hud.i18n.t("need.carinho")]
+    assert _build_persona(calm, None).needs_top == [] and _build_persona(needy, None).needs_top == ["sono", "carinho"]

@@ -5,6 +5,7 @@ STAGE_MIN_SECONDS = {"egg": 300.0, "baby": 36 * HOUR, "child": 7 * 24 * HOUR, "a
 CARE_MIN_TO_EVOLVE = 0.3
 CARE_EMA_SECONDS = 6 * HOUR
 EGG_HATCH_CLICKS = 5
+NEED_URGENT = 60.0              # a need above this (kernel scale, 0-100) shows in the HUD and colours her speech
 OFFLINE_NEED_CAP = 70.0
 DECISION_PERIOD = 5.0            # sim-seconds between action decisions (at least once per tick)
 ASK_MIN_INTERVAL = 20 * 60.0

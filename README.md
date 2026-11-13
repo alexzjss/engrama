@@ -7,7 +7,7 @@
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.19.0](https://img.shields.io/badge/version-0.19.0-blue)
+![Version 0.20.0](https://img.shields.io/badge/version-0.20.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Linhagens: ovo até a forma final, seis criaturas](docs/images/lineages.png)
@@ -32,6 +32,9 @@ Por baixo, a "mente" não é só texto de LLM: é uma simulação de verdade (ne
 <tr>
 <td><img src="docs/images/ui-foods.png" alt="Painel de comidas (F4)"><br><sub><b>Comidas (F4).</b> Comidas de verdade, "comidas digitais" de brincadeira e remédio.</sub></td>
 <td><img src="docs/images/ui-permissions.png" alt="Painel de permissões (F8)"><br><sub><b>Permissões (F8).</b> Toda percepção do PC começa desligada, fonte por fonte.</sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/ui-actions.png" alt="Painel de ações" width="50%"><br><sub><b>Ações.</b> Lembretes, foco e anotações: cada um com a própria chave, e nada além disso.</sub></td>
 </tr>
 </table>
 
@@ -117,6 +120,7 @@ flowchart LR
 | **Percepção do PC (opt-in)** | Com a sua permissão, fonte por fonte: app em foco, título da janela, ociosidade, horário, tela cheia, carga do PC. Só categoria e tema curto são guardados. Olhos fechados pausa tudo. |
 | **Presença** | Modo terrário (janela) ou sobreposição: ela anda sobre a barra de tarefas e sobre a borda de cima das janelas abertas (senta na janela ativa, pula entre bordas, cai quando a janela some, dorme num canto), numa janela transparente sem borda. Reage ao cursor pelo temperamento: o curioso olha, o brincalhão segue, o arisco foge. Só a geometria das janelas é lida, nunca o título. Mini-menu, mundo digital de brincadeira, variantes de ação por humor e personalidade. Arraste um arquivo para ela comentar. |
 | **Casa e ritmo** | O terrário tem céu, sol, lua, estrelas, nuvens e colinas, e muda com a hora real. A casa cresce com ela: ninho para o ovo, depois pote, bola, cama (onde ela dorme) e planta, nas cores da própria criatura. Emotes mostram o que ela sente sem nenhum número: Zzz no sono, nota quando está animada, gota quando triste, raio quando irritada, corações no carinho. |
+| **Ações com permissão (opt-in)** | Três coisas que ela faz por você, cada uma com a própria chave no painel Ações, todas desligadas no começo: **lembretes** ("me lembra em 20 min de tirar o bolo"), **foco** (pomodoro: ela fica quieta e comemora no fim) e **anotações** ("anota: ..." vai para a memória, e você apaga no F7). Funciona pelo chat ou só pelo painel, sem LLM. Não existe nenhuma outra ação: nada de shell, rede ou arquivos. |
 | **Windows e Linux** | Windows completo; Linux com X11 (tudo) e Wayland (percepção conforme o compositor; overlay no Hyprland). |
 | **Laboratório de experimentos** | Simule semanas de vida em segundos, compare receitas de mente, rode experimentos de ML opcionais (CTRNN, modelo de mundo com curiosidade, Thompson, inferência ativa). |
 
@@ -151,6 +155,7 @@ Este é o ponto central do projeto, não um detalhe.
 - **Sem espionagem de entrada:** nada de teclado, tela, área de transferência ou `/dev/input`. O cursor só é lido no modo sobreposição, poucas vezes por segundo, e nunca é guardado.
 - **Você controla a memória.** Apague fatos, assuntos, opiniões ou "esquecer tudo" (com confirmação em etapas). Apagar é definitivo: sai do banco, dos episódios que citam o item, da memória de curto prazo e dos vetores de busca.
 - **O que passa para a próxima geração** não inclui fatos, assuntos nem opiniões sobre você; só traços de personalidade e até 3 lembranças ancestrais sem números e sem nada bloqueado.
+- **Ações são uma lista fechada.** Lembretes, foco e anotações, cada um ligado por você. O pedido é lido por regras fixas; só quando elas não entendem uma frase que parece um pedido o LLM local é consultado, com saída JSON validada por esquema, e o resultado passa pela mesma checagem (tipo de ação, duração, tamanho do texto). Ela repete o tempo que entendeu, para você pegar um engano na hora.
 - **Sem LLM funciona.** `--no-llm` nunca inicia nem contata o Ollama.
 - **Nada é baixado sozinho.** O Engrama nunca baixa modelos por conta própria; você pede, pelo menu F5 ou pelo terminal.
 
@@ -203,6 +208,31 @@ python -m engrama --no-llm --frames 600              # sem Ollama; encerra após
 2. Um ovo aparece. Clique nele até chocar; ela pede um nome (dá para deixar para depois, em Ajustes). Faça carinho (clique), alimente (botão da maçã ou F4), converse (Enter envia).
 3. Para conversar, baixe o modelo pelo F5 (ou veja "Ollama não encontrado"/"baixando modelo" na tela). Sem ele, a conversa vira balbucio.
 4. Deixe o app aberto: a criatura cresce com o tempo real. Com o app fechado o tempo passa de forma suave (ela não adoece nem morre só por isso).
+
+### Roteiro de demonstração (5 minutos)
+
+Para apresentar sem esperar dias de vida, use uma pasta de dados só da demonstração. Há dois caminhos:
+
+```
+engrama --data-dir demo --seed 5 --time-scale 300          # do ovo: choca na hora, vira criança em uns 7 min
+```
+
+```
+# do código-fonte: uma adulta já criada (12 dias simulados em cerca de 20 s), aberta no tempo normal
+python -m engrama.lab sim --recipe engrama/recipes/default-v1.toml --days 12 --profile attentive --seed 5 --save demo-adulta/save
+python -m engrama --data-dir demo-adulta
+```
+
+O segundo caminho abre uma adulta do ramo companheiro, com fome e querendo carinho: boa para mostrar o cuidado. Vale ter as duas pastas prontas.
+
+1. **Ovo e nome:** clique no ovo até chocar e dê um nome. Mostre o ninho, o céu na hora real e a barra de botões.
+2. **Cuidado:** carinho (corações), comida (maçã), o ícone de necessidade que some. A casa cresce com ela: pote no bebê, bola na criança, cama na adulta, planta depois.
+3. **Mente:** abra a Visão da Mente (cérebro): módulos, propostas do tick e a vencedora, ao vivo.
+4. **Ações:** no painel do relógio, ligue Lembretes e Foco; escreva no chat `me lembra em 30 segundos de testar` e `foco por 1 min`.
+5. **Privacidade:** painel do olho (tudo desligado por padrão) e Memórias (ver e apagar).
+6. **Voz:** com o Ollama instalado ela conversa; sem ele, balbucia, e a tela Modelos explica o que fazer.
+
+A escala de tempo também acelera necessidades e doença: deixe `--time-scale` em 1 quando não estiver mostrando o crescimento.
 
 ## Como usar
 
@@ -274,6 +304,7 @@ Na primeira abertura com a pasta vazia, o app cria a criatura nova ali. Se você
 | `host.json` | Metadados da criatura (nascimento, semente) |
 | `explog.sqlite` | Log de experiência |
 | `memory.sqlite` | Memória da conversa (fatos, assuntos, opiniões, episódios, vetores) |
+| `actions.json` | Lembretes pendentes e a sessão de foco em andamento |
 | `generations.json`, `generations/<n>/` | Registro das vidas e arquivo (memória + save) de cada uma |
 
 Tetos da memória: 2000 episódios, 300 fatos, 300 assuntos; episódios antigos e pouco importantes são compactados (ao abrir e a cada 6 h).
@@ -452,6 +483,8 @@ python tools/calibrate_sem.py --out resultado.json --md resultado.md            
 | M17 | Habitação no desktop: overlay no Hyprland, geometria das janelas, andar nas bordas, pular, cair, reagir ao cursor | feito |
 | MVP 1 | UI/UX: barra de botões, ajuda, HUD com ícones e dicas, painéis que fecham, nome da criatura | feito |
 | M18 | Casa e ritmo: terrário com dia e noite, objetos da casa, emotes pelo afeto, sombra e balões com contorno | feito |
+| M20 | Agir com permissão: lembretes, foco e anotações, por chat ou painel, com extração por regras e JSON do LLM como reserva | feito |
+| M19 | Mente visível: rotina prevista vira comportamento, sonhos como replay de experiência | pós-MVP |
 
 **Limitações conhecidas**
 
@@ -462,9 +495,11 @@ python tools/calibrate_sem.py --out resultado.json --md resultado.md            
 - O orçamento de 2% de CPU é por núcleo; em notebooks de baixo consumo o número medido pode ser maior que no PC de referência.
 - Sem ícone na bandeja do sistema nesta versão: a própria janela (ou o modo sobreposição) é a presença.
 
-**Próximos passos** (ciclo seguinte; detalhes no [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
+**Próximos passos** (pós-MVP; detalhes no [roadmap](docs/superpowers/specs/2026-11-06-engrama-m16-m20-roadmap.md))
 
-1. **M13:** fechar o aceite (média de 3 repetições do harness, atendente no texto final e CI) e a checklist humana; relatório em [`docs/superpowers/reports/`](docs/superpowers/reports/2026-11-04-m13-calibracao.md).
+1. **M19:** a rotina prevista pela SNN vira comportamento visível (esperar no horário de costume, notar atrasos) e o sono faz replay de experiência, medido no laboratório.
+2. **Ações:** lembretes com hora marcada ("às 15h") ainda não são entendidos, só durações; as chaves ficam no painel Ações, não no F8.
+3. **M13:** fechar o aceite (média de 3 repetições do harness, atendente no texto final e CI) e a checklist humana; relatório em [`docs/superpowers/reports/`](docs/superpowers/reports/2026-11-04-m13-calibracao.md).
 
 Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs/superpowers/).
 
@@ -482,7 +517,7 @@ Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.19.0](https://img.shields.io/badge/version-0.19.0-blue)
+![Version 0.20.0](https://img.shields.io/badge/version-0.20.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Lineages: egg to final form, six creatures](docs/images/lineages.png)
@@ -507,6 +542,9 @@ Underneath, the "mind" is not just LLM text: it is a real simulation (needs, aff
 <tr>
 <td><img src="docs/images/ui-foods.png" alt="Foods panel (F4)"><br><sub><b>Foods (F4).</b> Real foods, joke "digital foods" and medicine.</sub></td>
 <td><img src="docs/images/ui-permissions.png" alt="Permissions panel (F8)"><br><sub><b>Permissions (F8).</b> All PC perception starts off, source by source.</sub></td>
+</tr>
+<tr>
+<td colspan="2" align="center"><img src="docs/images/ui-actions.png" alt="Actions panel" width="50%"><br><sub><b>Actions.</b> Reminders, focus and notes: each with its own switch, and nothing beyond that.</sub></td>
 </tr>
 </table>
 
@@ -592,6 +630,7 @@ flowchart LR
 | **PC perception (opt-in)** | With your permission, source by source: focused app, window title, idle time, time of day, fullscreen, PC load. Only a category and a short topic are stored. Closed eyes pauses everything. |
 | **Presence** | Terrarium (window) or overlay mode: it walks on the taskbar and on the top edges of open windows (sits on the active window, hops between edges, falls when the window goes away, sleeps in a corner), in a borderless transparent window. It reacts to the cursor by temperament: curious ones look, playful ones follow, skittish ones flee. Only window geometry is read, never titles. Mini-menu, a playful digital world, action variants by mood and personality. Drag a file onto it and it comments. |
 | **Home and rhythm** | The terrarium has a sky, sun, moon, stars, clouds and hills, and changes with the real hour. The home grows with the creature: a nest for the egg, then a bowl, a ball, a bed (where it sleeps) and a plant, in the creature's own colours. Emotes show what it feels without a single number: Zzz in sleep, a note when lively, a drop when sad, a bolt when cross, hearts when petted. |
+| **Permissioned actions (opt-in)** | Three things it does for you, each with its own switch in the Actions panel, all off at first: **reminders** ("remind me in 20 min to take the cake out"), **focus** (pomodoro: it stays quiet and cheers at the end) and **notes** ("note: ..." goes to memory, and you delete it in F7). Works from the chat or from the panel alone, without the LLM. No other action exists: no shell, no network, no files. |
 | **Windows and Linux** | Full on Windows; on Linux, X11 (everything) and Wayland (perception depending on the compositor; overlay on Hyprland). |
 | **Experiment lab** | Simulate weeks of life in seconds, compare mind recipes, run optional ML experiments (CTRNN, world model with curiosity, Thompson, active inference). |
 
@@ -626,6 +665,7 @@ This is the central point of the project, not a detail.
 - **No input snooping:** no keyboard, screen, clipboard or `/dev/input`. The cursor is read only in overlay mode, a few times per second, and never stored.
 - **You control memory.** Delete facts, topics, opinions or "forget everything" (with stepwise confirmation). Deleting is final: it leaves the database, the episodes that cite the item, short-term memory and the search vectors.
 - **What passes to the next generation** excludes facts, topics and opinions about you; only personality traits and up to 3 ancestral memories with no numbers and nothing blocked.
+- **Actions are a closed list.** Reminders, focus and notes, each turned on by you. The request is read by fixed rules; only when they cannot read a sentence that looks like a request is the local LLM asked, with schema-validated JSON output, and the result goes through the same checks (kind of action, duration, text length). The creature says back the time it understood, so you catch a mistake at once.
 - **Works without the LLM.** `--no-llm` never starts or contacts Ollama.
 - **Nothing is downloaded by itself.** Engrama never downloads models on its own; you ask for it, via the F5 menu or the terminal.
 
@@ -678,6 +718,31 @@ python -m engrama --no-llm --frames 600              # no Ollama; exits after 60
 2. An egg appears. Click it until it hatches; it asks for a name (you can leave that for later, in Settings). Pet it (click), feed it (the apple button or F4), talk to it (Enter sends).
 3. To chat, download the model via F5 (or see "Ollama not found"/"downloading model" on screen). Without it, the conversation becomes babble.
 4. Leave the app open: the creature grows in real time. While the app is closed, time passes gently (it neither falls ill nor dies just because of that).
+
+### Demo script (5 minutes)
+
+To present without waiting days of life, use a data folder just for the demo. There are two ways:
+
+```
+engrama --data-dir demo --seed 5 --time-scale 300          # from the egg: hatches at once, a child in about 7 min
+```
+
+```
+# from source: an adult already raised (12 simulated days in about 20 s), opened at normal speed
+python -m engrama.lab sim --recipe engrama/recipes/default-v1.toml --days 12 --profile attentive --seed 5 --save demo-adult/save
+python -m engrama --data-dir demo-adult
+```
+
+The second one opens an adult of the companion branch, hungry and wanting affection: good for showing care. It is worth having both folders ready.
+
+1. **Egg and name:** click the egg until it hatches and name the creature. Show the nest, the sky at the real hour and the toolbar.
+2. **Care:** petting (hearts), food (apple), the need icon that goes away. The home grows with the creature: a bowl for the baby, a ball for the child, a bed for the adult, a plant later.
+3. **Mind:** open the Mind View (brain): modules, the tick's proposals and the winner, live.
+4. **Actions:** in the clock panel, turn on Reminders and Focus; type `remind me in 30 seconds to test` and `focus for 1 min` in the chat.
+5. **Privacy:** the eye panel (everything off by default) and Memories (see and delete).
+6. **Voice:** with Ollama installed it talks; without it, it babbles, and the Models screen explains what to do.
+
+The time scale also speeds up needs and sickness: keep `--time-scale` at 1 when you are not showing growth.
 
 ## Usage
 
@@ -749,6 +814,7 @@ On first open with an empty folder, the app creates a new creature there. If you
 | `host.json` | Creature metadata (birth, seed) |
 | `explog.sqlite` | Experience log |
 | `memory.sqlite` | Conversation memory (facts, topics, opinions, episodes, vectors) |
+| `actions.json` | Pending reminders and the running focus session |
 | `generations.json`, `generations/<n>/` | Record of the lives and each one's archive (memory + save) |
 
 Memory caps: 2000 episodes, 300 facts, 300 topics; old, unimportant episodes are compacted (on open and every 6 h).
@@ -926,6 +992,8 @@ python tools/calibrate_sem.py --out result.json --md result.md                  
 | M17 | Desktop habitation: overlay on Hyprland, window geometry, walking on edges, hopping, falling, reacting to the cursor | done |
 | MVP 1 | UI/UX: toolbar, help, HUD with icons and tooltips, panels that close, creature name | done |
 | M18 | Home and rhythm: terrarium with day and night, home objects, emotes from affect, shadow and outlined bubbles | done |
+| M20 | Acting with permission: reminders, focus and notes, from chat or panel, rule-based extraction with LLM JSON as a fallback | done |
+| M19 | Visible mind: predicted routine becomes behaviour, dreams as experience replay | post-MVP |
 
 **Known limitations**
 
@@ -936,9 +1004,11 @@ python tools/calibrate_sem.py --out result.json --md result.md                  
 - The 2% CPU budget is per core; on low-power laptops the measured number may be higher than on the reference PC.
 - No system tray icon in this version: the window itself (or the overlay mode) is the presence.
 
-**Next steps** (next cycle; details in the [roadmap](docs/superpowers/specs/2026-11-04-engrama-m12-m15-roadmap.md))
+**Next steps** (post-MVP; details in the [roadmap](docs/superpowers/specs/2026-11-06-engrama-m16-m20-roadmap.md), Portuguese)
 
-1. **M13:** close the acceptance (3-repetition average of the harness, no assistant phrasing in the final text, and CI) and the human checklist; report in [`docs/superpowers/reports/`](docs/superpowers/reports/2026-11-04-m13-calibracao.md) (Portuguese).
+1. **M19:** the routine predicted by the SNN becomes visible behaviour (waiting at the usual hour, noticing delays) and sleep replays experience, measured in the lab.
+2. **Actions:** reminders at a clock time ("at 3 pm") are not understood yet, only durations; the switches live in the Actions panel, not in F8.
+3. **M13:** close the acceptance (3-repetition average of the harness, no assistant phrasing in the final text, and CI) and the human checklist; report in [`docs/superpowers/reports/`](docs/superpowers/reports/2026-11-04-m13-calibracao.md) (Portuguese).
 
 Specs, plans and reports of each milestone: [`docs/superpowers/`](docs/superpowers/).
 
