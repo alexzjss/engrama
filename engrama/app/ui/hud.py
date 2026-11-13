@@ -2,10 +2,11 @@
 from __future__ import annotations
 from typing import Callable
 import pygame
+from engrama import balance
 from engrama.app import i18n
 from engrama.app.snapshot import Snapshot
 
-NEED_THRESHOLD = 0.6
+NEED_THRESHOLD = balance.NEED_URGENT   # snapshot needs are on the kernel scale (0-100)
 MAX_NEED_ICONS = 3
 _fonts: dict[int, pygame.font.Font] = {}
 _hooks: list[Callable[[str], None]] = []
