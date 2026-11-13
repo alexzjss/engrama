@@ -236,3 +236,13 @@ def test_persona_prompt_carries_the_name_only_when_set():
         named = build_messages(PersonaState(stage="adult", name="Mika"), [], "oi", lang)[0]["content"]
         plain = build_messages(PersonaState(stage="adult"), [], "oi", lang)[0]["content"]
         assert "Mika" in named and "te deu o nome" not in plain and "named you" not in plain
+
+
+def test_mind_view_is_fullscreen_so_a_click_inside_does_not_close_it():
+    w = make()
+    w.open_panel("mind")
+    w.frame(1.0)
+    w.handle_event(click((5, 200)))
+    assert w.panel_name == "mind"
+    w.handle_event(click(w.toolbar._rects["mind"].center))
+    assert w.panel is None

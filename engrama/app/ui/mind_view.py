@@ -38,7 +38,12 @@ def _arrow(surface, a, b, color) -> None:
         pygame.draw.line(surface, color, b, (int(px), int(py)), 1)
 
 
+TOOLBAR_H = 42
+
+
 class MindView:
+    fullscreen = True   # covers the whole window: it has no frame to click outside of
+
     def __init__(self) -> None:
         self.state = VizState()
         self.memory_summary: Callable[[], dict] | None = None
@@ -48,6 +53,9 @@ class MindView:
             self._draw(surface, snap)
         except Exception:   # a render glitch must never take the window down
             pass
+
+    def handle_event(self, event) -> bool:
+        return False   # read-only view; the window still sends it clicks and keys like any panel
 
     # ---- sections -----------------------------------------------------------------------------------
 
@@ -61,7 +69,12 @@ class MindView:
         y = self._graph(surface, snap, y, W) + 6
         y = self._proposals(surface, snap, y, W) + 6
         y = self._costs(surface, snap, y, W) + 6
-        self._grid(surface, snap, y, W, H)
+        keep = surface.get_clip()
+        surface.set_clip(pygame.Rect(0, 0, W, H - TOOLBAR_H))   # the window's toolbar owns the bottom strip
+        try:
+            self._grid(surface, snap, y, W, H - TOOLBAR_H)
+        finally:
+            surface.set_clip(keep)
 
     def _memory(self, surface, y) -> int:
         fn = self.memory_summary

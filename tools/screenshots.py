@@ -1,7 +1,8 @@
 """Capture README screenshots of the real app (headless SDL). Usage:
     python tools/screenshots.py --out docs/images --seed 3
 Runs the app in-process on a scratch data dir with a fast clock and saves PNGs of the
-terrarium, Mind View, Memories, Permissions and Foods panels. No LLM, no network."""
+terrarium, Mind View, Memories, Permissions and Foods panels, plus a strip of the terrarium at four hours of the
+day (ui-daynight.png). The app shots are pinned at ten in the morning. No LLM, no network."""
 from __future__ import annotations
 
 import argparse
@@ -18,6 +19,23 @@ import pygame  # noqa: E402
 from engrama.app.ui import window as W  # noqa: E402
 
 
+def day_night_strip(path: Path, size=(200, 150), scale=3) -> None:
+    """Four moments of one day, each with a creature at a different stage: the scene only, no app."""
+    from engrama.app.snapshot import Snapshot
+    from engrama.app.ui.scene import Scene
+    shots = ((7.0, "egg", 4, {}), (11.0, "child", 1, {"pad": (0.7, 0.5, 0.0)}),
+             (18.4, "perfect", 5, {"action": "wander"}), (23.0, "adult", 7, {"asleep": True}))
+    out = pygame.Surface((size[0] * len(shots), size[1]))
+    for i, (hour, stage, seed, extra) in enumerate(shots):
+        scene = Scene(size)
+        scene.hour_fn = lambda h=hour: h
+        low = pygame.Surface(size)
+        scene.draw(low, Snapshot(stage=stage, look={"seed": seed}, **extra), 1.9)
+        out.blit(low, (i * size[0], 0))
+    pygame.image.save(pygame.transform.scale(out, (out.get_width() * scale, out.get_height() * scale)), str(path))
+    print("saved", path.name, flush=True)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="docs/images")
@@ -31,6 +49,7 @@ def main() -> int:
     from engrama.config import Config
     cfg = Config(data_dir=data)
     cfg.perception_asked = True
+    cfg.creature_name = "Mika"   # named already, so the name question does not cover the shots
     cfg.save(data / "config.json")
     # plan: (wall seconds from start, key to press, filename)
     t0 = time.monotonic()
@@ -41,6 +60,7 @@ def main() -> int:
     orig = W.Window.frame
 
     def frame(self, now=None):
+        self.scene.hour_fn = lambda: 10.0
         orig(self, now)
         self.skip_identical = False
         if state["pending"]:
@@ -66,7 +86,11 @@ def main() -> int:
     from engrama.app import cli
     argv = ["--data-dir", str(data), "--seed", str(a.seed), "--no-llm",
                 "--fake-perception", "--time-scale", str(a.time_scale), "--seconds", str(a.wait + 40)]
-    return cli.main(argv) or 0
+    code = cli.main(argv) or 0
+    pygame.display.init()
+    pygame.display.set_mode((1, 1))
+    day_night_strip(out / "ui-daynight.png")
+    return code
 
 
 if __name__ == "__main__":

@@ -1,9 +1,10 @@
 """Low-resolution terrarium scene and the animated creature."""
 from __future__ import annotations
 import math
+import time
 import pygame
 from engrama import balance
-from engrama.app.art import sprites, vpet
+from engrama.app.art import emotes, home, sprites, terrain, vpet
 from engrama.app.art.items import found_item
 from engrama.app.art.sprites import Look
 from engrama.app.snapshot import Snapshot
@@ -40,6 +41,12 @@ def _anim_frames(look: Look, stage: str, anim: str) -> list:
     return hit
 
 
+def local_hour() -> float:
+    """The wall clock as a fractional hour of the day: the terrarium follows the real day and night."""
+    t = time.localtime()
+    return t.tm_hour + t.tm_min / 60.0
+
+
 class Scene:
     def __init__(self, size: tuple[int, int]) -> None:
         self.size = size  # low-res size
@@ -47,39 +54,43 @@ class Scene:
         self.is_egg = True
         self.moving = False   # the last draw displaced the creature (walking, jumping, bouncing) or animates fast
         self._bg: pygame.Surface | None = None
+        self._bg_key: tuple | None = None
+        self._shadow = (60, 100, 70)
+        self.hour_fn = local_hour                     # tests and the screenshot tool pin the hour here
+        self._burst: tuple[str, float] | None = None  # (emote kind, start) of a one-off burst (hearts on a pet)
         self._dead_t0: float | None = None
         self._age = 0.0
         self._outlines: dict[int, list] = {}
 
-    def _background(self) -> pygame.Surface:
-        if self._bg is None:
-            w, h = self.size
-            s = pygame.Surface((w, h))
-            horizon = int(h * 0.62)
-            for y in range(horizon):
-                k = y / horizon
-                pygame.draw.line(s, (int(60 + 50 * k), int(80 + 70 * k), int(140 + 50 * k)), (0, y), (w, y))
-            s.fill((88, 140, 84), (0, horizon, w, h - horizon))
-            for y in range(horizon, h, 4):
-                pygame.draw.line(s, (76, 126, 74), (0, y), (w, y))
-            for x in range(3, w, 17):
-                s.fill((120, 170, 100), (x, horizon + 3 + (x * 7) % max(1, h - horizon - 6), 2, 1))
-            self._bg = s
+    def _background(self, seed: int = 0) -> pygame.Surface:
+        hour = float(self.hour_fn())
+        key = (self.size, int(hour * 4), seed)   # one backdrop per quarter of an hour
+        if self._bg is None or key != self._bg_key:
+            self._bg, self._shadow = terrain.backdrop(self.size, int(hour * 4) / 4.0, seed)
+            self._bg_key = key
         return self._bg
+
+    def burst(self, kind: str, now: float) -> None:
+        self._burst = (kind, now)
 
     def draw(self, surface: pygame.Surface, snap: Snapshot, now: float, eating: bool = False,
              variant: str = "", background: bool = True, item: str = "", flip: bool = False,
              pos_x: int | None = None, ground: int | None = None) -> None:
-        if background:
-            surface.blit(self._background(), (0, 0))
         w, h = self.size
         look = sprites.look_of(snap.look)
         stage = snap.stage if snap.stage in sprites.SIZES else "baby"
+        if ground is None:
+            ground = int(h * 0.80)
+        things = home.items_for(stage) if background and not snap.dead else ()
+        if background:
+            surface.blit(self._background(look.seed % 97), (0, 0))
+            for kind in things:
+                img = home.item(kind, look.palette)
+                fx, up = home.SPOTS[kind]
+                surface.blit(img, img.get_rect(midbottom=(int(w * fx), ground - up + (2 if kind == "nest" else 0))))
         self.is_egg = stage == "egg"
         x_override = pos_x
         self.moving = False
-        if ground is None:
-            ground = int(h * 0.80)
         if self.is_egg:
             level = min(3, int(snap.egg_clicks * 4 / max(1, balance.EGG_HATCH_CLICKS)))
             if level == 0:
@@ -112,6 +123,8 @@ class Scene:
                 img = sprites.frames(look, stage, "sleep")[0]   # user asked for closed eyes: first sleep frame has them shut
             moving = snap.action in ("wander", "explore") and not snap.asleep
             pos_x = int(w / 2 + (math.sin(now * 0.6) * w * 0.3 if moving else math.sin(now * 0.1) * 6))
+            if snap.asleep and "bed" in things:   # she has a bed: that is where she sleeps
+                pos_x, ground = int(w * home.SPOTS["bed"][0]), ground - home.SPOTS["bed"][1] - 3
             self.moving = (moving or evolving or eating or snap.dead or snap.action == "ask_attention"
                            or (plain and variant in ("jump", "dance", "dig", "chase")))
         if x_override is not None:   # overlay: the caller owns the horizontal position
@@ -123,6 +136,9 @@ class Scene:
             self._age = 0.0
         r = img.get_rect(midbottom=(pos_x, ground))
         asking = snap.action == "ask_attention" and not self.is_egg
+        if background and not self.is_egg and snap.action != "hide":
+            sw = max(6, r.w * 2 // 3)
+            pygame.draw.ellipse(surface, self._shadow, (r.centerx - sw // 2, ground - 2, sw, 4))
         if asking:
             r.y -= int(abs(math.sin(now * 5)) * 3)
         if snap.action == "hide" and not self.is_egg and not snap.dead:
@@ -140,6 +156,14 @@ class Scene:
             elif variant == "found" and item:
                 it = found_item(item)
                 surface.blit(it, (r.right - 2, r.bottom - 10 - int(abs(math.sin(now * 3)) * 2)))
+        if background and not snap.dead:
+            if self._burst is not None:
+                if emotes.draw_burst(surface, self._burst[0], r, now - self._burst[1]):
+                    self.moving = True
+                else:
+                    self._burst = None
+            elif not self.is_egg and not asking:
+                emotes.draw_ambient(surface, emotes.ambient_kind(snap.asleep, snap.pad, snap.sick), r, now)
         if asking and int(now * 2) % 2 == 0:
             bx, by = r.midtop[0], r.y - 8
             surface.fill((250, 240, 120), (bx - 1, by - 5, 3, 5))
