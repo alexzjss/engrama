@@ -49,8 +49,63 @@ def draw_text(surface: pygame.Surface, text: str, pos: tuple[int, int], color=(2
     return r
 
 
+def wrap(text: str, size: int, max_w: int) -> list[str]:
+    """Greedy word wrap of `text` at `size` into lines no wider than max_w (a single long word is kept whole)."""
+    f = font(size)
+    lines: list[str] = []
+    for para in text.split("\n"):
+        cur = ""
+        for word in para.split(" "):
+            trial = f"{cur} {word}".strip()
+            if cur and f.size(trial)[0] > max_w:
+                lines.append(cur)
+                cur = word
+            else:
+                cur = trial
+        lines.append(cur)
+    return lines
+
+
+def fit(text: str, size: int, max_w: int) -> str:
+    """`text` cut with an ellipsis so it is never wider than max_w at `size`."""
+    f = font(size)
+    if f.size(text)[0] <= max_w:
+        return text
+    while text and f.size(text + "…")[0] > max_w:
+        text = text[:-1]
+    return text.rstrip() + "…"
+
+
 NEED_COLORS = {"fome": (230, 140, 70), "sono": (110, 120, 220), "tedio": (150, 150, 160),
                "carinho": (240, 130, 170), "curiosidade": (110, 210, 200), "apoio": (170, 210, 110)}
+
+
+# 7x7 glyphs drawn inside each need circle (a letter says little; these read at a glance)
+NEED_GLYPHS = {
+    "fome": ("..###..", ".#####.", ".#####.", "..###..", "...#...", "...#...", "..###.."),
+    "sono": ("..###..", ".##....", "##.....", "##.....", "##.....", ".##....", "..###.."),
+    "tedio": ("..###..", ".#...#.", "#.#.#.#", "#..#..#", "#.#.#.#", ".#...#.", "..###.."),
+    "carinho": (".##.##.", "#######", "#######", "#######", ".#####.", "..###..", "...#..."),
+    "curiosidade": (".####..", "#...##.", "....##.", "..###..", "..##...", ".......", "..##..."),
+    "apoio": ("#######", "#.....#", "#.#.#.#", "#.....#", "####.##", "...##..", "...#..."),
+}
+_NEED_R = 12
+_glyphs: dict[str, pygame.Surface] = {}
+
+
+def need_glyph(name: str) -> pygame.Surface | None:
+    rows = NEED_GLYPHS.get(name)
+    if rows is None:
+        return None
+    img = _glyphs.get(name)
+    if img is None:
+        small = pygame.Surface((7, 7), pygame.SRCALPHA)
+        for y, row in enumerate(rows):
+            for x, ch in enumerate(row):
+                if ch == "#":
+                    small.set_at((x, y), (34, 30, 46))
+        img = _glyphs[name] = pygame.transform.scale(small, (14, 14))
+    return img
 
 
 def mood_kind(snap: Snapshot) -> str:
@@ -73,31 +128,61 @@ def _mood_icon(surface, cx, cy, kind):
 
 
 class Hud:
+    def __init__(self) -> None:
+        self.name = ""                          # the name the user gave the creature ("" = show the branch only)
+        self.hover: tuple[int, int] | None = None
+        self._spots: list[tuple[pygame.Rect, str]] = []   # (hit rect, tooltip text) of the last draw
+
+    def _tip(self) -> str:
+        if self.hover is None:
+            return ""
+        return next((text for r, text in self._spots if r.collidepoint(self.hover)), "")
+
     def key(self, snap: Snapshot, dev: bool = False) -> tuple:
         """Everything `draw` paints, as a comparable value: equal keys mean an identical HUD."""
         urgent = tuple(k for _v, k in sorted(((v, k) for k, v in snap.needs.items() if v > NEED_THRESHOLD),
                                              reverse=True)[:MAX_NEED_ICONS])
         k = (mood_kind(snap), urgent, snap.resting, snap.stage, snap.dead, snap.branch_name, snap.branch, snap.grave,
-             snap.sick, snap.old, i18n.get_lang(), dev)
+             snap.sick, snap.old, i18n.get_lang(), dev, self.name, self._tip())
         if dev:
             k += (tuple(snap.needs.items()), snap.action, round(snap.t))
         return k
 
     def draw(self, surface: pygame.Surface, snap: Snapshot, dev: bool = False) -> None:
         w = surface.get_width()
-        _mood_icon(surface, 20, 20, mood_kind(snap))
+        kind = mood_kind(snap)
+        _mood_icon(surface, 22, 22, kind)
+        self._spots = [(pygame.Rect(8, 8, 28, 28), i18n.t(f"ui.mood.{kind}"))]
         urgent = sorted(((v, k) for k, v in snap.needs.items() if v > NEED_THRESHOLD), reverse=True)[:MAX_NEED_ICONS]
-        x = 44
+        x = 52
         for _v, k in urgent:
-            pygame.draw.circle(surface, NEED_COLORS.get(k, (200, 200, 200)), (x, 20), 11)
-            label = i18n.t(f"need.{k}")[:1].upper()
-            draw_text(surface, label, (x, 20), (30, 26, 40), 18, "center")
-            x += 28
-        if snap.resting:
-            draw_text(surface, "z z  " + i18n.t("ui.rest.on"), (w - 10, 12), (170, 180, 240), 20, "topright")
+            pygame.draw.circle(surface, (30, 26, 40), (x, 22), _NEED_R + 1)
+            pygame.draw.circle(surface, NEED_COLORS.get(k, (200, 200, 200)), (x, 22), _NEED_R)
+            g = need_glyph(k)
+            if g is not None:
+                surface.blit(g, g.get_rect(center=(x, 22)))
+            else:
+                draw_text(surface, i18n.t(f"need.{k}")[:1].upper(), (x, 22), (30, 26, 40), 18, "center")
+            self._spots.append((pygame.Rect(x - _NEED_R, 22 - _NEED_R, 2 * _NEED_R, 2 * _NEED_R), i18n.t(f"need.{k}")))
+            x += 2 * _NEED_R + 6
+        tip = self._tip()
+        if tip:
+            box = pygame.Rect(8, 40, font(18).size(tip)[0] + 14, 22)
+            pygame.draw.rect(surface, (24, 22, 34), box, border_radius=6)
+            pygame.draw.rect(surface, (120, 110, 170), box, 1, border_radius=6)
+            draw_text(surface, tip, box.center, (235, 235, 245), 18, "center")
+        top = 10
+        if self.name and not snap.dead:
+            draw_text(surface, fit(self.name, 24, w // 3), (w - 10, top), (245, 245, 250), 24, "topright")
+            top += 22
         if snap.stage != "egg" and not snap.dead:
-            name = snap.branch_name or i18n.t(f"branch.{snap.branch or 'base'}")
-            draw_text(surface, name, (w - 10, 32), (200, 200, 215), 18, "topright")
+            branch = snap.branch_name or i18n.t(f"branch.{snap.branch or 'base'}")
+            line = f"{i18n.t(f'stage.{snap.stage}')} · {branch}" if self.name else branch
+            draw_text(surface, line, (w - 10, top), (200, 200, 215), 18, "topright")
+            top += 18
+        if snap.resting:
+            draw_text(surface, "z z  " + i18n.t("ui.rest.on"), (w - 10, top + 2), (170, 180, 240), 20, "topright")
+        if snap.stage != "egg" and not snap.dead:
             y = 44
             if snap.grave:   # urgent: the creature asks for help
                 draw_text(surface, i18n.t("ui.life.grave"), (w // 2, y), (250, 120, 110), 22, "midtop")

@@ -7,7 +7,7 @@
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.17.0](https://img.shields.io/badge/version-0.17.0-blue)
+![Version 0.18.0](https://img.shields.io/badge/version-0.18.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Linhagens: ovo até a forma final, seis criaturas](docs/images/lineages.png)
@@ -195,13 +195,15 @@ python -m engrama --no-llm --frames 600              # sem Ollama; encerra após
 ```
 
 1. Uma tela pergunta, fonte por fonte, o que ela pode olhar (tudo começa desligado). Dá para mudar depois no F8.
-2. Um ovo aparece. Faça carinho (clique), alimente (F4), converse (Enter envia).
+2. Um ovo aparece. Clique nele até chocar; ela pede um nome (dá para deixar para depois, em Ajustes). Faça carinho (clique), alimente (botão da maçã ou F4), converse (Enter envia).
 3. Para conversar, baixe o modelo pelo F5 (ou veja "Ollama não encontrado"/"baixando modelo" na tela). Sem ele, a conversa vira balbucio.
 4. Deixe o app aberto: a criatura cresce com o tempo real. Com o app fechado o tempo passa de forma suave (ela não adoece nem morre só por isso).
 
 ## Como usar
 
-### Teclas
+### Botões e teclas
+
+Tudo tem botão: a barra no canto de baixo da janela abre cada painel (passe o mouse para ver o nome e a tecla), e o **?** abre a ajuda. Um painel fecha no **x**, com Esc ou clicando fora dele. As teclas abaixo são atalhos para as mesmas coisas.
 
 | Tecla | O que faz |
 |---|---|
@@ -473,7 +475,7 @@ Especificações, planos e relatórios de cada marco: [`docs/superpowers/`](docs
 ![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-3776ab?logo=python&logoColor=white)
 ![Windows | Linux](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-555)
 ![100% local](https://img.shields.io/badge/100%25-local%20%26%20offline-2ea44f)
-![Version 0.17.0](https://img.shields.io/badge/version-0.17.0-blue)
+![Version 0.18.0](https://img.shields.io/badge/version-0.18.0-blue)
 [![MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 ![Lineages: egg to final form, six creatures](docs/images/lineages.png)
@@ -661,13 +663,15 @@ python -m engrama --no-llm --frames 600              # no Ollama; exits after 60
 ```
 
 1. A screen asks, source by source, what it may look at (everything starts off). You can change it later in F8.
-2. An egg appears. Pet it (click), feed it (F4), talk to it (Enter sends).
+2. An egg appears. Click it until it hatches; it asks for a name (you can leave that for later, in Settings). Pet it (click), feed it (the apple button or F4), talk to it (Enter sends).
 3. To chat, download the model via F5 (or see "Ollama not found"/"downloading model" on screen). Without it, the conversation becomes babble.
 4. Leave the app open: the creature grows in real time. While the app is closed, time passes gently (it neither falls ill nor dies just because of that).
 
 ## Usage
 
-### Keys
+### Buttons and keys
+
+Everything has a button: the bar at the bottom of the window opens each panel (hover to see its name and key), and **?** opens the help. A panel closes with its **x**, with Esc or by clicking outside it. The keys below are shortcuts for the same things.
 
 | Key | What it does |
 |---|---|

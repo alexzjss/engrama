@@ -10,3 +10,4 @@ data/
 !tools/data/
 .claude/worktrees/
 .pytest_tmp/
+*.egg-info/
