@@ -20,6 +20,14 @@ Por baixo, a "mente" não é só texto de LLM: é uma simulação de verdade (ne
 
 ## Em ação
 
+![Quatro criaturas no app: carinho com corações e comida](docs/images/demo.gif)
+
+<sub>O app de verdade, gravado por `tools/demo_reel.py`: carinho (corações) e comida em quatro criaturas. [Vídeo completo](docs/videos/demo-reel.mp4) (oito criaturas, com conversa, lembrete, foco e painéis).</sub>
+
+![Oito criaturas, uma de cada família, em horas diferentes do dia](docs/images/pets.png)
+
+<sub>Uma criatura de cada família (dragão, fera, espírito, aquático, máquina, inseto, planta, ave), de criança a forma final, cada uma criada pelo simulador com um jeito de cuidar diferente.</sub>
+
 ![O terrário em quatro horas do dia: ovo no ninho ao amanhecer, criança de dia, perfeito ao entardecer, adulto dormindo na cama à noite](docs/images/ui-daynight.png)
 
 <sub>O terrário segue o relógio do seu PC: amanhecer, dia, entardecer e noite. A casa ganha objetos conforme ela cresce.</sub>
@@ -34,11 +42,15 @@ Por baixo, a "mente" não é só texto de LLM: é uma simulação de verdade (ne
 <td><img src="docs/images/ui-permissions.png" alt="Painel de permissões (F8)"><br><sub><b>Permissões (F8).</b> Toda percepção do PC começa desligada, fonte por fonte.</sub></td>
 </tr>
 <tr>
+<td><img src="docs/images/ui-chat.png" alt="Conversa com o modelo local, à noite"><br><sub><b>Conversa.</b> Resposta real do modelo local (qwen3:1.7b), sem internet.</sub></td>
+<td><img src="docs/images/ui-focus.png" alt="Sessão de foco pedida no chat"><br><sub><b>Foco pelo chat.</b> "foco por 1 min": a barra aparece no topo e ela fica quieta.</sub></td>
+</tr>
+<tr>
 <td colspan="2" align="center"><img src="docs/images/ui-actions.png" alt="Painel de ações" width="50%"><br><sub><b>Ações.</b> Lembretes, foco e anotações: cada um com a própria chave, e nada além disso.</sub></td>
 </tr>
 </table>
 
-<sub>Capturas reais do app, geradas por `tools/screenshots.py` (SDL sem janela, sem LLM). Mais criaturas em [Arte](#arte).</sub>
+<sub>Capturas reais do app, geradas por `tools/screenshots.py` e `tools/demo_reel.py` (SDL sem janela). Mais criaturas em [Arte](#arte).</sub>
 
 ## Comece em 1 minuto
 
@@ -459,6 +471,7 @@ python tools/calibrate_sem.py --out resultado.json --md resultado.md            
 ```
 
 - `tools/smoke_llm.py`: harness de conversa. Roda roteiros por estágio (`--stages`, `--langs`) pelo serviço de linguagem real e grava `transcripts.json` e `summary.md` em `--out`. Veja [o relatório da calibração](docs/superpowers/reports/2026-11-04-m13-calibracao.md).
+- `tools/demo_reel.py --out demo-media`: grava vídeos e capturas do app real para demonstração. Cria oito criaturas com o simulador (uma por família), abre o app sem janela em cada uma e segue um roteiro (carinho, comida, uma mensagem, às vezes um painel). Salva um MP4 por criatura e um `reel.mp4` em `video/`, PNGs dos momentos em `stills/`, `demo.gif` e `pets.png`. Precisa do `ffmpeg`; com `--no-llm` as respostas viram balbucio. Leva uns 10 minutos.
 - `tools/calibrate_sem.py`: varre limiares de 0,15 a 0,90 sobre `tools/data/sem_pairs.jsonl` e reporta precisão, recall e F1 por tipo de memória.
 
 ## Estado do MVP e roadmap
@@ -530,6 +543,14 @@ Underneath, the "mind" is not just LLM text: it is a real simulation (needs, aff
 
 ## In action
 
+![Four creatures in the app: petting with hearts and feeding](docs/images/demo.gif)
+
+<sub>The real app, recorded by `tools/demo_reel.py`: petting (hearts) and food on four creatures. [Full video](docs/videos/demo-reel.mp4) (eight creatures, with chat, a reminder, focus and panels).</sub>
+
+![Eight creatures, one per family, at different hours of the day](docs/images/pets.png)
+
+<sub>One creature per family (dragon, beast, spirit, aquatic, machine, insect, plant, bird), from child to final form, each raised by the simulator with a different care style.</sub>
+
 ![The terrarium at four hours of the day: egg in its nest at dawn, child by day, perfect at dusk, adult asleep in bed at night](docs/images/ui-daynight.png)
 
 <sub>The terrarium follows your PC clock: dawn, day, dusk and night. The home gains objects as the creature grows.</sub>
@@ -544,11 +565,15 @@ Underneath, the "mind" is not just LLM text: it is a real simulation (needs, aff
 <td><img src="docs/images/ui-permissions.png" alt="Permissions panel (F8)"><br><sub><b>Permissions (F8).</b> All PC perception starts off, source by source.</sub></td>
 </tr>
 <tr>
+<td><img src="docs/images/ui-chat.png" alt="Chat with the local model, at night"><br><sub><b>Chat.</b> A real reply from the local model (qwen3:1.7b), no internet.</sub></td>
+<td><img src="docs/images/ui-focus.png" alt="Focus session asked in the chat"><br><sub><b>Focus from the chat.</b> "foco por 1 min" (focus for 1 min): the bar shows at the top and she stays quiet.</sub></td>
+</tr>
+<tr>
 <td colspan="2" align="center"><img src="docs/images/ui-actions.png" alt="Actions panel" width="50%"><br><sub><b>Actions.</b> Reminders, focus and notes: each with its own switch, and nothing beyond that.</sub></td>
 </tr>
 </table>
 
-<sub>Real captures of the app, generated by `tools/screenshots.py` (headless SDL, no LLM). More creatures in [Art](#art).</sub>
+<sub>Real captures of the app, generated by `tools/screenshots.py` and `tools/demo_reel.py` (headless SDL). More creatures in [Art](#art).</sub>
 
 ## Quick start (1 minute)
 
@@ -968,6 +993,7 @@ python tools/calibrate_sem.py --out result.json --md result.md                  
 ```
 
 - `tools/smoke_llm.py`: conversation harness. Runs per-stage scripts (`--stages`, `--langs`) through the real language service and writes `transcripts.json` and `summary.md` to `--out`. See [the calibration report](docs/superpowers/reports/2026-11-04-m13-calibracao.md) (Portuguese).
+- `tools/demo_reel.py --out demo-media`: records demo videos and stills of the real app. Raises eight creatures with the simulator (one per family), opens the headless app on each and plays a script (pet, food, a message, sometimes a panel). Saves one MP4 per creature and a `reel.mp4` in `video/`, PNGs of the key moments in `stills/`, `demo.gif` and `pets.png`. Needs `ffmpeg`; with `--no-llm` the replies are babble. Takes about 10 minutes.
 - `tools/calibrate_sem.py`: sweeps thresholds from 0.15 to 0.90 over `tools/data/sem_pairs.jsonl` and reports precision, recall and F1 per memory type.
 
 ## MVP status and roadmap

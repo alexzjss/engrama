@@ -11,3 +11,4 @@ data/
 .claude/worktrees/
 .pytest_tmp/
 *.egg-info/
+demo-media/
