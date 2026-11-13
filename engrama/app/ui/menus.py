@@ -5,7 +5,7 @@ import pygame
 from engrama import vocab
 from engrama.app import i18n
 from engrama.app.art import sprites
-from engrama.app.ui.hud import draw_text
+from engrama.app.ui.hud import draw_text, fit, font, wrap
 
 BG = (28, 26, 40)
 EDGE = (120, 110, 170)
@@ -15,12 +15,45 @@ def panel_rect(surface: pygame.Surface) -> pygame.Rect:
     return surface.get_rect().inflate(-80, -80)
 
 
-def draw_frame(surface: pygame.Surface, title: str) -> pygame.Rect:
+def close_rect(surface: pygame.Surface) -> pygame.Rect:
+    """The "x" at the top right of every panel frame."""
+    r = panel_rect(surface)
+    return pygame.Rect(r.right - 34, r.y + 8, 24, 24)
+
+
+_dim: dict[tuple[int, int], pygame.Surface] = {}
+
+
+def draw_frame(surface: pygame.Surface, title: str, closable: bool = True) -> pygame.Rect:
+    size = surface.get_size()
+    veil = _dim.get(size)
+    if veil is None:   # the scene behind a panel is dimmed so the panel reads as the one thing to look at
+        _dim.clear()
+        veil = _dim[size] = pygame.Surface(size, pygame.SRCALPHA)
+        veil.fill((12, 10, 22, 120))
+    surface.blit(veil, (0, 0))
     r = panel_rect(surface)
     pygame.draw.rect(surface, BG, r, border_radius=8)
     pygame.draw.rect(surface, EDGE, r, 2, border_radius=8)
     draw_text(surface, title, (r.x + 14, r.y + 10), (240, 235, 255), 26)
+    pygame.draw.line(surface, (58, 54, 86), (r.x + 12, r.y + 40), (r.right - 12, r.y + 40))
+    if closable:
+        c = close_rect(surface)
+        pygame.draw.rect(surface, (54, 50, 82), c, border_radius=6)
+        pygame.draw.line(surface, (220, 215, 240), (c.x + 7, c.y + 7), (c.right - 8, c.bottom - 8), 2)
+        pygame.draw.line(surface, (220, 215, 240), (c.right - 8, c.y + 7), (c.x + 7, c.bottom - 8), 2)
     return r
+
+
+def draw_cell_label(surface: pygame.Surface, text: str, rect: pygame.Rect, size: int = 18) -> None:
+    """An item name under its icon: up to two centred lines, never wider than the cell."""
+    lines = wrap(text, size, rect.w - 6)[:2]
+    if len(lines) == 2:
+        lines[1] = fit(lines[1], size, rect.w - 6)
+    y = rect.bottom - 5 - (len(lines) - 1) * (size - 4)
+    for ln in lines:
+        draw_text(surface, fit(ln, size, rect.w - 6), (rect.centerx, y), (230, 230, 240), size, "midbottom")
+        y += size - 4
 
 
 class PlaceholderPanel:
@@ -35,7 +68,7 @@ class PlaceholderPanel:
 
 
 class FoodMenu:
-    CELL = (110, 84)
+    CELL = (122, 100)
 
     def __init__(self, on_pick) -> None:
         self.on_pick = on_pick
@@ -61,7 +94,7 @@ class FoodMenu:
             pygame.draw.rect(surface, (60, 56, 90) if i == self.sel else (42, 40, 62), rect, border_radius=6)
             icon = pygame.transform.scale(sprites.food_icon(fid), (40, 40))
             surface.blit(icon, icon.get_rect(midtop=(rect.centerx, rect.y + 6)))
-            draw_text(surface, i18n.t(f"food.{fid}"), (rect.centerx, rect.bottom - 6), (230, 230, 240), 20, "midbottom")
+            draw_cell_label(surface, i18n.t(f"food.{fid}"), rect)
 
     def handle_event(self, event) -> bool:
         if event.type == pygame.MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -86,7 +119,7 @@ class FoodMenu:
 
 class DigitalMenu:
     """Joke maintenance items (M7), laid out like FoodMenu: icon + i18n name, on_pick(id)."""
-    CELL = (110, 84)
+    CELL = (122, 100)
 
     def __init__(self, on_pick) -> None:
         self.on_pick = on_pick
@@ -112,7 +145,7 @@ class DigitalMenu:
                 pygame.draw.rect(surface, (240, 210, 90), rect, 2, border_radius=6)
             ic = pygame.transform.scale(digital_fx.icon(did), (40, 40))
             surface.blit(ic, ic.get_rect(midtop=(rect.centerx, rect.y + 6)))
-            draw_text(surface, i18n.t(f"digital.{did}"), (rect.centerx, rect.bottom - 6), (230, 230, 240), 18, "midbottom")
+            draw_cell_label(surface, i18n.t(f"digital.{did}"), rect)
 
     def handle_event(self, event) -> bool:
         if event.type == pygame.MOUSEBUTTONDOWN and getattr(event, "button", 1) == 1:
@@ -334,11 +367,17 @@ class ModelsPanel:
             self._refresh()
         r = draw_frame(surface, i18n.t("ui.menu.models"))
         if self._missing():
-            draw_text(surface, i18n.t("ui.ollama.missing"), (r.x + 14, r.y + 60), ERR_COL, 24)
+            draw_text(surface, i18n.t("ui.ollama.missing"), (r.x + 14, r.y + 56), ERR_COL, 24)
+            y = r.y + 88
+            for k in ("ui.ollama.help.alive", "ui.ollama.help.install", "ui.ollama.help.then"):
+                for ln in wrap(i18n.t(k), 20, r.w - 28):   # what it means and what to do, not just an error
+                    draw_text(surface, ln, (r.x + 14, y), TXT, 20)
+                    y += 20
+                y += 6
             self._rows = []
             self._dl_rect = pygame.Rect(0, 0, 0, 0)
             self._embed_rects_clear()
-            self._draw_embed(surface, r, r.y + 100, enabled=False, pct=-2)
+            self._draw_embed(surface, r, y + 14, enabled=False, pct=-2)
             return
         cur = getattr(self.config, "model", None)
         models = self._models()
@@ -520,9 +559,12 @@ class SettingsPanel:
         self.sel = 0
         self._rows: list[tuple[str, pygame.Rect]] = []
         self._scale_i = 0
+        self.naming = False     # the name row is taking text
 
     def _items(self) -> list[str]:
         items = ["lang", "mute", "rest"]
+        if hasattr(getattr(self.window, "config", None), "creature_name"):
+            items.append("name")
         if getattr(getattr(self.window, "desktop", None), "available", False):
             items.append("overlay")
         if getattr(self.window, "autostart", None) is not None:
@@ -536,7 +578,11 @@ class SettingsPanel:
 
     def activate(self, item: str) -> None:
         w = self.window
-        if item == "lang":
+        if item == "name":
+            self.naming = not self.naming
+            if not self.naming:
+                save_name(w, w.config.creature_name)
+        elif item == "lang":
             new = "en" if i18n.get_lang() == "pt" else "pt"
             i18n.set_lang(new)
             cfg = getattr(w, "config", None)
@@ -565,6 +611,10 @@ class SettingsPanel:
             if fn:
                 fn(scales[self._scale_i])
 
+    def on_close(self) -> None:
+        if self.naming:
+            self.activate("name")
+
     def draw(self, surface, snap) -> None:
         r = draw_frame(surface, i18n.t("ui.menu.settings"))
         w = self.window
@@ -574,7 +624,11 @@ class SettingsPanel:
             rect = pygame.Rect(r.x + 14, y, r.w - 28, self.ROW_H - 4)
             self._rows.append((item, rect))
             pygame.draw.rect(surface, (60, 56, 90) if i == self.sel else (42, 40, 62), rect, border_radius=6)
-            if item == "lang":
+            if item == "name":
+                cur = getattr(w.config, "creature_name", "") or ""
+                label = i18n.t("ui.name.label")
+                val = fit(cur + ("_" if self.naming else ""), 22, rect.w // 2) if (cur or self.naming) else "…"
+            elif item == "lang":
                 label, val = i18n.t("ui.lang"), i18n.get_lang().upper()
             elif item == "mute":
                 label, val = i18n.t("ui.mute"), "[x]" if self._muted() else "[ ]"
@@ -602,7 +656,21 @@ class SettingsPanel:
                 if rect.collidepoint(event.pos):
                     self.sel = i
                     self.activate(item)
+                    return True
+            if self.naming:
+                self.activate("name")   # a click elsewhere confirms the name
             return True
+        if self.naming:
+            cfg = self.window.config
+            if event.type == pygame.TEXTINPUT:
+                cfg.creature_name = clean_name(cfg.creature_name + event.text)
+                return True
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_BACKSPACE:
+                    cfg.creature_name = cfg.creature_name[:-1]
+                elif _enter(event):
+                    self.activate("name")
+                return True
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_DOWN:
                 self.sel = (self.sel + 1) % len(items)
@@ -613,4 +681,96 @@ class SettingsPanel:
             else:
                 return False
             return True
+        return False
+
+
+# ---------------------------------------------------------------- name and help (MVP polish)
+MAX_NAME = 16
+
+
+def clean_name(text: str) -> str:
+    """A creature name: printable, single line, no digits (the UI never shows numbers), at most MAX_NAME chars."""
+    return "".join(c for c in text if c.isprintable() and not c.isdigit()).lstrip()[:MAX_NAME]
+
+
+def save_name(window, name: str) -> None:
+    cfg = getattr(window, "config", None)
+    if cfg is None:
+        return
+    cfg.creature_name = clean_name(name).strip()
+    save = getattr(window, "save_config", None)
+    if save:
+        save()
+
+
+class NamePanel:
+    """Asked once, right after the hatch: a name makes her someone. Enter keeps it, Esc leaves her unnamed for now
+    (the name can always be set in Settings)."""
+
+    def __init__(self, window) -> None:
+        self.window = window
+        self.text = ""
+        self._ok = pygame.Rect(0, 0, 0, 0)
+
+    def confirm(self) -> None:
+        if self.text.strip():
+            save_name(self.window, self.text)
+        self.window.close_panel()
+
+    def draw(self, surface, snap) -> None:
+        r = draw_frame(surface, i18n.t("ui.name.title"))
+        y = r.y + 60
+        for ln in wrap(i18n.t("ui.name.ask"), 22, r.w - 28):
+            draw_text(surface, ln, (r.x + 14, y), TXT, 22)
+            y += 22
+        field = pygame.Rect(r.x + 14, y + 14, r.w - 28, 36)
+        pygame.draw.rect(surface, (42, 40, 62), field, border_radius=6)
+        pygame.draw.rect(surface, EDGE, field, 1, border_radius=6)
+        draw_text(surface, self.text + "_", (field.x + 10, field.centery), TXT, 26, "midleft")
+        self._ok = pygame.Rect(field.right - 120, field.bottom + 14, 120, 32)
+        _btn(surface, self._ok, i18n.t("ui.name.ok"), active=bool(self.text.strip()))
+        draw_text(surface, i18n.t("ui.name.later"), (r.x + 14, self._ok.centery), (150, 150, 170), 18, "midleft")
+
+    def handle_event(self, event) -> bool:
+        if event.type == pygame.TEXTINPUT:
+            self.text = clean_name(self.text + event.text)
+        elif event.type == pygame.KEYDOWN and event.key == pygame.K_BACKSPACE:
+            self.text = self.text[:-1]
+        elif event.type == pygame.KEYDOWN and _enter(event):
+            self.confirm()
+        elif event.type == pygame.MOUSEBUTTONDOWN and self._ok.collidepoint(event.pos):
+            self.confirm()
+        else:
+            return False
+        return True
+
+
+HELP_TIPS = ("ui.help.pet", "ui.help.talk", "ui.help.feed", "ui.help.file", "ui.help.voice")
+HELP_KEYS = (("F3", "ui.help.key.rest"), ("F9", "ui.help.key.eyes"), ("F11", "ui.help.key.overlay"),
+             ("Esc", "ui.help.key.close"))
+
+
+class HelpPanel:
+    """What you can do, in plain words, plus the keys that have no button."""
+
+    def draw(self, surface, snap) -> None:
+        r = draw_frame(surface, i18n.t("ui.help.title"))
+        y = r.y + 54
+        for k in HELP_TIPS:
+            pygame.draw.circle(surface, (170, 160, 240), (r.x + 20, y + 9), 3)
+            for ln in wrap(i18n.t(k), 20, r.w - 50):
+                draw_text(surface, ln, (r.x + 32, y), TXT, 20)
+                y += 20
+            y += 8
+        y += 6
+        kw = max(font(20).size(k)[0] for k, _ in HELP_KEYS) + 16
+        for k, label in HELP_KEYS:
+            box = pygame.Rect(r.x + 14, y, kw, 22)
+            pygame.draw.rect(surface, (54, 50, 82), box, border_radius=5)
+            draw_text(surface, k, box.center, (240, 235, 255), 20, "center")
+            draw_text(surface, fit(i18n.t(label), 20, r.w - kw - 40), (box.right + 10, box.centery), (190, 190, 210), 20,
+                      "midleft")
+            y += 26
+
+    def handle_event(self, event) -> bool:
         return False

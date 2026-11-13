@@ -75,7 +75,7 @@ class FirstUsePanel:
     def draw(self, surface, snap) -> None:
         if self.idx >= len(SOURCES):
             return
-        r = draw_frame(surface, i18n.t("ui.perm.first.title"))
+        r = draw_frame(surface, i18n.t("ui.perm.first.title"), closable=False)
         src = SOURCES[self.idx]
         draw_text(surface, i18n.t(f"ui.perm.src.{src}.title"), (r.x + 14, r.y + 60), HEAD, 28)
         draw_text(surface, i18n.t(f"ui.perm.src.{src}.desc"), (r.x + 14, r.y + 100), TXT, 22)

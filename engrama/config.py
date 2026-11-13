@@ -83,6 +83,7 @@ class Config:
     embed_model: str = "embeddinggemma"          # M9: "" = semantic recall off
     semantic_recall: bool = True
     recommended_embed_models: tuple[str, ...] = ("embeddinggemma", "nomic-embed-text", "bge-m3")
+    creature_name: str = ""                      # given by the user after the hatch (or in Settings); "" = unnamed
 
     @classmethod
     def load(cls, path: Path) -> "Config":

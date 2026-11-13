@@ -205,7 +205,7 @@ def _main(argv: list[str] | None, held: list) -> int:
         embedder = None if a.no_llm else Embedder(client, cfg)   # --no-llm: no embedding calls at all
         language = LanguageService(
             client, server, cfg, memory, working,
-            get_state=lambda: _build_persona(host.snapshot(), memory), food_name=food_name,
+            get_state=lambda: _build_persona(host.snapshot(), memory, cfg.creature_name), food_name=food_name,
             idle=lambda: not host.snapshot().resting, lean_fn=lean_fn, now_fn=time.time, embedder=embedder)
         embed_log = logging.getLogger("engrama.app")
         last_embed = ""
@@ -218,7 +218,7 @@ def _main(argv: list[str] | None, held: list) -> int:
             start_thread.start()
 
         window = Window(host.snapshot, host.post, language=language, set_rest=host.set_rest,
-                        set_time_scale=host.set_time_scale,
+                        set_time_scale=host.set_time_scale, size=(800, 600),
                         valence_fn=lambda text: valence(text, detect_lang(text, "pt")))
         window.config = cfg
         host.attach_services(memory, working, language)

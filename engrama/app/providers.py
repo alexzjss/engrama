@@ -22,7 +22,7 @@ class _GenerationsProvider:
         delete_generation_archive(self.data_dir, n)
 
 
-def _build_persona(snap: Snapshot, memory):
+def _build_persona(snap: Snapshot, memory, name: str = ""):
     from engrama.services.language.persona import PersonaState
     needs = sorted(((v, n) for n, v in snap.needs.items() if v > 0.6), reverse=True)
     liking = sorted(snap.food_liking.items(), key=lambda kv: kv[1])
@@ -35,7 +35,7 @@ def _build_persona(snap: Snapshot, memory):
         curious=snap.surprise > B.SURPRISE_CURIOUS,
         favorites=[f for f, v in reversed(liking) if v > 0][:2],
         disliked=[f for f, v in liking if v < 0][:2],
-        memories=list(memories))
+        memories=list(memories), name=name)
 
 
 class _MemoryProvider:

@@ -17,6 +17,7 @@ from engrama.app.ui.chat import ChatBox, _wrap as chat_wrap
 from engrama.app.ui.hud import Hud, draw_text, font
 from engrama.app.ui.overlay import OverlayController
 from engrama.app.ui.scene import FAREWELL_BUBBLE_AT, Scene
+from engrama.app.ui.toolbar import Toolbar
 from engrama.app.ui.variants import VariantCtx, pick_variant
 
 SCALE = 4
@@ -66,6 +67,8 @@ register_panel("memories", lambda w: menus.PlaceholderPanel("ui.memories.title")
 register_panel("permissions", lambda w: menus.PlaceholderPanel("ui.perm.title"))
 register_panel("first_use", lambda w: menus.PlaceholderPanel("ui.perm.first.title"))
 register_panel("generations", lambda w: _generations_factory(w))
+register_panel("help", lambda w: menus.HelpPanel())
+register_panel("name", lambda w: menus.NamePanel(w))
 
 
 def _generations_factory(win: "Window"):
@@ -95,9 +98,12 @@ class Window:
         self.low = pygame.Surface((size[0] // SCALE, size[1] // SCALE))
         self.scene = Scene(self.low.get_size())
         self.hud = Hud()
+        self.toolbar = Toolbar()
         self.growler = growler if growler is not None else Growler()
         self.chat = ChatBox(language, post, self.growler, valence_fn,
                             lambda: look_of(self._snap.look).voice_pitch)
+        self.chat.reserve_right = self.toolbar.width + 4
+        self.toolbar.layout(size)
         self.panels: dict[str, Callable[["Window"], object]] = dict(PANELS)
         self.panel_name: str | None = None
         self.panel = None
@@ -305,13 +311,17 @@ class Window:
         elif e.type == pygame.MOUSEBUTTONDOWN and getattr(e, "button", 1) == 1:
             self._touch()
             if self.panel is not None:
-                self.panel.handle_event(e)
+                if not self._panel_chrome_click(e.pos):
+                    self.panel.handle_event(e)
             elif self.mode == "overlay":
                 self.overlay.handle_event(e)
             else:
                 self._click(e.pos)
         elif self.mode == "overlay" and self.panel is None and e.type in (pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION):
             self.overlay.handle_event(e)
+        elif e.type == pygame.MOUSEMOTION and self.mode != "overlay":
+            self.toolbar.set_hover(e.pos)
+            self.hud.hover = tuple(e.pos)
         elif self.panel is not None and e.type in (pygame.TEXTINPUT, pygame.TEXTEDITING, pygame.MOUSEWHEEL):
             self.panel.handle_event(e)
         elif e.type in (pygame.TEXTINPUT, pygame.TEXTEDITING) and self._chat_listens():
@@ -365,7 +375,28 @@ class Window:
             self.on_farewell_skip()
         return True
 
+    def _panel_chrome_click(self, pos) -> bool:
+        """Clicks a panel never sees: its "x", the dimmed area around it and the toolbar (which switches panels).
+        The first-use screen is modal and the overlay draws its panels in a window of their own."""
+        if self.panel_name == "first_use" or self.mode == "overlay":
+            return False
+        bid = self.toolbar.hit(pos)
+        if bid is not None:
+            self.toggle_panel(bid)
+            return True
+        if menus.close_rect(self.screen).collidepoint(pos) or not menus.panel_rect(self.screen).collidepoint(pos):
+            self.close_panel()
+            return True
+        return False
+
     def _click(self, pos) -> None:
+        bid = self.toolbar.hit(pos)
+        if bid is not None:
+            self.toggle_panel(bid)
+            return
+        if self.chat.status_rect.collidepoint(pos) and self.chat.status(time.monotonic()) == "missing":
+            self.open_panel("models")
+            return
         if self._snap.dead:
             self.farewell_click(self.scene)
             return
@@ -384,6 +415,10 @@ class Window:
                 return
             if name == "hatch":
                 self.growler.growl(pitch, "hatch")
+                cfg = getattr(self, "config", None)
+                if (cfg is not None and not getattr(cfg, "creature_name", "") and self.panel is None
+                        and self.mode != "overlay"):
+                    self.open_panel("name")
             elif name == "evolve":
                 self.growler.growl(pitch, "evolve")
             elif name == "action_change" and (data or {}).get("to") == "ask_attention":
@@ -408,6 +443,7 @@ class Window:
         if self._identical(snap, now):
             return
         pygame.transform.scale(self.low, self.size, self.screen)
+        self.hud.name = getattr(getattr(self, "config", None), "creature_name", "") or ""
         self.hud.draw(self.screen, snap, self.dev)
         if snap.dead:
             self._draw_farewell_bubble()
@@ -420,6 +456,8 @@ class Window:
             draw_text(self.screen, self._notice[0], (self.size[0] // 2, self.size[1] - 24), (240, 160, 120), 22, "midbottom")
         if self.panel is not None:
             self.panel.draw(self.screen, snap)
+        if self.panel_name != "first_use":
+            self.toolbar.draw(self.screen, self.panel_name)
         pygame.display.flip()
 
     def _identical(self, snap, now: float) -> bool:
@@ -437,7 +475,7 @@ class Window:
         r = self.scene.creature_rect
         sig = (self.low.get_buffer().raw, self.hud.key(snap, self.dev), bool(snap.eyes_closed),
                getattr(snap, "digital_request", ""), tuple(self.chat.history), self.chat.status_line(now),
-               (r.x, r.y, r.w, r.h), self.size)
+               (r.x, r.y, r.w, r.h), self.size, self.toolbar.key(self.panel_name))
         if (sig == self._sig and self._sig_screen is self.screen and 0.0 <= now - self._sig_at < KEEPALIVE_S):
             return True
         self._sig, self._sig_at, self._sig_screen = sig, now, self.screen

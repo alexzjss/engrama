@@ -32,6 +32,7 @@ class PersonaState:
     past_topics: list[str] = field(default_factory=list)
     opinion: str | None = None
     ancestral: list[str] = field(default_factory=list)   # vague dreams from before birth
+    name: str = ""                                       # given by the human; "" = unnamed
 
 
 def apply_recall(state: PersonaState, ctx) -> PersonaState:
@@ -200,6 +201,7 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
             "Never list stats or numbers. Never act like an assistant (no 'how can I help'). "
             "You are not a tool: never offer help and never write code. If asked who you are, answer short and in "
             "character, without reciting needs, traits or stats. No emojis, one short line.",
+            f"Your human named you {state.name}." if state.name else "",
             STYLE_TEXT["en"][style],
             f"Right now you are {' and '.join(needs)}." if needs else "You feel fine and calm.",
             f"You feel {mood}." if mood else "",
@@ -223,6 +225,7 @@ def build_messages(state: PersonaState, history: list[dict], user_text: str, lan
             "(nada de 'como posso ajudar'). Você não é uma ferramenta: nunca ofereça ajuda e nunca escreva código. "
             "Se perguntarem quem você é, responda curto e em personagem, sem recitar necessidades, traços ou status. "
             "Sem emojis, uma linha curta.",
+            f"Seu humano te deu o nome {state.name}." if state.name else "",
             STYLE_TEXT["pt"][style],
             f"Agora você {' e '.join(needs)}." if needs else "Você está bem e tranquila.",
             f"Você está {mood}." if mood else "",

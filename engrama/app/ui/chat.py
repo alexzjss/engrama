@@ -29,20 +29,7 @@ def bubble_seconds(text: str) -> float:
     return BUBBLE_BASE + BUBBLE_PER_WORD * len(text.split())
 
 
-def _wrap(text: str, size: int, max_w: int) -> list[str]:
-    f = hud.font(size)
-    lines: list[str] = []
-    for para in text.split("\n"):
-        cur = ""
-        for word in para.split(" "):
-            trial = f"{cur} {word}".strip()
-            if cur and f.size(trial)[0] > max_w:
-                lines.append(cur)
-                cur = word
-            else:
-                cur = trial
-        lines.append(cur)
-    return lines
+_wrap = hud.wrap
 
 
 class ChatBox:
@@ -59,6 +46,8 @@ class ChatBox:
         self.bubble_until = 0.0
         self._status = "missing"
         self._status_at = -1e9
+        self.reserve_right = 0                      # px kept free at the right of the field (the toolbar lives there)
+        self.status_rect = pygame.Rect(0, 0, 0, 0)  # where the LLM status line was last drawn (click target)
         try:
             pygame.key.start_text_input()
         except Exception:
@@ -154,7 +143,7 @@ class ChatBox:
             self._draw_bubble(surface, creature_rect)
         elif self.busy:
             self._draw_thinking(surface, creature_rect, now)
-        field = pygame.Rect(10, h - 34, w - 20, 24)
+        field = pygame.Rect(10, h - 34, w - 20 - self.reserve_right, 24)
         pygame.draw.rect(surface, (30, 28, 40), field, border_radius=6)
         pygame.draw.rect(surface, (90, 90, 120), field, 1, border_radius=6)
         shown = self.text + self.composing
@@ -168,8 +157,10 @@ class ChatBox:
                           (120, 120, 140), 20, "midleft")
         y = field.y - 16
         line = self.status_line(now)
+        self.status_rect = pygame.Rect(0, 0, 0, 0)
         if line:
-            hud.draw_text(surface, line, (field.x + 2, y), (230, 190, 120), 16)
+            missing = self._status == "missing"   # not an error: she babbles; the line doubles as a way into Models
+            self.status_rect = hud.draw_text(surface, line, (field.x + 2, y), (170, 165, 195) if missing else (230, 190, 120), 16).inflate(8, 6)
             y -= 14
         live = self.bubble if self.bubble and now < self.bubble_until else None
         for item in reversed(self.history):

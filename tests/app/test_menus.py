@@ -155,3 +155,84 @@ def test_models_panel_when_ollama_missing():
         w.panel.handle_event(key(pygame.K_TAB))
         if lang is not None:
             assert lang.pulled == []
+
+
+# ---------------------------------------------------------------- MVP polish: toolbar, panel chrome, name, help
+def test_toolbar_click_toggles_panel_and_switches_between_panels():
+    from engrama.app.ui.toolbar import BUTTONS
+    w = make()
+    w.frame(1.0)
+    for bid, _key, _f in BUTTONS:
+        w.handle_event(click(w.toolbar._rects[bid].center))
+        assert w.panel_name == bid          # also while another panel is open: the toolbar switches
+    w.handle_event(click(w.toolbar._rects[BUTTONS[-1][0]].center))
+    assert w.panel is None
+
+
+def test_panel_closes_on_x_and_on_click_outside_but_first_use_is_modal():
+    from engrama.app.ui import menus
+    w = make()
+    w.open_panel("food")
+    w.frame(1.0)
+    w.handle_event(click(menus.close_rect(w.screen).center))
+    assert w.panel is None
+    w.open_panel("food")
+    w.handle_event(click((5, 200)))
+    assert w.panel is None
+    w.open_panel("first_use")
+    w.handle_event(click((5, 200)))
+    assert w.panel_name == "first_use"
+
+
+def test_toolbar_tooltip_only_on_hover():
+    w = make()
+    w.frame(1.0)
+    assert not any("F4" in s for s in texts(w))
+    w.handle_event(pygame.event.Event(pygame.MOUSEMOTION, pos=w.toolbar._rects["food"].center))
+    assert any("F4" in s for s in texts(w))
+
+
+def test_item_labels_never_overflow_their_cell_in_both_languages():
+    from engrama import vocab
+    from engrama.app.ui import menus
+    w = make()
+    rect = pygame.Rect(10, 10, menus.FoodMenu.CELL[0] - 8, menus.FoodMenu.CELL[1] - 8)
+    names = [f"food.{f}" for f in (*vocab.FOOD_IDS, vocab.MEDICINE_ID)] + [f"digital.{d}" for d in vocab.DIGITAL_IDS]
+    seen = []
+    hud.add_text_hook(seen.append)
+    try:
+        for lang in ("pt", "en"):
+            i18n.set_lang(lang)
+            for k in names:
+                menus.draw_cell_label(w.screen, i18n.t(k), rect)
+    finally:
+        hud.remove_text_hook(seen.append)
+        i18n.set_lang("pt")
+    assert len(seen) >= 2 * len(names)
+    assert all(hud.font(18).size(s)[0] <= rect.w for s in seen), [s for s in seen if hud.font(18).size(s)[0] > rect.w]
+
+
+def test_hatch_asks_for_a_name_once_and_the_hud_shows_it():
+    saved = []
+    w = make()
+    w.config.creature_name = ""
+    w.save_config = lambda: saved.append(w.config.creature_name)
+    w.on_host_event("hatch", {})
+    w.frame(1.0)
+    assert w.panel_name == "name"
+    for ch in "Mika7":
+        w.handle_event(pygame.event.Event(pygame.TEXTINPUT, text=ch))
+    w.handle_event(key(pygame.K_RETURN))
+    assert w.panel is None and w.config.creature_name == "Mika" and saved == ["Mika"]   # digits never enter a name
+    w.on_host_event("hatch", {})
+    w.frame(1.1)
+    assert w.panel is None
+    assert "Mika" in texts(w)
+
+
+def test_persona_prompt_carries_the_name_only_when_set():
+    from engrama.services.language.persona import PersonaState, build_messages
+    for lang in ("pt", "en"):
+        named = build_messages(PersonaState(stage="adult", name="Mika"), [], "oi", lang)[0]["content"]
+        plain = build_messages(PersonaState(stage="adult"), [], "oi", lang)[0]["content"]
+        assert "Mika" in named and "te deu o nome" not in plain and "named you" not in plain
